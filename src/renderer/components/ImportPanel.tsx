@@ -3,6 +3,7 @@ import type { Trigger } from '../../shared/types'
 import '../styles/import.css'
 
 type ImportStage = 'idle' | 'previewing' | 'parsing' | 'review'
+type ImportMode = 'append' | 'replace'
 
 interface PreviewData {
   fileName: string
@@ -16,6 +17,7 @@ export function ImportPanel() {
   const [stage, setStage] = useState<ImportStage>('idle')
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [parsedTriggers, setParsedTriggers] = useState<Trigger[]>([])
+  const [importMode, setImportMode] = useState<ImportMode>('append')
   const [error, setError] = useState<string | null>(null)
 
   async function handleBrowse() {
@@ -40,12 +42,33 @@ export function ImportPanel() {
 
     try {
       setStage('parsing')
+      // Parse only — triggers are NOT added to overlay yet
       const result = await window.api.importDocument(preview.filePath)
       setParsedTriggers(result.triggers)
       setStage('review')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract triggers')
       setStage('idle')
+    }
+  }
+
+  async function handleConfirmImport() {
+    if (parsedTriggers.length === 0) return
+
+    try {
+      // Clear existing triggers if replacing
+      if (importMode === 'replace') {
+        await window.api.triggerClearAll()
+      }
+
+      // Add parsed triggers one by one
+      for (const trigger of parsedTriggers) {
+        await window.api.triggerAdd(trigger)
+      }
+
+      handleReset()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import triggers')
     }
   }
 
@@ -111,7 +134,7 @@ export function ImportPanel() {
           </>
         )}
 
-        {/* Review parsed triggers */}
+        {/* Review parsed triggers with mode toggle */}
         {stage === 'review' && (
           <>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -129,12 +152,26 @@ export function ImportPanel() {
                 </div>
               ))}
             </div>
+            <div className="import-mode-toggle">
+              <button
+                className={`btn-sm import-mode-btn ${importMode === 'append' ? 'active' : ''}`}
+                onClick={() => setImportMode('append')}
+              >
+                Append to existing
+              </button>
+              <button
+                className={`btn-sm import-mode-btn ${importMode === 'replace' ? 'active' : ''}`}
+                onClick={() => setImportMode('replace')}
+              >
+                Replace all
+              </button>
+            </div>
             <div className="import-actions">
               <button className="btn btn-ghost btn-sm" onClick={handleReset}>
                 Discard
               </button>
-              <button className="btn btn-success btn-sm" onClick={handleReset}>
-                Done
+              <button className="btn btn-success btn-sm" onClick={handleConfirmImport}>
+                Import {parsedTriggers.length} trigger{parsedTriggers.length !== 1 ? 's' : ''}
               </button>
             </div>
           </>

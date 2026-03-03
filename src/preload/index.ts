@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('api', {
   // Playlist
   playlistAutoFireToggle: () => ipcRenderer.invoke(IPC.PLAYLIST_AUTO_FIRE),
   playlistGetStatus: () => ipcRenderer.invoke(IPC.PLAYLIST_GET_STATUS),
+  playlistSetLoopMode: (mode: LoopMode) => ipcRenderer.invoke(IPC.PLAYLIST_SET_LOOP_MODE, mode),
+  playlistResetPosition: () => ipcRenderer.invoke(IPC.PLAYLIST_RESET_POSITION),
+  playlistClearPlayed: () => ipcRenderer.invoke(IPC.PLAYLIST_CLEAR_PLAYED),
+
+  // Trigger bulk
+  triggerClearAll: () => ipcRenderer.invoke(IPC.TRIGGER_CLEAR_ALL),
 
   // ── Session management ────────────────────────────────────────
   sessionNew: (name: string) => ipcRenderer.invoke(IPC.SESSION_NEW, name),

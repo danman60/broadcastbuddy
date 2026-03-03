@@ -145,3 +145,35 @@
   color: var(--danger);
   font-size: 12px;
 }
+
+/* Import mode toggle (append / replace) */
+.import-mode-toggle {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px;
+  background: var(--bg-tertiary);
+  width: fit-content;
+}
+
+.import-mode-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: calc(var(--radius) - 2px);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.import-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.import-mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}

@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { Session, Trigger, OverlayStyling, DEFAULT_STYLING } from '../../shared/types'
+import { Session, Trigger, OverlayStyling, DEFAULT_STYLING, LoopMode } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('session')
@@ -32,6 +32,9 @@ export function newSession(name: string): Session {
     styling: { ...DEFAULT_STYLING },
     companyLogoDataUrl: '',
     clientLogoDataUrl: '',
+    selectedIndex: 0,
+    playedIds: [],
+    loopMode: 'none',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -44,6 +47,9 @@ export function saveSession(
   styling: OverlayStyling,
   companyLogoDataUrl: string,
   clientLogoDataUrl: string,
+  selectedIndex?: number,
+  playedIds?: string[],
+  savedLoopMode?: LoopMode,
 ): Session | null {
   if (!currentSession) return null
 
@@ -51,6 +57,9 @@ export function saveSession(
   currentSession.styling = styling
   currentSession.companyLogoDataUrl = companyLogoDataUrl
   currentSession.clientLogoDataUrl = clientLogoDataUrl
+  if (selectedIndex !== undefined) currentSession.selectedIndex = selectedIndex
+  if (playedIds !== undefined) currentSession.playedIds = playedIds
+  if (savedLoopMode !== undefined) currentSession.loopMode = savedLoopMode
   currentSession.updatedAt = new Date().toISOString()
 
   const filePath = path.join(getSessionsDir(), `${currentSession.id}.json`)

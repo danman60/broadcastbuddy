@@ -1,6 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import fs from 'fs'
-import { IPC, Trigger, OverlayStyling } from '../shared/types'
+import { IPC, Trigger, OverlayStyling, LoopMode } from '../shared/types'
 import * as overlay from './services/overlay'
 import * as session from './services/session'
 import * as settings from './services/settings'
@@ -20,7 +20,13 @@ function pushState(): void {
   const win = getMainWindow()
   if (win) {
     win.webContents.send(IPC.OVERLAY_STATE_UPDATE, overlay.getOverlayState())
-    win.webContents.send(IPC.TRIGGERS_UPDATED, overlay.getTriggers(), overlay.getSelectedIndex())
+    win.webContents.send(
+      IPC.TRIGGERS_UPDATED,
+      overlay.getTriggers(),
+      overlay.getSelectedIndex(),
+      overlay.getPlayedSet(),
+      overlay.getLoopMode(),
+    )
   }
 }
 
@@ -137,6 +143,26 @@ export function registerIpcHandlers(): void {
     return overlay.getPlaylistStatus()
   })
 
+  ipcMain.handle(IPC.PLAYLIST_SET_LOOP_MODE, (_e, mode: LoopMode) => {
+    overlay.setLoopMode(mode)
+    pushState()
+  })
+
+  ipcMain.handle(IPC.PLAYLIST_RESET_POSITION, () => {
+    overlay.resetPosition()
+    pushState()
+  })
+
+  ipcMain.handle(IPC.PLAYLIST_CLEAR_PLAYED, () => {
+    overlay.clearPlayed()
+    pushState()
+  })
+
+  ipcMain.handle(IPC.TRIGGER_CLEAR_ALL, () => {
+    overlay.clearAllTriggers()
+    pushState()
+  })
+
   // ── Session management ────────────────────────────────────────
 
   ipcMain.handle(IPC.SESSION_NEW, (_e, name: string) => {
@@ -152,6 +178,9 @@ export function registerIpcHandlers(): void {
       overlay.getStyling(),
       overlay.getOverlayState().companyLogo.dataUrl,
       overlay.getOverlayState().clientLogo.dataUrl,
+      overlay.getSelectedIndex(),
+      overlay.getPlayedSet(),
+      overlay.getLoopMode(),
     )
     return s
   })
@@ -159,7 +188,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.SESSION_LOAD, (_e, id: string) => {
     const s = session.loadSession(id)
     if (s) {
-      overlay.loadSessionState(s.triggers, s.styling, s.companyLogoDataUrl, s.clientLogoDataUrl)
+      overlay.loadSessionState(
+        s.triggers,
+        s.styling,
+        s.companyLogoDataUrl,
+        s.clientLogoDataUrl,
+        s.selectedIndex,
+        s.playedIds,
+        s.loopMode,
+      )
       pushState()
     }
     return s
@@ -245,12 +282,8 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.IMPORT_DOCUMENT, async (_e, filePath?: string) => {
+    // Parse only — return triggers for review without adding them
     const result = await documentImport.importDocument(filePath)
-    // Add imported triggers to overlay
-    for (const trigger of result.triggers) {
-      overlay.addTrigger(trigger)
-    }
-    pushState()
     return result
   })
 

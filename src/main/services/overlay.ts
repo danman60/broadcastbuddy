@@ -7,6 +7,7 @@ import {
   DEFAULT_OVERLAY_STATE,
   DEFAULT_STYLING,
   AnimationType,
+  LoopMode,
 } from '../../shared/types'
 import { buildGoogleFontsUrl } from '../../shared/fonts'
 import { createLogger } from '../logger'
@@ -20,6 +21,9 @@ let triggers: Trigger[] = []
 let selectedIndex = -1
 let autoHideTimer: NodeJS.Timeout | null = null
 let autoFireEnabled = false
+let playedSet: Set<string> = new Set()
+let loopMode: LoopMode = 'none'
+let pingPongDirection: 1 | -1 = 1
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
@@ -54,6 +58,50 @@ export function getTriggers(): Trigger[] {
 
 export function getSelectedIndex(): number {
   return selectedIndex
+}
+
+// ── Playlist state ───────────────────────────────────────────────
+
+export function getPlayedSet(): string[] {
+  return Array.from(playedSet)
+}
+
+export function getLoopMode(): LoopMode {
+  return loopMode
+}
+
+export function setLoopMode(mode: LoopMode): void {
+  loopMode = mode
+  if (mode !== 'ping-pong') pingPongDirection = 1
+  logger.info(`Loop mode set to: ${mode}`)
+  notifyChange()
+}
+
+export function clearPlayed(): void {
+  playedSet.clear()
+  logger.info('Played set cleared')
+  notifyChange()
+}
+
+export function resetPosition(): void {
+  if (triggers.length > 0) {
+    selectedIndex = 0
+    pingPongDirection = 1
+    applyTriggerToOverlay(triggers[0])
+  } else {
+    selectedIndex = -1
+  }
+  logger.info('Position reset to start')
+  notifyChange()
+}
+
+export function clearAllTriggers(): void {
+  triggers = []
+  selectedIndex = -1
+  playedSet.clear()
+  pingPongDirection = 1
+  logger.info('All triggers cleared')
+  notifyChange()
 }
 
 // ── Trigger management ───────────────────────────────────────────
@@ -105,9 +153,64 @@ export function selectTrigger(index: number): void {
   }
 }
 
+function advanceIndex(forward: boolean): void {
+  if (triggers.length === 0) return
+  const last = triggers.length - 1
+
+  if (loopMode === 'ping-pong') {
+    if (forward) {
+      if (pingPongDirection === 1) {
+        if (selectedIndex >= last) {
+          pingPongDirection = -1
+          selectedIndex = Math.max(selectedIndex - 1, 0)
+        } else {
+          selectedIndex++
+        }
+      } else {
+        if (selectedIndex <= 0) {
+          pingPongDirection = 1
+          selectedIndex = Math.min(selectedIndex + 1, last)
+        } else {
+          selectedIndex--
+        }
+      }
+    } else {
+      // Manual prev reverses the ping-pong direction logic
+      if (pingPongDirection === 1) {
+        if (selectedIndex <= 0) {
+          pingPongDirection = -1
+          selectedIndex = Math.min(selectedIndex + 1, last)
+        } else {
+          selectedIndex--
+        }
+      } else {
+        if (selectedIndex >= last) {
+          pingPongDirection = 1
+          selectedIndex = Math.max(selectedIndex - 1, 0)
+        } else {
+          selectedIndex++
+        }
+      }
+    }
+  } else if (loopMode === 'loop') {
+    if (forward) {
+      selectedIndex = selectedIndex >= last ? 0 : selectedIndex + 1
+    } else {
+      selectedIndex = selectedIndex <= 0 ? last : selectedIndex - 1
+    }
+  } else {
+    // none
+    if (forward) {
+      selectedIndex = Math.min(selectedIndex + 1, last)
+    } else {
+      selectedIndex = Math.max(selectedIndex - 1, 0)
+    }
+  }
+}
+
 export function nextTrigger(): void {
   if (triggers.length === 0) return
-  selectedIndex = Math.min(selectedIndex + 1, triggers.length - 1)
+  advanceIndex(true)
   applyTriggerToOverlay(triggers[selectedIndex])
   notifyChange()
   if (autoFireEnabled) {
@@ -117,7 +220,7 @@ export function nextTrigger(): void {
 
 export function prevTrigger(): void {
   if (triggers.length === 0) return
-  selectedIndex = Math.max(selectedIndex - 1, 0)
+  advanceIndex(false)
   applyTriggerToOverlay(triggers[selectedIndex])
   notifyChange()
   if (autoFireEnabled) {
@@ -129,7 +232,7 @@ export function nextTriggerFull(): void {
   if (triggers.length === 0) return
   // Hide current, advance, then fire after brief delay
   hideLowerThird()
-  selectedIndex = Math.min(selectedIndex + 1, triggers.length - 1)
+  advanceIndex(true)
   applyTriggerToOverlay(triggers[selectedIndex])
   notifyChange()
   setTimeout(() => fireLowerThird(), 300)
@@ -145,13 +248,22 @@ export function getAutoFire(): boolean {
   return autoFireEnabled
 }
 
-export function getPlaylistStatus(): { current: number; total: number; autoFire: boolean; upNext: Trigger | null } {
+export function getPlaylistStatus(): {
+  current: number
+  total: number
+  autoFire: boolean
+  upNext: Trigger | null
+  playedIds: string[]
+  loopMode: LoopMode
+} {
   const upNext = selectedIndex + 1 < triggers.length ? triggers[selectedIndex + 1] : null
   return {
     current: selectedIndex + 1,
     total: triggers.length,
     autoFire: autoFireEnabled,
     upNext,
+    playedIds: Array.from(playedSet),
+    loopMode,
   }
 }
 
@@ -170,6 +282,11 @@ function applyTriggerToOverlay(t: Trigger): void {
 
 export function fireLowerThird(): void {
   overlayState.lowerThird.visible = true
+
+  // Track played trigger
+  if (selectedIndex >= 0 && selectedIndex < triggers.length) {
+    playedSet.add(triggers[selectedIndex].id)
+  }
 
   if (autoHideTimer) clearTimeout(autoHideTimer)
   const seconds = overlayState.lowerThird.styling.autoHideSeconds
@@ -250,6 +367,9 @@ export function resetState(): void {
   overlayState = JSON.parse(JSON.stringify(DEFAULT_OVERLAY_STATE))
   triggers = []
   selectedIndex = -1
+  playedSet.clear()
+  loopMode = 'none'
+  pingPongDirection = 1
   if (autoHideTimer) {
     clearTimeout(autoHideTimer)
     autoHideTimer = null
@@ -264,13 +384,25 @@ export function loadSessionState(
   styling: OverlayStyling,
   companyLogoDataUrl: string,
   clientLogoDataUrl: string,
+  savedSelectedIndex?: number,
+  savedPlayedIds?: string[],
+  savedLoopMode?: LoopMode,
 ): void {
   triggers = sessionTriggers
-  selectedIndex = triggers.length > 0 ? 0 : -1
+  // Restore saved index or default to 0
+  selectedIndex = savedSelectedIndex !== undefined && savedSelectedIndex >= 0 && savedSelectedIndex < triggers.length
+    ? savedSelectedIndex
+    : triggers.length > 0 ? 0 : -1
+  // Restore played set
+  playedSet = new Set(savedPlayedIds || [])
+  // Restore loop mode
+  loopMode = savedLoopMode || 'none'
+  pingPongDirection = 1
+
   overlayState.lowerThird.styling = { ...styling }
   overlayState.lowerThird.visible = false
-  if (triggers.length > 0) {
-    applyTriggerToOverlay(triggers[0])
+  if (selectedIndex >= 0 && selectedIndex < triggers.length) {
+    applyTriggerToOverlay(triggers[selectedIndex])
   }
   setCompanyLogo(companyLogoDataUrl)
   setClientLogo(clientLogoDataUrl)

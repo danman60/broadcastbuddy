@@ -30,6 +30,8 @@ function buildStateMessage(): WsStateMessage {
       total: playlist.total,
       autoFire: playlist.autoFire,
       upNextTitle: playlist.upNext?.title || null,
+      playedIds: playlist.playedIds,
+      loopMode: playlist.loopMode,
     },
   }
 }

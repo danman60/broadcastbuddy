@@ -27,8 +27,9 @@
   padding: 8px 10px;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background var(--transition);
+  transition: background var(--transition), border-color var(--transition), opacity 0.2s;
   border: 1px solid transparent;
+  border-left: 3px solid transparent;
 }
 
 .trigger-item:hover {
@@ -38,6 +39,45 @@
 .trigger-item.selected {
   background: var(--accent-dim);
   border-color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+/* Played indicator */
+.trigger-item.played {
+  border-left-color: var(--success);
+}
+.trigger-item.played .trigger-item-name {
+  opacity: 0.75;
+}
+
+/* Drag states */
+.trigger-item.dragging {
+  opacity: 0.4;
+}
+
+.trigger-item.drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+/* Drag grip handle */
+.trigger-item-grip {
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--transition);
+  user-select: none;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.trigger-item:hover .trigger-item-grip {
+  opacity: 0.6;
+}
+
+.trigger-item-grip:hover {
+  opacity: 1 !important;
+  color: var(--text-secondary);
 }
 
 .trigger-item-number {
@@ -46,6 +86,15 @@
   color: var(--text-dim);
   min-width: 22px;
   text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.trigger-item-check {
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .trigger-item-info {
@@ -93,4 +142,20 @@
   height: 100px;
   color: var(--text-dim);
   font-size: 13px;
+}
+
+/* Category grouping */
+.trigger-category-group {
+  margin-bottom: 4px;
+}
+
+.trigger-category-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
 }

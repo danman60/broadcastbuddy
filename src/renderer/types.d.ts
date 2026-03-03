@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -27,7 +27,15 @@ interface ElectronAPI {
     total: number
     autoFire: boolean
     upNext: Trigger | null
+    playedIds: string[]
+    loopMode: LoopMode
   }>
+  playlistSetLoopMode: (mode: LoopMode) => Promise<void>
+  playlistResetPosition: () => Promise<void>
+  playlistClearPlayed: () => Promise<void>
+
+  // Trigger bulk
+  triggerClearAll: () => Promise<void>
 
   // Session
   sessionNew: (name: string) => Promise<Session>

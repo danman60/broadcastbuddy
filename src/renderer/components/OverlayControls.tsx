@@ -1,10 +1,18 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '../store/useStore'
+import type { LoopMode } from '../../shared/types'
 import '../styles/controls.css'
+
+const LOOP_CYCLE: LoopMode[] = ['none', 'loop', 'ping-pong']
+const LOOP_LABELS: Record<LoopMode, string> = {
+  'none': 'Loop: Off',
+  'loop': 'Loop',
+  'ping-pong': 'Ping-Pong',
+}
 
 export function OverlayControls() {
   const overlayState = useStore((s) => s.overlayState)
-  const { triggers, selectedIndex } = useStore()
+  const { triggers, selectedIndex, playedIds, loopMode } = useStore()
   const isVisible = overlayState?.lowerThird.visible ?? false
 
   const [autoFire, setAutoFire] = useState(false)
@@ -17,6 +25,25 @@ export function OverlayControls() {
   async function handleAutoFireToggle() {
     const enabled = await window.api.playlistAutoFireToggle()
     setAutoFire(enabled)
+  }
+
+  async function handleLoopCycle() {
+    const currentIdx = LOOP_CYCLE.indexOf(loopMode as LoopMode)
+    const nextMode = LOOP_CYCLE[(currentIdx + 1) % LOOP_CYCLE.length]
+    await window.api.playlistSetLoopMode(nextMode)
+  }
+
+  async function handleResetPosition() {
+    await window.api.playlistResetPosition()
+  }
+
+  async function handleClearPlayed() {
+    await window.api.playlistClearPlayed()
+  }
+
+  async function handleClearAll() {
+    if (!window.confirm('Remove all triggers? This cannot be undone.')) return
+    await window.api.triggerClearAll()
   }
 
   // Keyboard shortcuts
@@ -60,6 +87,8 @@ export function OverlayControls() {
   const current = selectedIndex + 1
   const total = triggers.length
   const upNext = selectedIndex + 1 < triggers.length ? triggers[selectedIndex + 1] : null
+  const playedCount = playedIds.length
+  const loopActive = loopMode !== 'none'
 
   return (
     <div className="panel-section">
@@ -94,6 +123,13 @@ export function OverlayControls() {
         >
           Auto {autoFire ? 'ON' : 'OFF'}
         </button>
+        <button
+          className={`btn-sm ${loopActive ? 'btn-loop-active' : 'btn-loop-off'}`}
+          onClick={handleLoopCycle}
+          title="Cycle loop mode: Off → Loop → Ping-Pong"
+        >
+          {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
+        </button>
       </div>
       <div className="controls-info-row">
         <div className="controls-status">
@@ -105,11 +141,28 @@ export function OverlayControls() {
             {current} / {total}
           </div>
         )}
+        {playedCount > 0 && (
+          <div className="controls-played-badge">
+            {playedCount} played
+          </div>
+        )}
         {upNext && (
           <div className="controls-up-next">
             Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
           </div>
         )}
+      </div>
+      {/* Bulk operations */}
+      <div className="controls-bulk-row">
+        <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
+          Reset Pos
+        </button>
+        <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
+          Clear Played
+        </button>
+        <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
+          Clear All
+        </button>
       </div>
       <div className="controls-shortcuts-hint">
         Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide

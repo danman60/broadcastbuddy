@@ -1,3 +1,8 @@
+// ── Playlist Types ──────────────────────────────────────────────
+
+export type LoopMode = 'none' | 'loop' | 'ping-pong'
+export type ImportMode = 'replace' | 'append'
+
 // ── Trigger (a single overlay entry) ──────────────────────────────
 
 export interface Trigger {
@@ -64,6 +69,9 @@ export interface Session {
   styling: OverlayStyling
   companyLogoDataUrl: string
   clientLogoDataUrl: string
+  selectedIndex?: number
+  playedIds?: string[]
+  loopMode?: LoopMode
   createdAt: string   // ISO date
   updatedAt: string   // ISO date
 }
@@ -106,6 +114,12 @@ export const IPC = {
   // Playlist
   PLAYLIST_AUTO_FIRE:    'playlist:auto-fire-toggle',
   PLAYLIST_GET_STATUS:   'playlist:get-status',
+  PLAYLIST_SET_LOOP_MODE:'playlist:set-loop-mode',
+  PLAYLIST_RESET_POSITION:'playlist:reset-position',
+  PLAYLIST_CLEAR_PLAYED: 'playlist:clear-played',
+
+  // Trigger bulk
+  TRIGGER_CLEAR_ALL:     'trigger:clear-all',
 
   // Session management
   SESSION_NEW:           'session:new',
@@ -158,6 +172,8 @@ export interface WsStateMessage {
     total: number
     autoFire: boolean
     upNextTitle: string | null
+    playedIds: string[]
+    loopMode: LoopMode
   }
 }
 
