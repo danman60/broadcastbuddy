@@ -17,6 +17,17 @@ interface ElectronAPI {
   triggerSelect: (index: number) => Promise<void>
   triggerNext: () => Promise<void>
   triggerPrev: () => Promise<void>
+  triggerNextFull: () => Promise<void>
+  triggerSetLogo: (id: string) => Promise<string | null>
+
+  // Playlist
+  playlistAutoFireToggle: () => Promise<boolean>
+  playlistGetStatus: () => Promise<{
+    current: number
+    total: number
+    autoFire: boolean
+    upNext: Trigger | null
+  }>
 
   // Session
   sessionNew: (name: string) => Promise<Session>

@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('api', {
   triggerSelect: (index: number) => ipcRenderer.invoke(IPC.TRIGGER_SELECT, index),
   triggerNext: () => ipcRenderer.invoke(IPC.TRIGGER_NEXT),
   triggerPrev: () => ipcRenderer.invoke(IPC.TRIGGER_PREV),
+  triggerNextFull: () => ipcRenderer.invoke(IPC.TRIGGER_NEXT_FULL),
+  triggerSetLogo: (id: string) => ipcRenderer.invoke(IPC.TRIGGER_SET_LOGO, id),
+
+  // Playlist
+  playlistAutoFireToggle: () => ipcRenderer.invoke(IPC.PLAYLIST_AUTO_FIRE),
+  playlistGetStatus: () => ipcRenderer.invoke(IPC.PLAYLIST_GET_STATUS),
 
   // ── Session management ────────────────────────────────────────
   sessionNew: (name: string) => ipcRenderer.invoke(IPC.SESSION_NEW, name),

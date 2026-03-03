@@ -26,7 +26,6 @@ export function TriggerEditor() {
   async function handleChange(field: keyof Trigger, value: string) {
     if (!selected) return
 
-    // Update local state
     switch (field) {
       case 'name': setName(value); break
       case 'title': setTitle(value); break
@@ -34,22 +33,31 @@ export function TriggerEditor() {
       case 'category': setCategory(value); break
     }
 
-    // Push to main process
     await window.api.triggerUpdate(selected.id, { [field]: value })
+  }
+
+  async function handleBrowseLogo() {
+    if (!selected) return
+    await window.api.triggerSetLogo(selected.id)
+  }
+
+  async function handleClearLogo() {
+    if (!selected) return
+    await window.api.triggerUpdate(selected.id, { logoDataUrl: '' })
   }
 
   if (!selected) {
     return (
       <div className="panel-section">
-        <div className="panel-section-title">Edit Trigger</div>
-        <div className="trigger-editor-empty">Select a trigger to edit</div>
+        <div className="panel-section-title">Edit Entry</div>
+        <div className="trigger-editor-empty">Select an entry to edit</div>
       </div>
     )
   }
 
   return (
     <div className="panel-section">
-      <div className="panel-section-title">Edit Trigger</div>
+      <div className="panel-section-title">Edit Entry</div>
       <div className="trigger-editor">
         <div className="field-row-inline">
           <div className="field-row">
@@ -70,20 +78,37 @@ export function TriggerEditor() {
           </div>
         </div>
         <div className="field-row">
-          <label>Title (main line)</label>
+          <label>Primary (main line)</label>
           <input
             value={title}
             onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="Main text on overlay..."
+            placeholder="Song name, speaker name, act title..."
           />
         </div>
         <div className="field-row">
-          <label>Subtitle (secondary line)</label>
+          <label>Secondary (sub line)</label>
           <input
             value={subtitle}
             onChange={(e) => handleChange('subtitle', e.target.value)}
-            placeholder="Secondary text..."
+            placeholder="Dancers, company/role, description..."
           />
+        </div>
+        <div className="field-row">
+          <label>Entry Logo (optional — overrides client logo when fired)</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {selected.logoDataUrl ? (
+              <>
+                <img
+                  src={selected.logoDataUrl}
+                  alt="Entry logo"
+                  style={{ maxHeight: 32, maxWidth: 80, borderRadius: 4 }}
+                />
+                <button className="btn btn-ghost btn-sm" onClick={handleClearLogo}>Clear</button>
+              </>
+            ) : (
+              <button className="btn btn-ghost btn-sm" onClick={handleBrowseLogo}>Browse...</button>
+            )}
+          </div>
         </div>
       </div>
     </div>

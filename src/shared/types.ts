@@ -3,10 +3,11 @@
 export interface Trigger {
   id: string
   name: string        // display label in the trigger list
-  title: string       // main line on the lower third
-  subtitle: string    // secondary line on the lower third
+  title: string       // primary line on the lower third (e.g. song name, speaker name)
+  subtitle: string    // secondary line on the lower third (e.g. dancers, company/role)
   category: string    // grouping label (optional)
   order: number       // sort position
+  logoDataUrl: string  // per-entry logo (base64 data URL, optional)
 }
 
 // ── Overlay Styling ──────────────────────────────────────────────
@@ -99,6 +100,12 @@ export const IPC = {
   TRIGGER_SELECT:        'trigger:select',
   TRIGGER_NEXT:          'trigger:next',
   TRIGGER_PREV:          'trigger:prev',
+  TRIGGER_NEXT_FULL:     'trigger:next-full',
+  TRIGGER_SET_LOGO:      'trigger:set-logo',
+
+  // Playlist
+  PLAYLIST_AUTO_FIRE:    'playlist:auto-fire-toggle',
+  PLAYLIST_GET_STATUS:   'playlist:get-status',
 
   // Session management
   SESSION_NEW:           'session:new',
@@ -146,6 +153,12 @@ export interface WsIdentifyMessage {
 export interface WsStateMessage {
   type: 'state'
   overlay: OverlayState
+  playlist?: {
+    current: number
+    total: number
+    autoFire: boolean
+    upNextTitle: string | null
+  }
 }
 
 export interface WsCommandMessage {

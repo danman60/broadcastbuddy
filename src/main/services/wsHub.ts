@@ -1,6 +1,16 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import { getOverlayState } from './overlay'
-import { fireLowerThird, hideLowerThird, nextTrigger, prevTrigger } from './overlay'
+import {
+  getOverlayState,
+  fireLowerThird,
+  hideLowerThird,
+  nextTrigger,
+  prevTrigger,
+  nextTriggerFull,
+  toggleAutoFire,
+  showTicker,
+  hideTicker,
+  getPlaylistStatus,
+} from './overlay'
 import { WsStateMessage } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -11,9 +21,16 @@ const clients = new Map<WebSocket, string>()
 let heartbeatInterval: NodeJS.Timeout | null = null
 
 function buildStateMessage(): WsStateMessage {
+  const playlist = getPlaylistStatus()
   return {
     type: 'state',
     overlay: getOverlayState(),
+    playlist: {
+      current: playlist.current,
+      total: playlist.total,
+      autoFire: playlist.autoFire,
+      upNextTitle: playlist.upNext?.title || null,
+    },
   }
 }
 
@@ -27,7 +44,7 @@ export function broadcastState(): void {
   }
 }
 
-function handleCommand(action: string): void {
+function handleCommand(action: string, data?: Record<string, unknown>): void {
   switch (action) {
     case 'fireLT':
       fireLowerThird()
@@ -35,15 +52,38 @@ function handleCommand(action: string): void {
     case 'hideLT':
       hideLowerThird()
       break
+    case 'toggleLT': {
+      const state = getOverlayState()
+      if (state.lowerThird.visible) hideLowerThird()
+      else fireLowerThird()
+      break
+    }
     case 'nextTrigger':
       nextTrigger()
       break
     case 'prevTrigger':
       prevTrigger()
       break
+    case 'nextFull':
+      nextTriggerFull()
+      break
+    case 'autoFireToggle':
+      toggleAutoFire()
+      break
+    case 'toggleTicker': {
+      const state = getOverlayState()
+      if (state.ticker.visible) hideTicker()
+      else showTicker(data?.text as string || 'Live broadcast')
+      break
+    }
+    case 'getStatus':
+      // No-op — state is broadcast automatically
+      break
     default:
       logger.warn(`Unknown command: ${action}`)
   }
+  // Broadcast updated state after any command
+  broadcastState()
 }
 
 export function start(port: number): void {
@@ -68,7 +108,7 @@ export function start(port: number): void {
         }
 
         if (msg.type === 'command') {
-          handleCommand(msg.action)
+          handleCommand(msg.action, msg.data)
         }
       } catch (err) {
         logger.error('Bad WS message:', err)

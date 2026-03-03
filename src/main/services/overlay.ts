@@ -19,6 +19,7 @@ let overlayState: OverlayState = JSON.parse(JSON.stringify(DEFAULT_OVERLAY_STATE
 let triggers: Trigger[] = []
 let selectedIndex = -1
 let autoHideTimer: NodeJS.Timeout | null = null
+let autoFireEnabled = false
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
@@ -109,6 +110,9 @@ export function nextTrigger(): void {
   selectedIndex = Math.min(selectedIndex + 1, triggers.length - 1)
   applyTriggerToOverlay(triggers[selectedIndex])
   notifyChange()
+  if (autoFireEnabled) {
+    setTimeout(() => fireLowerThird(), 300)
+  }
 }
 
 export function prevTrigger(): void {
@@ -116,12 +120,50 @@ export function prevTrigger(): void {
   selectedIndex = Math.max(selectedIndex - 1, 0)
   applyTriggerToOverlay(triggers[selectedIndex])
   notifyChange()
+  if (autoFireEnabled) {
+    setTimeout(() => fireLowerThird(), 300)
+  }
+}
+
+export function nextTriggerFull(): void {
+  if (triggers.length === 0) return
+  // Hide current, advance, then fire after brief delay
+  hideLowerThird()
+  selectedIndex = Math.min(selectedIndex + 1, triggers.length - 1)
+  applyTriggerToOverlay(triggers[selectedIndex])
+  notifyChange()
+  setTimeout(() => fireLowerThird(), 300)
+}
+
+export function toggleAutoFire(): boolean {
+  autoFireEnabled = !autoFireEnabled
+  logger.info(`Auto-fire ${autoFireEnabled ? 'enabled' : 'disabled'}`)
+  return autoFireEnabled
+}
+
+export function getAutoFire(): boolean {
+  return autoFireEnabled
+}
+
+export function getPlaylistStatus(): { current: number; total: number; autoFire: boolean; upNext: Trigger | null } {
+  const upNext = selectedIndex + 1 < triggers.length ? triggers[selectedIndex + 1] : null
+  return {
+    current: selectedIndex + 1,
+    total: triggers.length,
+    autoFire: autoFireEnabled,
+    upNext,
+  }
 }
 
 function applyTriggerToOverlay(t: Trigger): void {
   overlayState.lowerThird.name = t.name
   overlayState.lowerThird.title = t.title
   overlayState.lowerThird.subtitle = t.subtitle
+  // Apply per-trigger logo to client logo slot if present
+  if (t.logoDataUrl) {
+    overlayState.clientLogo.dataUrl = t.logoDataUrl
+    overlayState.clientLogo.visible = true
+  }
 }
 
 // ── Overlay control ──────────────────────────────────────────────

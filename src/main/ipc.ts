@@ -97,6 +97,46 @@ export function registerIpcHandlers(): void {
     pushState()
   })
 
+  ipcMain.handle(IPC.TRIGGER_NEXT_FULL, () => {
+    overlay.nextTriggerFull()
+    pushState()
+  })
+
+  ipcMain.handle(IPC.TRIGGER_SET_LOGO, async (_e, id: string) => {
+    const win = getMainWindow()
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'webp'] }],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const filePath = result.filePaths[0]
+    try {
+      const buffer = fs.readFileSync(filePath)
+      const ext = filePath.split('.').pop()?.toLowerCase() || 'png'
+      const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+      const dataUrl = `data:${mime};base64,${buffer.toString('base64')}`
+      overlay.updateTrigger(id, { logoDataUrl: dataUrl })
+      pushState()
+      return dataUrl
+    } catch (err) {
+      logger.error('Failed to read trigger logo:', err)
+      return null
+    }
+  })
+
+  // ── Playlist ──────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.PLAYLIST_AUTO_FIRE, () => {
+    const enabled = overlay.toggleAutoFire()
+    return enabled
+  })
+
+  ipcMain.handle(IPC.PLAYLIST_GET_STATUS, () => {
+    return overlay.getPlaylistStatus()
+  })
+
   // ── Session management ────────────────────────────────────────
 
   ipcMain.handle(IPC.SESSION_NEW, (_e, name: string) => {

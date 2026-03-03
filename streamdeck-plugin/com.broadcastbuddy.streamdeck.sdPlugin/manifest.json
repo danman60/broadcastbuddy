@@ -1,0 +1,87 @@
+{
+  "UUID": "com.broadcastbuddy.streamdeck",
+  "Name": "BroadcastBuddy",
+  "Version": "1.0.0.0",
+  "Author": "Stream Stage",
+  "Description": "Control BroadcastBuddy lower third overlays from Stream Deck",
+  "Icon": "imgs/plugin-icon",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 2,
+  "Software": { "MinimumVersion": "6.5" },
+  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
+  "Nodejs": { "Version": "20", "Debug": "enabled" },
+  "Actions": [
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.fire",
+      "Name": "Fire LT",
+      "Tooltip": "Fire the lower third overlay",
+      "Icon": "imgs/actions/fire",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/fire", "Title": "FIRE" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.hide",
+      "Name": "Hide LT",
+      "Tooltip": "Hide the lower third overlay",
+      "Icon": "imgs/actions/hide",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/hide", "Title": "HIDE" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.toggle-lt",
+      "Name": "Toggle LT",
+      "Tooltip": "Toggle lower third on/off",
+      "Icon": "imgs/actions/toggle-lt",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/toggle-lt", "Title": "LT" },
+        { "Image": "imgs/actions/toggle-lt-active", "Title": "LT" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.next",
+      "Name": "Next",
+      "Tooltip": "Advance to next trigger in playlist",
+      "Icon": "imgs/actions/next",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/next", "Title": "Next" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.prev",
+      "Name": "Prev",
+      "Tooltip": "Go to previous trigger in playlist",
+      "Icon": "imgs/actions/prev",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/prev", "Title": "Prev" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.next-full",
+      "Name": "Next + Fire",
+      "Tooltip": "Advance to next trigger and fire lower third",
+      "Icon": "imgs/actions/next-full",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/next-full", "Title": "NEXT" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.toggle-ticker",
+      "Name": "Toggle Ticker",
+      "Tooltip": "Toggle the ticker crawl on/off",
+      "Icon": "imgs/actions/ticker",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/ticker", "Title": "TICK" },
+        { "Image": "imgs/actions/ticker-active", "Title": "TICK" }
+      ]
+    }
+  ]
+}

@@ -17,6 +17,7 @@ export function TriggerList() {
       subtitle: '',
       category: '',
       order: triggers.length,
+      logoDataUrl: '',
     }
     await window.api.triggerAdd(newTrigger)
   }
