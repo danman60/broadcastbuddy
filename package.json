@@ -1,0 +1,59 @@
+{
+  "name": "broadcast-buddy",
+  "version": "1.0.0",
+  "description": "BroadcastBuddy — OBS lower third overlay control surface with LLM-powered document import",
+  "author": "Daniel Abrahamson <danieljohnabrahamson@gmail.com>",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "electron-vite build && electron-builder --win --dir",
+    "dist:installer": "electron-vite build && electron-builder --win"
+  },
+  "dependencies": {
+    "electron-log": "^5.1.1",
+    "electron-store": "^6.0.1",
+    "express": "^4.21.0",
+    "ws": "^8.19.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.broadcastbuddy.app",
+    "productName": "BroadcastBuddy",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "dir"
+      ],
+      "signAndEditExecutable": false
+    },
+    "electronLanguages": [
+      "en-US"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

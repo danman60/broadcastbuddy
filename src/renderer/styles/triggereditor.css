@@ -1,0 +1,31 @@
+.trigger-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trigger-editor-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+.trigger-editor .field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trigger-editor input {
+  width: 100%;
+}
+
+.trigger-editor .field-row-inline {
+  display: flex;
+  gap: 12px;
+}
+
+.trigger-editor .field-row-inline .field-row {
+  flex: 1;
+}

@@ -1,0 +1,62 @@
+.overlay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.overlay-controls .btn-fire {
+  background: var(--success);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: var(--radius);
+}
+.overlay-controls .btn-fire:hover {
+  opacity: 0.85;
+}
+
+.overlay-controls .btn-hide {
+  background: var(--danger);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: var(--radius);
+}
+.overlay-controls .btn-hide:hover {
+  opacity: 0.85;
+}
+
+.overlay-controls .btn-nav {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  font-size: 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.overlay-controls .btn-nav:hover {
+  background: var(--bg-hover);
+}
+
+.controls-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.status-dot.live {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}

@@ -1,0 +1,52 @@
+.styling-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.styling-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.styling-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.styling-field.flex-1 {
+  flex: 1;
+}
+
+.styling-field select,
+.styling-field input {
+  width: 100%;
+}
+
+.styling-colors {
+  display: flex;
+  gap: 12px;
+}
+
+.color-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.color-swatch label {
+  font-size: 11px;
+}
+
+.styling-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  background: var(--bg-tertiary);
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+  padding: 0;
+}

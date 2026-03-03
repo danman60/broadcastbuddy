@@ -1,0 +1,39 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  min-height: 48px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  -webkit-app-region: drag;
+}
+
+.header-session-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}

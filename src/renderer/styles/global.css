@@ -1,0 +1,177 @@
+/* ── CSS Variables (CompSync dark theme) ── */
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #252538;
+  --bg-tertiary: #2a2a40;
+  --bg-hover: #303050;
+  --bg-input: #1a1a2a;
+
+  --accent: #667eea;
+  --accent-hover: #7b93ff;
+  --accent-dim: rgba(102, 126, 234, 0.15);
+
+  --danger: #e74c3c;
+  --danger-hover: #ff5f4f;
+  --success: #2ecc71;
+  --warning: #f39c12;
+
+  --text-primary: #e0e0f0;
+  --text-secondary: #8888a8;
+  --text-dim: #555570;
+
+  --border: #333350;
+  --border-focus: #667eea;
+
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --font-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', monospace;
+
+  --transition: 0.15s ease;
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+/* ── Buttons ── */
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  transition: background var(--transition), opacity var(--transition);
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover {
+  background: var(--danger-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+.btn-success:hover {
+  opacity: 0.85;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-lg {
+  padding: 10px 24px;
+  font-size: 15px;
+}
+
+/* ── Inputs ── */
+input, select, textarea {
+  font-family: var(--font-sans);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--border-focus);
+}
+
+input[type="color"] {
+  padding: 2px;
+  height: 34px;
+  width: 50px;
+  cursor: pointer;
+}
+
+/* ── Labels ── */
+label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ── Utility ── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.flex-1 { flex: 1; }
+.text-sm { font-size: 12px; }
+.text-dim { color: var(--text-secondary); }
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

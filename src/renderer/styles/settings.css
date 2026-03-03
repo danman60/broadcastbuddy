@@ -1,0 +1,66 @@
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.settings-body {
+  padding: 20px;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-field input {
+  width: 100%;
+}
+
+.settings-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-field-inline input {
+  width: 120px;
+}
