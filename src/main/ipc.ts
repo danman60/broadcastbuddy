@@ -4,6 +4,7 @@ import { IPC, Trigger, OverlayStyling } from '../shared/types'
 import * as overlay from './services/overlay'
 import * as session from './services/session'
 import * as settings from './services/settings'
+import * as documentImport from './services/documentImport'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 
@@ -173,6 +174,43 @@ export function registerIpcHandlers(): void {
       logger.error('Failed to read logo file:', err)
       return null
     }
+  })
+
+  // ── Ticker ─────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.TICKER_SHOW, (_e, text: string, speed?: number, bgColor?: string, textColor?: string) => {
+    overlay.showTicker(text, speed, bgColor, textColor)
+    pushState()
+  })
+
+  ipcMain.handle(IPC.TICKER_HIDE, () => {
+    overlay.hideTicker()
+    pushState()
+  })
+
+  ipcMain.handle(IPC.TICKER_UPDATE, (_e, updates: Partial<import('../shared/types').OverlayState['ticker']>) => {
+    overlay.updateTicker(updates)
+    pushState()
+  })
+
+  // ── Document import ────────────────────────────────────────────
+
+  ipcMain.handle(IPC.IMPORT_BROWSE, async () => {
+    return documentImport.browseDocument()
+  })
+
+  ipcMain.handle(IPC.IMPORT_PREVIEW, async (_e, filePath: string) => {
+    return documentImport.parseAndPreview(filePath)
+  })
+
+  ipcMain.handle(IPC.IMPORT_DOCUMENT, async (_e, filePath?: string) => {
+    const result = await documentImport.importDocument(filePath)
+    // Add imported triggers to overlay
+    for (const trigger of result.triggers) {
+      overlay.addTrigger(trigger)
+    }
+    pushState()
+    return result
   })
 
   logger.info('IPC handlers registered')

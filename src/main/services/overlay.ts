@@ -21,7 +21,7 @@ let autoHideTimer: NodeJS.Timeout | null = null
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
-const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise']
+const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce']
 
 function pickAnimation(setting: AnimationType): string {
   if (setting === 'random') {
@@ -175,6 +175,29 @@ export function setCompanyLogo(dataUrl: string): void {
 export function setClientLogo(dataUrl: string): void {
   overlayState.clientLogo.dataUrl = dataUrl
   overlayState.clientLogo.visible = dataUrl.length > 0
+  notifyChange()
+}
+
+// ── Ticker ───────────────────────────────────────────────────────
+
+export function showTicker(text: string, speed?: number, bgColor?: string, textColor?: string): void {
+  overlayState.ticker.visible = true
+  overlayState.ticker.text = text
+  if (speed !== undefined) overlayState.ticker.speed = speed
+  if (bgColor !== undefined) overlayState.ticker.backgroundColor = bgColor
+  if (textColor !== undefined) overlayState.ticker.textColor = textColor
+  notifyChange()
+  logger.info('Ticker shown')
+}
+
+export function hideTicker(): void {
+  overlayState.ticker.visible = false
+  notifyChange()
+  logger.info('Ticker hidden')
+}
+
+export function updateTicker(updates: Partial<OverlayState['ticker']>): void {
+  overlayState.ticker = { ...overlayState.ticker, ...updates }
   notifyChange()
 }
 
@@ -337,11 +360,53 @@ function buildOverlayHTML(): string {
 
   .lower-third.anim-rise { transform: translateY(40px); }
   .lower-third.anim-rise.visible { transform: translateY(0); }
+
+  .lower-third.anim-typewriter { transform: none; clip-path: inset(0 100% 0 0); transition: opacity 0.3s ease, clip-path 0.8s steps(20, end); }
+  .lower-third.anim-typewriter.visible { clip-path: inset(0 0 0 0); }
+
+  .lower-third.anim-bounce { transform: translateY(60px); }
+  .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* ── Ticker / Crawl ── */
+  .ticker-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    display: flex;
+    align-items: center;
+  }
+  .ticker-bar.visible { opacity: 1; }
+
+  .ticker-text {
+    position: absolute;
+    white-space: nowrap;
+    font-size: 18px;
+    font-weight: 500;
+    animation: ticker-scroll linear infinite;
+    animation-play-state: paused;
+  }
+  .ticker-bar.visible .ticker-text {
+    animation-play-state: running;
+  }
+
+  @keyframes ticker-scroll {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
 </style>
 </head>
 <body>
   <img id="company-logo" class="company-logo" src="" alt="">
   <img id="client-logo" class="client-logo" src="" alt="">
+
+  <div id="ticker" class="ticker-bar">
+    <span id="ticker-text" class="ticker-text"></span>
+  </div>
 
   <div id="lt" class="lower-third">
     <div id="lt-card" class="lt-card bg-solid">
@@ -402,7 +467,7 @@ function buildOverlayHTML(): string {
       // Animation class
       el.className = 'lower-third';
       const anim = s.animation === 'random'
-        ? ['slide','fade','zoom','rise'][Math.floor(Math.random()*4)]
+        ? ['slide','fade','zoom','rise','typewriter','bounce'][Math.floor(Math.random()*6)]
         : s.animation;
       el.classList.add('anim-' + anim);
 
@@ -427,6 +492,20 @@ function buildOverlayHTML(): string {
         cliLogo.classList.toggle('visible', msg.overlay.clientLogo.visible);
       } else {
         cliLogo.classList.remove('visible');
+      }
+
+      // Ticker
+      const ticker = msg.overlay.ticker;
+      const tickerEl = document.getElementById('ticker');
+      const tickerText = document.getElementById('ticker-text');
+      if (ticker) {
+        tickerText.textContent = ticker.text || '';
+        tickerEl.style.background = ticker.backgroundColor || '#1a1a2e';
+        tickerText.style.color = ticker.textColor || '#ffffff';
+        const speed = ticker.speed || 60;
+        const duration = Math.max(10, 1920 / speed * 2);
+        tickerText.style.animationDuration = duration + 's';
+        tickerEl.classList.toggle('visible', ticker.visible);
       }
     }
 

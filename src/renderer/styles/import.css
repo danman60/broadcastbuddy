@@ -1,0 +1,147 @@
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.import-dropzone:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.import-dropzone-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.import-dropzone-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.import-preview-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+}
+
+.import-file-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.import-file-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.import-file-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.import-triggers-preview {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.import-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.import-trigger-row:last-child {
+  border-bottom: none;
+}
+
+.import-trigger-num {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.import-trigger-title {
+  flex: 1;
+  font-weight: 500;
+}
+
+.import-trigger-subtitle {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.import-trigger-category {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 3px;
+}
+
+.import-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.import-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.import-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-error {
+  padding: 10px 12px;
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: 12px;
+}

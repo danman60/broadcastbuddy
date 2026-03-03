@@ -33,6 +33,24 @@ interface ElectronAPI {
   // Logo
   logoBrowse: () => Promise<string | null>
 
+  // Ticker
+  tickerShow: (text: string, speed?: number, bgColor?: string, textColor?: string) => Promise<void>
+  tickerHide: () => Promise<void>
+  tickerUpdate: (updates: Record<string, unknown>) => Promise<void>
+
+  // Document import
+  importBrowse: () => Promise<string | null>
+  importPreview: (filePath: string) => Promise<{
+    fileName: string
+    pageCount: number
+    textPreview: string
+    textLength: number
+  }>
+  importDocument: (filePath?: string) => Promise<{
+    triggers: Trigger[]
+    fileName: string
+  }>
+
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void
   removeAllListeners: (channel: string) => void

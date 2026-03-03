@@ -40,6 +40,18 @@ contextBridge.exposeInMainWorld('api', {
   // ── Logo ──────────────────────────────────────────────────────
   logoBrowse: () => ipcRenderer.invoke(IPC.LOGO_BROWSE),
 
+  // ── Ticker ──────────────────────────────────────────────────────
+  tickerShow: (text: string, speed?: number, bgColor?: string, textColor?: string) =>
+    ipcRenderer.invoke(IPC.TICKER_SHOW, text, speed, bgColor, textColor),
+  tickerHide: () => ipcRenderer.invoke(IPC.TICKER_HIDE),
+  tickerUpdate: (updates: Record<string, unknown>) =>
+    ipcRenderer.invoke(IPC.TICKER_UPDATE, updates),
+
+  // ── Document import ────────────────────────────────────────────
+  importBrowse: () => ipcRenderer.invoke(IPC.IMPORT_BROWSE),
+  importPreview: (filePath: string) => ipcRenderer.invoke(IPC.IMPORT_PREVIEW, filePath),
+  importDocument: (filePath?: string) => ipcRenderer.invoke(IPC.IMPORT_DOCUMENT, filePath),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))

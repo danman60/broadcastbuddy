@@ -112,6 +112,8 @@ export function StylingPanel() {
               <option value="fade">Fade</option>
               <option value="zoom">Zoom</option>
               <option value="rise">Rise</option>
+              <option value="typewriter">Typewriter</option>
+              <option value="bounce">Bounce</option>
               <option value="random">Random</option>
             </select>
           </div>

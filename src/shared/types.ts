@@ -12,7 +12,7 @@ export interface Trigger {
 // ── Overlay Styling ──────────────────────────────────────────────
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'glass' | 'accent-bar'
-export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'random'
+export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'random'
 
 export interface OverlayStyling {
   fontFamily: string
@@ -44,6 +44,13 @@ export interface OverlayState {
   clientLogo: {
     visible: boolean
     dataUrl: string
+  }
+  ticker: {
+    visible: boolean
+    text: string
+    speed: number     // pixels per second
+    backgroundColor: string
+    textColor: string
   }
 }
 
@@ -108,6 +115,16 @@ export const IPC = {
   // Logo
   LOGO_BROWSE:           'logo:browse',
 
+  // Document import
+  IMPORT_BROWSE:         'import:browse',
+  IMPORT_PREVIEW:        'import:preview',
+  IMPORT_DOCUMENT:       'import:document',
+
+  // Ticker
+  TICKER_SHOW:           'ticker:show',
+  TICKER_HIDE:           'ticker:hide',
+  TICKER_UPDATE:         'ticker:update',
+
   // State sync (main → renderer push events)
   STATE_UPDATE:          'state:update',
   OVERLAY_STATE_UPDATE:  'overlay:state-update',
@@ -160,4 +177,5 @@ export const DEFAULT_OVERLAY_STATE: OverlayState = {
   },
   companyLogo: { visible: false, dataUrl: '' },
   clientLogo: { visible: false, dataUrl: '' },
+  ticker: { visible: false, text: '', speed: 60, backgroundColor: '#1a1a2e', textColor: '#ffffff' },
 }

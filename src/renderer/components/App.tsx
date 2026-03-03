@@ -6,6 +6,9 @@ import { TriggerEditor } from './TriggerEditor'
 import { OverlayControls } from './OverlayControls'
 import { StylingPanel } from './StylingPanel'
 import { LogoManager } from './LogoManager'
+import { ImportPanel } from './ImportPanel'
+import { TemplateGallery } from './TemplateGallery'
+import { TickerControls } from './TickerControls'
 import { Settings } from './Settings'
 import '../styles/app.css'
 
@@ -27,8 +30,11 @@ export function App() {
         <div className="right-panel">
           <OverlayControls />
           <TriggerEditor />
+          <TemplateGallery />
           <StylingPanel />
           <LogoManager />
+          <TickerControls />
+          <ImportPanel />
         </div>
       </div>
       {showSettings && <Settings />}

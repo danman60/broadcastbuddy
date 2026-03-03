@@ -1,0 +1,40 @@
+.ticker-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ticker-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.ticker-input-row .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ticker-input-row .field.flex-1 {
+  flex: 1;
+}
+
+.ticker-input-row input {
+  width: 100%;
+}
+
+.ticker-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ticker-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
