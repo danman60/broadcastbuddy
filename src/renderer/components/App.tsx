@@ -2,8 +2,10 @@ import { useEffect } from 'react'
 import { useStore, initStoreListeners, loadInitialState } from '../store/useStore'
 import { Header } from './Header'
 import { TriggerList } from './TriggerList'
+import { OverlayPreview } from './OverlayPreview'
 import { TriggerEditor } from './TriggerEditor'
 import { OverlayControls } from './OverlayControls'
+import { AnimationPanel } from './AnimationPanel'
 import { StylingPanel } from './StylingPanel'
 import { LogoManager } from './LogoManager'
 import { ImportPanel } from './ImportPanel'
@@ -27,10 +29,12 @@ export function App() {
       <div className="app-body">
         <div className="left-panel">
           <TriggerList />
+          <OverlayPreview />
         </div>
         <div className="right-panel">
           <OverlayControls />
           <TriggerEditor />
+          <AnimationPanel />
           <TemplateGallery />
           <StylingPanel />
           <LogoManager />

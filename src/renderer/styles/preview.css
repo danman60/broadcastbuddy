@@ -1,0 +1,215 @@
+.overlay-preview {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  padding: 6px 12px 0;
+}
+
+/* 16:9 canvas scaled to fit the 300px panel */
+.preview-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+/* ── Logos ── */
+.preview-company-logo {
+  position: absolute;
+  top: 4%;
+  left: 3%;
+  max-height: 12%;
+  max-width: 18%;
+  object-fit: contain;
+}
+
+.preview-client-logo {
+  position: absolute;
+  top: 4%;
+  right: 3%;
+  max-height: 12%;
+  max-width: 18%;
+  object-fit: contain;
+}
+
+/* ── Lower third base ── */
+.preview-lt {
+  position: absolute;
+  bottom: 16%;
+  left: 5%;
+  right: 5%;
+  transform-origin: bottom left;
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease, clip-path 0.4s ease;
+  scale: var(--p-scale, 1);
+}
+
+.preview-lt-card {
+  padding: 3% 5%;
+  border-radius: var(--p-radius, 2px);
+  color: var(--p-text, #fff);
+  font-family: var(--p-font, 'Segoe UI', sans-serif);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.preview-lt-title {
+  font-size: 8px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.preview-lt-subtitle {
+  font-size: 6px;
+  font-weight: 400;
+  opacity: 0.85;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* ── Background styles ── */
+.preview-bg-solid {
+  background: var(--p-bg, #1a1a2e);
+}
+
+.preview-bg-gradient {
+  background: linear-gradient(135deg, var(--p-bg, #1a1a2e), var(--p-accent, #667eea));
+}
+
+.preview-bg-glass {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-bg-accent-bar {
+  background: var(--p-bg, #1a1a2e);
+  border-left: 2px solid var(--p-accent, #667eea);
+}
+
+/* ══════════════════════════════════════════════
+   Animation variants — hidden (default) state
+   ══════════════════════════════════════════════ */
+
+/* Slide */
+.preview-anim-slide {
+  transform: translateX(-30px);
+}
+.preview-anim-slide.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Fade */
+.preview-anim-fade {
+  transform: none;
+}
+.preview-anim-fade.visible {
+  opacity: 1;
+}
+
+/* Zoom */
+.preview-anim-zoom {
+  transform: scale(0.5);
+}
+.preview-anim-zoom.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Rise */
+.preview-anim-rise {
+  transform: translateY(15px);
+}
+.preview-anim-rise.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Typewriter */
+.preview-anim-typewriter {
+  transform: none;
+  clip-path: inset(0 100% 0 0);
+  transition: opacity 0.2s ease, clip-path 0.6s steps(16, end);
+}
+.preview-anim-typewriter.visible {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+}
+
+/* Bounce */
+.preview-anim-bounce {
+  transform: translateY(20px);
+}
+.preview-anim-bounce.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Split */
+.preview-anim-split {
+  transform: scaleX(0);
+}
+.preview-anim-split.visible {
+  opacity: 1;
+  transform: scaleX(1);
+  transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Blur */
+.preview-anim-blur {
+  filter: blur(8px);
+  transform: scale(1.1);
+}
+.preview-anim-blur.visible {
+  opacity: 1;
+  filter: blur(0px);
+  transform: scale(1);
+  transition: opacity 0.4s ease, filter 0.5s ease, transform 0.5s ease;
+}
+
+/* Sparkle */
+.preview-anim-sparkle {
+  transform: scale(0.8);
+  filter: brightness(2);
+}
+.preview-anim-sparkle.visible {
+  opacity: 1;
+  transform: scale(1);
+  filter: brightness(1);
+  transition: opacity 0.4s ease, transform 0.4s ease, filter 0.7s ease;
+}
+
+/* ── Ticker ── */
+.preview-ticker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 8%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.preview-ticker-text {
+  white-space: nowrap;
+  font-size: 5px;
+  font-weight: 500;
+  animation: preview-scroll 8s linear infinite;
+}
+
+@keyframes preview-scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}

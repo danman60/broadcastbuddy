@@ -5,6 +5,12 @@ import '../styles/header.css'
 export function Header() {
   const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings } = useStore()
   const [showLoadMenu, setShowLoadMenu] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2000)
+  }
 
   async function handleNew() {
     const name = window.prompt('Session name:', 'Untitled Session')
@@ -13,20 +19,35 @@ export function Header() {
     setCurrentSession(session)
     const list = await window.api.sessionList()
     setSessionList(list)
+    showToast('New session created')
   }
 
   async function handleSave() {
+    // Auto-create session if none exists
+    if (!currentSession) {
+      const name = window.prompt('Session name:', 'Untitled Session')
+      if (!name) return
+      const newSession = await window.api.sessionNew(name)
+      setCurrentSession(newSession)
+    }
+
     const session = await window.api.sessionSave()
     if (session) {
       setCurrentSession(session)
       const list = await window.api.sessionList()
       setSessionList(list)
+      showToast('Session saved')
+    } else {
+      showToast('Failed to save')
     }
   }
 
   async function handleLoad(id: string) {
     const session = await window.api.sessionLoad(id)
-    if (session) setCurrentSession(session)
+    if (session) {
+      setCurrentSession(session)
+      showToast('Session loaded')
+    }
     setShowLoadMenu(false)
   }
 
@@ -98,6 +119,7 @@ export function Header() {
           Settings
         </button>
       </div>
+      {toast && <div className="header-toast">{toast}</div>}
     </div>
   )
 }

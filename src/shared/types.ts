@@ -18,7 +18,8 @@ export interface Trigger {
 // ── Overlay Styling ──────────────────────────────────────────────
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'glass' | 'accent-bar'
-export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'split' | 'blur' | 'random'
+export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'split' | 'blur' | 'sparkle' | 'random'
+export type EasingType = 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear' | 'bounce' | 'elastic'
 
 export interface OverlayStyling {
   fontFamily: string
@@ -30,6 +31,8 @@ export interface OverlayStyling {
   accentColor: string       // hex
   borderRadius: number      // px
   animation: AnimationType
+  animationDuration: number // seconds
+  animationEasing: EasingType
   autoHideSeconds: number   // 0 = manual hide only
 }
 
@@ -197,6 +200,8 @@ export const DEFAULT_STYLING: OverlayStyling = {
   accentColor: '#667eea',
   borderRadius: 8,
   animation: 'slide',
+  animationDuration: 0.5,
+  animationEasing: 'ease',
   autoHideSeconds: 8,
 }
 

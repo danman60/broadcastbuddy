@@ -27,7 +27,7 @@ let pingPongDirection: 1 | -1 = 1
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
-const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce', 'split', 'blur']
+const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce', 'split', 'blur', 'sparkle']
 
 function pickAnimation(setting: AnimationType): string {
   if (setting === 'random') {
@@ -421,6 +421,10 @@ export function startServer(port: number): void {
     res.json(overlayState)
   })
 
+  app.get('/triggers', (_req, res) => {
+    res.json({ triggers, selectedIndex })
+  })
+
   httpServer = app.listen(port, '127.0.0.1', () => {
     logger.info(`Overlay server listening on http://127.0.0.1:${port}`)
   })
@@ -484,7 +488,7 @@ function buildOverlayHTML(): string {
     left: 60px;
     max-width: 800px;
     opacity: 0;
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity var(--anim-dur, 0.5s) var(--anim-ease, ease), transform var(--anim-dur, 0.5s) var(--anim-ease, ease), filter var(--anim-dur, 0.5s) var(--anim-ease, ease);
   }
   .lower-third.visible { opacity: 1; }
 
@@ -537,17 +541,20 @@ function buildOverlayHTML(): string {
   .lower-third.anim-rise { transform: translateY(40px); }
   .lower-third.anim-rise.visible { transform: translateY(0); }
 
-  .lower-third.anim-typewriter { transform: none; clip-path: inset(0 100% 0 0); transition: opacity 0.3s ease, clip-path 0.8s steps(20, end); }
+  .lower-third.anim-typewriter { transform: none; clip-path: inset(0 100% 0 0); transition: opacity calc(var(--anim-dur, 0.5s) * 0.4) ease, clip-path var(--anim-dur, 0.5s) steps(20, end); }
   .lower-third.anim-typewriter.visible { clip-path: inset(0 0 0 0); }
 
   .lower-third.anim-bounce { transform: translateY(60px); }
-  .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.34, 1.56, 0.64, 1); }
 
   .lower-third.anim-split { transform: scaleX(0); }
-  .lower-third.anim-split.visible { transform: scaleX(1); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  .lower-third.anim-split.visible { transform: scaleX(1); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1); }
 
   .lower-third.anim-blur { filter: blur(20px); transform: scale(1.1); }
-  .lower-third.anim-blur.visible { filter: blur(0px); transform: scale(1); transition: opacity 0.5s ease, filter 0.6s ease, transform 0.6s ease; }
+  .lower-third.anim-blur.visible { filter: blur(0px); transform: scale(1); }
+
+  .lower-third.anim-sparkle { transform: scale(0.8); filter: brightness(2); }
+  .lower-third.anim-sparkle.visible { transform: scale(1); filter: brightness(1); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) ease, filter calc(var(--anim-dur, 0.5s) * 1.6) ease; }
 
   /* ── Ticker / Crawl ── */
   .ticker-bar {
@@ -643,13 +650,20 @@ function buildOverlayHTML(): string {
       card.style.setProperty('--font-weight', s.fontWeight);
       card.style.setProperty('--border-radius', s.borderRadius + 'px');
 
+      // Animation timing
+      var dur = (s.animationDuration || 0.5) + 's';
+      var easingMap = { ease:'ease', 'ease-in':'ease-in', 'ease-out':'ease-out', 'ease-in-out':'ease-in-out', linear:'linear', bounce:'cubic-bezier(0.34,1.56,0.64,1)', elastic:'cubic-bezier(0.68,-0.55,0.27,1.55)' };
+      var ease = easingMap[s.animationEasing] || 'ease';
+      el.style.setProperty('--anim-dur', dur);
+      el.style.setProperty('--anim-ease', ease);
+
       // Background style
       card.className = 'lt-card bg-' + s.backgroundStyle;
 
       // Animation class
       el.className = 'lower-third';
       const anim = s.animation === 'random'
-        ? ['slide','fade','zoom','rise','typewriter','bounce','split','blur'][Math.floor(Math.random()*8)]
+        ? ['slide','fade','zoom','rise','typewriter','bounce','split','blur','sparkle'][Math.floor(Math.random()*9)]
         : s.animation;
       el.classList.add('anim-' + anim);
 

@@ -158,12 +158,12 @@ export function TriggerList() {
   return (
     <>
       <div className="trigger-list-header">
-        <h3>Triggers</h3>
+        <h3>Playlist</h3>
         <button className="btn btn-primary btn-sm" onClick={handleAdd}>+ Add</button>
       </div>
       <div className="trigger-list-scroll">
         {triggers.length === 0 ? (
-          <div className="trigger-list-empty">No triggers yet</div>
+          <div className="trigger-list-empty">No entries yet</div>
         ) : hasMultipleCategories ? (
           groups.map((group) => (
             <div key={group.category || '__uncategorized'} className="trigger-category-group">

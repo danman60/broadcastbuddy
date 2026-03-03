@@ -1,0 +1,93 @@
+.animation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Animation type chip grid */
+.anim-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.anim-chip {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.anim-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-dim);
+}
+
+.anim-chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.anim-chip-random {
+  font-style: italic;
+}
+.anim-chip-random.active {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  border-color: transparent;
+}
+
+/* Settings row */
+.anim-settings-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.anim-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.anim-field label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.anim-field select {
+  width: 100%;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.anim-duration-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anim-duration-group input[type="range"] {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--accent);
+}
+
+.anim-duration-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+
+/* Test button */
+.anim-test-btn {
+  align-self: flex-start;
+}

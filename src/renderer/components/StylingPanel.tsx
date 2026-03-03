@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import type { OverlayStyling, BackgroundStyle, AnimationType } from '../../shared/types'
+import type { OverlayStyling, BackgroundStyle } from '../../shared/types'
 import { FONTS } from '../../shared/fonts'
 import '../styles/styling.css'
 
@@ -84,7 +84,7 @@ export function StylingPanel() {
           </div>
         </div>
 
-        {/* Background style + animation */}
+        {/* Background style */}
         <div className="styling-row">
           <div className="styling-field flex-1">
             <label>Background Style</label>
@@ -99,27 +99,6 @@ export function StylingPanel() {
             </select>
           </div>
           <div className="styling-field flex-1">
-            <label>Animation</label>
-            <select
-              value={styling.animation}
-              onChange={(e) => update({ animation: e.target.value as AnimationType })}
-            >
-              <option value="slide">Slide</option>
-              <option value="fade">Fade</option>
-              <option value="zoom">Zoom</option>
-              <option value="rise">Rise</option>
-              <option value="typewriter">Typewriter</option>
-              <option value="bounce">Bounce</option>
-              <option value="split">Split</option>
-              <option value="blur">Blur</option>
-              <option value="random">Random</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Border radius + auto-hide */}
-        <div className="styling-row">
-          <div className="styling-field flex-1">
             <label>Border Radius: {styling.borderRadius}px</label>
             <input
               type="range"
@@ -127,17 +106,6 @@ export function StylingPanel() {
               max={24}
               value={styling.borderRadius}
               onChange={(e) => update({ borderRadius: Number(e.target.value) })}
-            />
-          </div>
-          <div className="styling-field">
-            <label>Auto-hide (sec)</label>
-            <input
-              type="number"
-              value={styling.autoHideSeconds}
-              onChange={(e) => update({ autoHideSeconds: Number(e.target.value) })}
-              min={0}
-              max={60}
-              style={{ width: 70 }}
             />
           </div>
         </div>
