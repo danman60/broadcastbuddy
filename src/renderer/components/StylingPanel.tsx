@@ -1,5 +1,6 @@
 import { useStore } from '../store/useStore'
 import type { OverlayStyling, BackgroundStyle, AnimationType } from '../../shared/types'
+import { FONTS } from '../../shared/fonts'
 import '../styles/styling.css'
 
 export function StylingPanel() {
@@ -24,14 +25,9 @@ export function StylingPanel() {
               value={styling.fontFamily}
               onChange={(e) => update({ fontFamily: e.target.value })}
             >
-              <option value="'Segoe UI', sans-serif">Segoe UI</option>
-              <option value="'Arial', sans-serif">Arial</option>
-              <option value="'Helvetica Neue', sans-serif">Helvetica Neue</option>
-              <option value="'Georgia', serif">Georgia</option>
-              <option value="'Playfair Display', serif">Playfair Display</option>
-              <option value="'Roboto', sans-serif">Roboto</option>
-              <option value="'Montserrat', sans-serif">Montserrat</option>
-              <option value="'Inter', sans-serif">Inter</option>
+              {FONTS.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
             </select>
           </div>
           <div className="styling-field">
@@ -114,6 +110,8 @@ export function StylingPanel() {
               <option value="rise">Rise</option>
               <option value="typewriter">Typewriter</option>
               <option value="bounce">Bounce</option>
+              <option value="split">Split</option>
+              <option value="blur">Blur</option>
               <option value="random">Random</option>
             </select>
           </div>

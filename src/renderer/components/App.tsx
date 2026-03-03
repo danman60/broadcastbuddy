@@ -9,6 +9,7 @@ import { LogoManager } from './LogoManager'
 import { ImportPanel } from './ImportPanel'
 import { TemplateGallery } from './TemplateGallery'
 import { TickerControls } from './TickerControls'
+import { BrandScraperPanel } from './BrandScraperPanel'
 import { Settings } from './Settings'
 import '../styles/app.css'
 
@@ -34,6 +35,7 @@ export function App() {
           <StylingPanel />
           <LogoManager />
           <TickerControls />
+          <BrandScraperPanel />
           <ImportPanel />
         </div>
       </div>

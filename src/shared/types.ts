@@ -12,7 +12,7 @@ export interface Trigger {
 // ── Overlay Styling ──────────────────────────────────────────────
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'glass' | 'accent-bar'
-export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'random'
+export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'split' | 'blur' | 'random'
 
 export interface OverlayStyling {
   fontFamily: string
@@ -124,6 +124,10 @@ export const IPC = {
   TICKER_SHOW:           'ticker:show',
   TICKER_HIDE:           'ticker:hide',
   TICKER_UPDATE:         'ticker:update',
+
+  // Brand scraper
+  BRAND_SCRAPE:          'brand:scrape',
+  BRAND_SCRAPE_AI:       'brand:scrape-ai',
 
   // State sync (main → renderer push events)
   STATE_UPDATE:          'state:update',

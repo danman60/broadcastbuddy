@@ -8,6 +8,7 @@ import {
   DEFAULT_STYLING,
   AnimationType,
 } from '../../shared/types'
+import { buildGoogleFontsUrl } from '../../shared/fonts'
 import { createLogger } from '../logger'
 
 const logger = createLogger('overlay')
@@ -21,7 +22,7 @@ let autoHideTimer: NodeJS.Timeout | null = null
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
-const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce']
+const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce', 'split', 'blur']
 
 function pickAnimation(setting: AnimationType): string {
   if (setting === 'random') {
@@ -267,6 +268,7 @@ function buildOverlayHTML(): string {
 <html>
 <head>
 <meta charset="utf-8">
+<link rel="stylesheet" href="${buildGoogleFontsUrl()}">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -366,6 +368,12 @@ function buildOverlayHTML(): string {
 
   .lower-third.anim-bounce { transform: translateY(60px); }
   .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  .lower-third.anim-split { transform: scaleX(0); }
+  .lower-third.anim-split.visible { transform: scaleX(1); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  .lower-third.anim-blur { filter: blur(20px); transform: scale(1.1); }
+  .lower-third.anim-blur.visible { filter: blur(0px); transform: scale(1); transition: opacity 0.5s ease, filter 0.6s ease, transform 0.6s ease; }
 
   /* ── Ticker / Crawl ── */
   .ticker-bar {
@@ -467,7 +475,7 @@ function buildOverlayHTML(): string {
       // Animation class
       el.className = 'lower-third';
       const anim = s.animation === 'random'
-        ? ['slide','fade','zoom','rise','typewriter','bounce'][Math.floor(Math.random()*6)]
+        ? ['slide','fade','zoom','rise','typewriter','bounce','split','blur'][Math.floor(Math.random()*8)]
         : s.animation;
       el.classList.add('anim-' + anim);
 

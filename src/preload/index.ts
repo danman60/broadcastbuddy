@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('api', {
   importPreview: (filePath: string) => ipcRenderer.invoke(IPC.IMPORT_PREVIEW, filePath),
   importDocument: (filePath?: string) => ipcRenderer.invoke(IPC.IMPORT_DOCUMENT, filePath),
 
+  // ── Brand scraper ──────────────────────────────────────────────
+  brandScrape: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE, url),
+  brandScrapeAI: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE_AI, url),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))

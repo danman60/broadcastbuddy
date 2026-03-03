@@ -5,6 +5,7 @@ import * as overlay from './services/overlay'
 import * as session from './services/session'
 import * as settings from './services/settings'
 import * as documentImport from './services/documentImport'
+import * as brandScraper from './services/brandScraper'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 
@@ -211,6 +212,16 @@ export function registerIpcHandlers(): void {
     }
     pushState()
     return result
+  })
+
+  // ── Brand scraper ──────────────────────────────────────────────
+
+  ipcMain.handle(IPC.BRAND_SCRAPE, async (_e, url: string) => {
+    return brandScraper.scrapeWebsite(url)
+  })
+
+  ipcMain.handle(IPC.BRAND_SCRAPE_AI, async (_e, url: string) => {
+    return brandScraper.scrapeWithAI(url)
   })
 
   logger.info('IPC handlers registered')

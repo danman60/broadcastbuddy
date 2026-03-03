@@ -51,6 +51,21 @@ interface ElectronAPI {
     fileName: string
   }>
 
+  // Brand scraper
+  brandScrape: (url: string) => Promise<{
+    colors: string[]
+    fonts: string[]
+    logoUrl: string | null
+    siteName: string
+  }>
+  brandScrapeAI: (url: string) => Promise<{
+    colors: string[]
+    fonts: string[]
+    logoUrl: string | null
+    siteName: string
+    aiSuggestion?: string
+  }>
+
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void
   removeAllListeners: (channel: string) => void
