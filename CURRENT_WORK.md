@@ -1,30 +1,39 @@
 # Current Work - BroadcastBuddy
 
 ## Active Task
-Phase 1 MVP complete — all core code written, build passes, type check clean.
+All 3 phases implemented. Build passes, type check clean, committed.
 
-## Recent Changes (This Session)
-- Full project scaffolding (package.json, electron.vite.config.ts, tsconfig files, .gitignore)
-- `src/shared/types.ts` — Trigger, Session, OverlayStyling, OverlayState, AppSettings, IPC channels, WS protocol types
-- `src/main/logger.ts` — Scoped loggers via electron-log
-- `src/main/services/settings.ts` — electron-store persistence
-- `src/main/services/overlay.ts` — Core state machine + Express server + overlay HTML generation
-- `src/main/services/wsHub.ts` — WebSocket broadcast hub with heartbeat
-- `src/main/services/session.ts` — JSON-based session save/load
-- `src/main/ipc.ts` — All IPC handler registrations
-- `src/main/index.ts` — App lifecycle
-- `src/preload/index.ts` — Context bridge
-- `src/renderer/` — Full React UI: App, Header, TriggerList, TriggerEditor, OverlayControls, StylingPanel, LogoManager, Settings
-- `src/renderer/store/useStore.ts` — Zustand store with IPC listeners
-- `src/renderer/styles/` — All CSS files (global, app, header, triggerlist, triggereditor, controls, styling, settings)
+## Commits
+- `8a13ede` — Phase 1 MVP: core overlay system (41 files)
+- `5fef0ea` — Phase 2+3: document import, templates, ticker (19 files)
+
+## What's Implemented
+
+**Phase 1 — Core Overlay System:**
+- Electron + React + Zustand + Express + WebSocket
+- Overlay state machine with fire/hide/auto-hide timers
+- Trigger CRUD with selection and navigation
+- Browser source HTML with CSS animations
+- Session save/load as local JSON files
+- Dark theme UI, logo management, real-time styling
+
+**Phase 2 — Document Import:**
+- PDF/DOCX/TXT parsing (pdf-parse, mammoth)
+- DeepSeek LLM integration for trigger extraction
+- ImportPanel UI with preview, parsing, and review stages
+
+**Phase 3 — Advanced Features:**
+- 10 template presets with visual gallery picker
+- Ticker/crawl overlay with configurable speed and colors
+- 6 animation types: slide, fade, zoom, rise, typewriter, bounce (+ random)
 
 ## Build Status
-- `npm run build` — PASS (3 bundles)
+- `npm run build` — PASS (3 bundles: main 32KB, preload 4KB, renderer 268KB)
 - `npx tsc --noEmit` — PASS (0 errors)
 - Security grep — clean
 
 ## Next Steps
-1. Commit and push Phase 1
-2. Test end-to-end: `npm run dev`, add triggers, fire/hide, verify overlay at localhost:9876/overlay
-3. Phase 2: Document import (pdf-parse, mammoth, DeepSeek API integration)
-4. Phase 3: Template presets, ticker/crawl, brand scraper
+1. End-to-end testing: `npm run dev`
+2. Add remote repo and push
+3. Brand scraper service (optional Phase 3 feature)
+4. Package as installer: `npm run dist:installer`
