@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { OverlayState, Trigger, AppSettings, Session } from '../../shared/types'
+import type { OverlayState, Trigger, AppSettings, Session, MappingPreset } from '../../shared/types'
 
 interface AppStore {
   // State
@@ -12,6 +12,7 @@ interface AppStore {
   currentSession: Session | null
   sessionList: Array<{ id: string; name: string; updatedAt: string }>
   showSettings: boolean
+  mappingPresets: MappingPreset[]
 
   // Setters
   setOverlayState: (s: OverlayState) => void
@@ -20,6 +21,8 @@ interface AppStore {
   setCurrentSession: (s: Session | null) => void
   setSessionList: (list: Array<{ id: string; name: string; updatedAt: string }>) => void
   setShowSettings: (show: boolean) => void
+  setMappingPresets: (presets: MappingPreset[]) => void
+  addMappingPreset: (preset: MappingPreset) => void
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -32,6 +35,7 @@ export const useStore = create<AppStore>((set) => ({
   currentSession: null,
   sessionList: [],
   showSettings: false,
+  mappingPresets: [],
 
   setOverlayState: (s) => set({ overlayState: s }),
   setTriggers: (t, selectedIndex, playedIds, loopMode) => set((state) => ({
@@ -40,10 +44,14 @@ export const useStore = create<AppStore>((set) => ({
     playedIds: playedIds ?? state.playedIds,
     loopMode: loopMode ?? state.loopMode,
   })),
-  setSettings: (s) => set({ settings: s }),
+  setSettings: (s) => set({ settings: s, mappingPresets: s.mappingPresets ?? [] }),
   setCurrentSession: (s) => set({ currentSession: s }),
   setSessionList: (list) => set({ sessionList: list }),
   setShowSettings: (show) => set({ showSettings: show }),
+  setMappingPresets: (presets) => set({ mappingPresets: presets }),
+  addMappingPreset: (preset) => set((state) => ({
+    mappingPresets: [...state.mappingPresets, preset],
+  })),
 }))
 
 // Initialize IPC listeners

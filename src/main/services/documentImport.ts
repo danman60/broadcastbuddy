@@ -1,5 +1,5 @@
 import { dialog, BrowserWindow } from 'electron'
-import { Trigger } from '../../shared/types'
+import { Trigger, ExtractionResult } from '../../shared/types'
 import { parseDocument, ParsedDocument } from './documentParser'
 import { extractTriggers } from './llmService'
 import { createLogger } from '../logger'
@@ -13,9 +13,8 @@ export interface ImportPreview {
   textLength: number
 }
 
-export interface ImportResult {
-  triggers: Trigger[]
-  fileName: string
+export interface ImportResult extends ExtractionResult {
+  // Raw extraction result from LLM
 }
 
 let lastParsedDocument: ParsedDocument | null = null
@@ -58,12 +57,7 @@ export async function importDocument(filePath?: string): Promise<ImportResult> {
   }
 
   logger.info(`Importing triggers from: ${doc.fileName}`)
-  const triggers = await extractTriggers(doc.text)
-
-  return {
-    triggers,
-    fileName: doc.fileName,
-  }
+  return await extractTriggers(doc.text)
 }
 
 export function clearLastDocument(): void {

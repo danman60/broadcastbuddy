@@ -1,0 +1,368 @@
+/* Field Mapper Styles */
+
+.field-mapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.field-mapper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.field-mapper-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.field-mapper-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0 0 0;
+}
+
+.field-mapper-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Mapping Panel (Left side) */
+.mapping-panel {
+  width: 45%;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.source-fields-section,
+.transform-section,
+.target-fields-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-fields-section h4,
+.transform-section h4,
+.target-fields-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.section-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 0 0 10px 0;
+}
+
+/* Source Field Chips */
+.source-fields-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-field-chip {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: grab;
+  transition: all var(--transition);
+  min-width: 80px;
+  max-width: 160px;
+}
+
+.source-field-chip:hover {
+  background: rgba(102, 126, 234, 0.25);
+  transform: translateY(-1px);
+}
+
+.source-field-chip:active {
+  cursor: grabbing;
+}
+
+.source-field-chip .field-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.source-field-chip .field-preview {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Transform Chips */
+.transform-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.transform-chip {
+  padding: 6px 12px;
+  background: var(--bg-input);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Target Fields */
+.target-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.target-field-row {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  transition: all var(--transition);
+}
+
+.target-field-row.has-mapping {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.target-field-row.drag-over {
+  border-color: var(--success);
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.target-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.target-field-mapping {
+  min-height: 28px;
+}
+
+.mapping-placeholder {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.mapping-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mapping-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mapping-chip-remove {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapping-chip-remove:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.mapping-separator {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.mapping-action {
+  padding: 3px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.mapping-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mapping-action-clear {
+  margin-left: auto;
+}
+
+.mapping-action-clear:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Preview Panel (Right side) */
+.preview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-header h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.preview-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.preview-table-wrapper {
+  flex: 1;
+  overflow: auto;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.preview-table th:first-child {
+  width: 30px;
+  text-align: center;
+}
+
+.preview-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.preview-table td:first-child {
+  width: 30px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.preview-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.preview-table tr:hover .editable-cell {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  border-radius: 3px;
+}
+
+.editable-cell {
+  cursor: text;
+  display: block;
+  padding: 2px 4px;
+  min-height: 20px;
+  border-radius: 3px;
+  transition: box-shadow var(--transition);
+}
+
+.empty-cell {
+  color: var(--text-dim);
+}
+
+.edit-input {
+  width: 100%;
+  padding: 2px 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.edit-hint {
+  padding: 6px 12px;
+  background: var(--accent-dim);
+  font-size: 11px;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* Actions */
+.field-mapper-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border);
+}

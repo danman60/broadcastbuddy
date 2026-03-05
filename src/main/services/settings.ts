@@ -7,13 +7,14 @@ const logger = createLogger('settings')
 const store = new Store<AppSettings>({
   defaults: {
     server: {
-      httpPort: 9876,
-      wsPort: 9877,
+      httpPort: 19080,
+      wsPort: 19081,
     },
     overlay: { ...DEFAULT_STYLING },
     companyLogoPath: '',
     deepseekApiKey: '',
     sessionsDir: '',
+    mappingPresets: [],
   },
 })
 

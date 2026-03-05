@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { Trigger } from '../../shared/types'
+import type { Trigger, LLMExtractedField, FieldMapping } from '../../shared/types'
+import { FieldMapper } from './FieldMapper'
 import '../styles/import.css'
 
-type ImportStage = 'idle' | 'previewing' | 'parsing' | 'review'
+type ImportStage = 'idle' | 'previewing' | 'parsing' | 'mapping' | 'review'
 type ImportMode = 'append' | 'replace'
 
 interface PreviewData {
@@ -17,6 +18,9 @@ export function ImportPanel() {
   const [stage, setStage] = useState<ImportStage>('idle')
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [parsedTriggers, setParsedTriggers] = useState<Trigger[]>([])
+  const [rawFields, setRawFields] = useState<LLMExtractedField[]>([])
+  const [sampleData, setSampleData] = useState<Record<string, string>[]>([])
+  const [suggestedMappings, setSuggestedMappings] = useState<FieldMapping[]>([])
   const [importMode, setImportMode] = useState<ImportMode>('append')
   const [error, setError] = useState<string | null>(null)
 
@@ -44,8 +48,20 @@ export function ImportPanel() {
       setStage('parsing')
       // Parse only — triggers are NOT added to overlay yet
       const result = await window.api.importDocument(preview.filePath)
-      setParsedTriggers(result.triggers)
-      setStage('review')
+
+      // Check if we have raw fields (new API) or just triggers (legacy)
+      if (result.rawFields && result.sampleData) {
+        // New API with field mapping
+        setRawFields(result.rawFields)
+        setSampleData(result.sampleData)
+        setSuggestedMappings(result.suggestedMappings || [])
+        setParsedTriggers(result.triggers || []) // For preview purposes
+        setStage('mapping')
+      } else {
+        // Legacy API - directly to review
+        setParsedTriggers(result.triggers || [])
+        setStage('review')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract triggers')
       setStage('idle')
@@ -76,7 +92,28 @@ export function ImportPanel() {
     setStage('idle')
     setPreview(null)
     setParsedTriggers([])
+    setRawFields([])
+    setSampleData([])
+    setSuggestedMappings([])
     setError(null)
+  }
+
+  async function handleMappingApply(mappings: FieldMapping[], triggers: Trigger[]) {
+    // Convert preview triggers to actual triggers with new IDs
+    const finalTriggers = triggers.map((t, i) => ({
+      ...t,
+      id: `imported-${Date.now()}-${i}`,
+      order: i,
+    }))
+    setParsedTriggers(finalTriggers)
+    setStage('review')
+  }
+
+  function handleMappingCancel() {
+    setStage('idle')
+    setRawFields([])
+    setSampleData([])
+    setSuggestedMappings([])
   }
 
   return (
@@ -175,6 +212,17 @@ export function ImportPanel() {
               </button>
             </div>
           </>
+        )}
+
+        {/* Field Mapping Stage */}
+        {stage === 'mapping' && rawFields.length > 0 && (
+          <FieldMapper
+            rawFields={rawFields}
+            sampleData={sampleData}
+            initialMappings={suggestedMappings}
+            onApply={handleMappingApply}
+            onCancel={handleMappingCancel}
+          />
         )}
       </div>
     </div>

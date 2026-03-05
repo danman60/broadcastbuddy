@@ -88,23 +88,46 @@ export function loadSession(id: string): Session | null {
 
 export function listSessions(): Array<{ id: string; name: string; updatedAt: string }> {
   const dir = getSessionsDir()
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
+
+  // Ensure directory exists
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+    return []
+  }
+
+  let files: string[] = []
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
+  } catch (err) {
+    logger.error('Failed to read sessions directory:', err)
+    return []
+  }
+
   const sessions: Array<{ id: string; name: string; updatedAt: string }> = []
 
   for (const file of files) {
     try {
-      const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'))
+      const filePath = path.join(dir, file)
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
       sessions.push({
         id: data.id,
         name: data.name,
         updatedAt: data.updatedAt,
       })
-    } catch {
-      // Skip corrupt files
+    } catch (err) {
+      logger.warn(`Skipping corrupt session file: ${file}`)
     }
   }
 
   return sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export function getMostRecentSession(): Session | null {
+  const sessions = listSessions()
+  if (sessions.length === 0) return null
+
+  const mostRecent = sessions[0]
+  return loadSession(mostRecent.id)
 }
 
 export function setCurrentSession(session: Session): void {

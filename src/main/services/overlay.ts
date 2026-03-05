@@ -425,8 +425,12 @@ export function startServer(port: number): void {
     res.json({ triggers, selectedIndex })
   })
 
-  httpServer = app.listen(port, '127.0.0.1', () => {
-    logger.info(`Overlay server listening on http://127.0.0.1:${port}`)
+  httpServer = app.listen(port, '0.0.0.0', () => {
+    logger.info(`Overlay server listening on http://0.0.0.0:${port}`)
+  })
+
+  httpServer.on('error', (err: Error) => {
+    logger.error(`Overlay server error: ${err.message}`, err)
   })
 }
 

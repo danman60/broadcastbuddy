@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import pdfParse from 'pdf-parse'
+import { PDFDocument } from 'pdf-lib'
 import mammoth from 'mammoth'
 import { createLogger } from '../logger'
 
@@ -31,12 +31,28 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 
 async function parsePDF(filePath: string, fileName: string): Promise<ParsedDocument> {
   const buffer = fs.readFileSync(filePath)
-  const data = await pdfParse(buffer)
-  logger.info(`PDF parsed: ${data.numpages} pages, ${data.text.length} chars`)
+  const pdfDoc = await PDFDocument.load(buffer)
+  const pageCount = pdfDoc.getPageCount()
+
+  // Extract text from all pages
+  const pages = pdfDoc.getPages()
+  const textParts: string[] = []
+
+  for (const page of pages) {
+    const textContent = await page.getTextContent()
+    const pageText = textContent.items
+      .map((item: any) => item.str || '')
+      .join(' ')
+    textParts.push(pageText)
+  }
+
+  const text = textParts.join('\n')
+  logger.info(`PDF parsed: ${pageCount} pages, ${text.length} chars`)
+
   return {
-    text: data.text,
+    text,
     fileName,
-    pageCount: data.numpages,
+    pageCount,
   }
 }
 
