@@ -165,9 +165,15 @@ export function registerIpcHandlers(): void {
 
   // ── Session management ────────────────────────────────────────
 
-  ipcMain.handle(IPC.SESSION_NEW, (_e, name: string) => {
+  ipcMain.handle(IPC.SESSION_NEW, (_e, name: string, preserveTriggers?: boolean) => {
     const s = session.newSession(name)
-    overlay.resetState()
+    if (preserveTriggers) {
+      // Keep existing triggers, just update session reference
+      session.setCurrentSession(s)
+    } else {
+      // Fresh session - clear everything
+      overlay.resetState()
+    }
     pushState()
     return s
   })
@@ -295,6 +301,15 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.BRAND_SCRAPE_AI, async (_e, url: string) => {
     return brandScraper.scrapeWithAI(url)
+  })
+
+  // ── Window ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.WINDOW_RESIZE, (_e, width: number, height: number) => {
+    const win = getMainWindow()
+    if (win) {
+      win.setSize(width, height)
+    }
   })
 
   logger.info('IPC handlers registered')

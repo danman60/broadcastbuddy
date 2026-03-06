@@ -43,4 +43,57 @@
   letter-spacing: 0.5px;
   color: var(--text-secondary);
   margin-bottom: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.panel-section-title:hover {
+  color: var(--text-primary);
+}
+
+.panel-section-title .chevron {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--text-dim);
+}
+
+.panel-section.collapsed .panel-section-title {
+  margin-bottom: 0;
+}
+
+.panel-section.collapsed .panel-section-title .chevron {
+  transform: rotate(-90deg);
+}
+
+/* ── Compact Mode ───────────────────────────────────────────── */
+
+.compact .left-panel {
+  width: 200px;
+  min-width: 180px;
+}
+
+.compact .header {
+  padding: 6px 12px;
+  min-height: 36px;
+}
+
+.compact .right-panel {
+  padding: 8px;
+  gap: 8px;
+}
+
+.compact .panel-section {
+  padding: 10px;
+}
+
+.compact .panel-section-title {
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.compact .panel-section.collapsed .panel-section-title {
+  margin-bottom: 0;
 }

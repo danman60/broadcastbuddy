@@ -125,6 +125,7 @@ export interface AppSettings {
   deepseekApiKey: string
   sessionsDir: string
   mappingPresets?: MappingPreset[]
+  compactMode?: boolean
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────
@@ -190,6 +191,9 @@ export const IPC = {
   // Brand scraper
   BRAND_SCRAPE: 'brand:scrape',
   BRAND_SCRAPE_AI: 'brand:scrape-ai',
+
+  // Window
+  WINDOW_RESIZE: 'window:resize',
 
   // State sync (main - renderer push events)
   STATE_UPDATE: 'state:update',

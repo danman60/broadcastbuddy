@@ -17,6 +17,9 @@ import '../styles/app.css'
 
 export function App() {
   const showSettings = useStore((s) => s.showSettings)
+  const showBrandKit = useStore((s) => s.showBrandKit)
+  const showImport = useStore((s) => s.showImport)
+  const compactMode = useStore((s) => s.compactMode)
 
   useEffect(() => {
     initStoreListeners()
@@ -24,7 +27,7 @@ export function App() {
   }, [])
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout${compactMode ? ' compact' : ''}`}>
       <Header />
       <div className="app-body">
         <div className="left-panel">
@@ -39,10 +42,30 @@ export function App() {
           <StylingPanel />
           <LogoManager />
           <TickerControls />
-          <BrandScraperPanel />
-          <ImportPanel />
         </div>
       </div>
+      {showBrandKit && (
+        <div className="settings-overlay">
+          <div className="settings-header">
+            <h2>Brand Kit</h2>
+            <button className="btn btn-ghost" onClick={() => useStore.getState().setShowBrandKit(false)}>Close</button>
+          </div>
+          <div className="settings-body">
+            <BrandScraperPanel />
+          </div>
+        </div>
+      )}
+      {showImport && (
+        <div className="settings-overlay">
+          <div className="settings-header">
+            <h2>Import</h2>
+            <button className="btn btn-ghost" onClick={() => useStore.getState().setShowImport(false)}>Close</button>
+          </div>
+          <div className="settings-body">
+            <ImportPanel />
+          </div>
+        </div>
+      )}
       {showSettings && <Settings />}
     </div>
   )

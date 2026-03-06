@@ -12,6 +12,7 @@ export function TriggerEditor() {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [category, setCategory] = useState('')
+  const [collapsed, setCollapsed] = useState(false)
 
   // Sync local state when selection changes
   useEffect(() => {
@@ -48,69 +49,79 @@ export function TriggerEditor() {
 
   if (!selected) {
     return (
-      <div className="panel-section">
-        <div className="panel-section-title">Edit Entry</div>
-        <div className="trigger-editor-empty">Select an entry to edit</div>
+      <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
+        <div className="panel-section-title" onClick={() => setCollapsed(!collapsed)}>
+          Edit Entry
+          <span className="chevron">{collapsed ? '\u25B8' : '\u25BE'}</span>
+        </div>
+        {!collapsed && (
+          <div className="trigger-editor-empty">Select an entry to edit</div>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="panel-section">
-      <div className="panel-section-title">Edit Entry</div>
-      <div className="trigger-editor">
-        <div className="field-row-inline">
-          <div className="field-row">
-            <label>Name (list label)</label>
-            <input
-              value={name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="Display name..."
-            />
-          </div>
-          <div className="field-row">
-            <label>Category</label>
-            <input
-              value={category}
-              onChange={(e) => handleChange('category', e.target.value)}
-              placeholder="Group..."
-            />
-          </div>
-        </div>
-        <div className="field-row">
-          <label>Primary (main line)</label>
-          <input
-            value={title}
-            onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="Song name, speaker name, act title..."
-          />
-        </div>
-        <div className="field-row">
-          <label>Secondary (sub line)</label>
-          <input
-            value={subtitle}
-            onChange={(e) => handleChange('subtitle', e.target.value)}
-            placeholder="Dancers, company/role, description..."
-          />
-        </div>
-        <div className="field-row">
-          <label>Entry Logo (optional — overrides client logo when fired)</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {selected.logoDataUrl ? (
-              <>
-                <img
-                  src={selected.logoDataUrl}
-                  alt="Entry logo"
-                  style={{ maxHeight: 32, maxWidth: 80, borderRadius: 4 }}
-                />
-                <button className="btn btn-ghost btn-sm" onClick={handleClearLogo}>Clear</button>
-              </>
-            ) : (
-              <button className="btn btn-ghost btn-sm" onClick={handleBrowseLogo}>Browse...</button>
-            )}
-          </div>
-        </div>
+    <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
+      <div className="panel-section-title" onClick={() => setCollapsed(!collapsed)}>
+        Edit Entry
+        <span className="chevron">{collapsed ? '\u25B8' : '\u25BE'}</span>
       </div>
+      {!collapsed && (
+        <div className="trigger-editor">
+          <div className="field-row-inline">
+            <div className="field-row">
+              <label>Name (list label)</label>
+              <input
+                value={name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                placeholder="Display name..."
+              />
+            </div>
+            <div className="field-row">
+              <label>Category</label>
+              <input
+                value={category}
+                onChange={(e) => handleChange('category', e.target.value)}
+                placeholder="Group..."
+              />
+            </div>
+          </div>
+          <div className="field-row">
+            <label>Primary (main line)</label>
+            <input
+              value={title}
+              onChange={(e) => handleChange('title', e.target.value)}
+              placeholder="Song name, speaker name, act title..."
+            />
+          </div>
+          <div className="field-row">
+            <label>Secondary (sub line)</label>
+            <input
+              value={subtitle}
+              onChange={(e) => handleChange('subtitle', e.target.value)}
+              placeholder="Dancers, company/role, description..."
+            />
+          </div>
+          <div className="field-row">
+            <label>Entry Logo (optional — overrides client logo when fired)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {selected.logoDataUrl ? (
+                <>
+                  <img
+                    src={selected.logoDataUrl}
+                    alt="Entry logo"
+                    style={{ maxHeight: 32, maxWidth: 80, borderRadius: 4 }}
+                  />
+                  <button className="btn btn-ghost btn-sm" onClick={handleClearLogo}>Clear</button>
+                </>
+              ) : (
+                <button className="btn btn-ghost btn-sm" onClick={handleBrowseLogo}>Browse...</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

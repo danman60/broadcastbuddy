@@ -15,6 +15,7 @@ const store = new Store<AppSettings>({
     deepseekApiKey: '',
     sessionsDir: '',
     mappingPresets: [],
+    compactMode: false,
   },
 })
 

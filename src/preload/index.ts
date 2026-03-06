@@ -36,7 +36,7 @@ contextBridge.exposeInMainWorld('api', {
   triggerClearAll: () => ipcRenderer.invoke(IPC.TRIGGER_CLEAR_ALL),
 
   // ── Session management ────────────────────────────────────────
-  sessionNew: (name: string) => ipcRenderer.invoke(IPC.SESSION_NEW, name),
+  sessionNew: (name: string, preserveTriggers?: boolean) => ipcRenderer.invoke(IPC.SESSION_NEW, name, preserveTriggers),
   sessionSave: () => ipcRenderer.invoke(IPC.SESSION_SAVE),
   sessionLoad: (id: string) => ipcRenderer.invoke(IPC.SESSION_LOAD, id),
   sessionList: () => ipcRenderer.invoke(IPC.SESSION_LIST),
@@ -67,6 +67,10 @@ contextBridge.exposeInMainWorld('api', {
   // ── Brand scraper ──────────────────────────────────────────────
   brandScrape: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE, url),
   brandScrapeAI: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE_AI, url),
+
+  // ── Window ──────────────────────────────────────────────────────
+  windowResize: (width: number, height: number) =>
+    ipcRenderer.invoke(IPC.WINDOW_RESIZE, width, height),
 
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {

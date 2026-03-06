@@ -16,6 +16,7 @@ export function OverlayControls() {
   const isVisible = overlayState?.lowerThird.visible ?? false
 
   const [autoFire, setAutoFire] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   // Fetch autoFire state on mount
   useEffect(() => {
@@ -91,82 +92,89 @@ export function OverlayControls() {
   const loopActive = loopMode !== 'none'
 
   return (
-    <div className="panel-section">
-      <div className="panel-section-title">Playlist Controls</div>
-      <div className="overlay-controls">
-        <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
-          Fire
-        </button>
-        <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
-          Hide
-        </button>
-        <div className="controls-divider" />
-        <button className="btn-nav" onClick={() => window.api.triggerPrev()}>
-          Prev
-        </button>
-        <button className="btn-nav" onClick={() => window.api.triggerNext()}>
-          Next
-        </button>
-        <button
-          className="btn-nav"
-          onClick={() => window.api.triggerNextFull()}
-          title="Advance + Fire (Ctrl+Enter or Shift+Right)"
-          style={{ fontWeight: 700 }}
-        >
-          Next+Fire
-        </button>
-        <div className="controls-divider" />
-        <button
-          className={`btn-sm ${autoFire ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-          onClick={handleAutoFireToggle}
-          title="Auto-fire on Next/Prev"
-        >
-          Auto {autoFire ? 'ON' : 'OFF'}
-        </button>
-        <button
-          className={`btn-sm ${loopActive ? 'btn-loop-active' : 'btn-loop-off'}`}
-          onClick={handleLoopCycle}
-          title="Cycle loop mode: Off → Loop → Ping-Pong"
-        >
-          {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
-        </button>
+    <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
+      <div className="panel-section-title" onClick={() => setCollapsed(!collapsed)}>
+        Playlist Controls
+        <span className="chevron">{collapsed ? '\u25B8' : '\u25BE'}</span>
       </div>
-      <div className="controls-info-row">
-        <div className="controls-status">
-          <span className={`status-dot ${isVisible ? 'live' : ''}`} />
-          {isVisible ? 'LIVE' : 'OFF'}
-        </div>
-        {total > 0 && (
-          <div className="controls-playlist-pos">
-            {current} / {total}
+      {!collapsed && (
+        <>
+          <div className="overlay-controls">
+            <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
+              Fire
+            </button>
+            <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
+              Hide
+            </button>
+            <div className="controls-divider" />
+            <button className="btn-nav" onClick={() => window.api.triggerPrev()}>
+              Prev
+            </button>
+            <button className="btn-nav" onClick={() => window.api.triggerNext()}>
+              Next
+            </button>
+            <button
+              className="btn-nav"
+              onClick={() => window.api.triggerNextFull()}
+              title="Advance + Fire (Ctrl+Enter or Shift+Right)"
+              style={{ fontWeight: 700 }}
+            >
+              Next+Fire
+            </button>
+            <div className="controls-divider" />
+            <button
+              className={`btn-sm ${autoFire ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleAutoFireToggle}
+              title="Auto-fire on Next/Prev"
+            >
+              Auto {autoFire ? 'ON' : 'OFF'}
+            </button>
+            <button
+              className={`btn-sm ${loopActive ? 'btn-loop-active' : 'btn-loop-off'}`}
+              onClick={handleLoopCycle}
+              title="Cycle loop mode: Off → Loop → Ping-Pong"
+            >
+              {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
+            </button>
           </div>
-        )}
-        {playedCount > 0 && (
-          <div className="controls-played-badge">
-            {playedCount} played
+          <div className="controls-info-row">
+            <div className="controls-status">
+              <span className={`status-dot ${isVisible ? 'live' : ''}`} />
+              {isVisible ? 'LIVE' : 'OFF'}
+            </div>
+            {total > 0 && (
+              <div className="controls-playlist-pos">
+                {current} / {total}
+              </div>
+            )}
+            {playedCount > 0 && (
+              <div className="controls-played-badge">
+                {playedCount} played
+              </div>
+            )}
+            {upNext && (
+              <div className="controls-up-next">
+                Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
+              </div>
+            )}
           </div>
-        )}
-        {upNext && (
-          <div className="controls-up-next">
-            Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
+          {/* Bulk operations */}
+          <div className="controls-bulk-row">
+            <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
+              Reset Pos
+            </button>
+            <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
+              Clear Played
+            </button>
+            <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
+              Clear All
+            </button>
           </div>
-        )}
-      </div>
-      {/* Bulk operations */}
-      <div className="controls-bulk-row">
-        <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
-          Reset Pos
-        </button>
-        <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
-          Clear Played
-        </button>
-        <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
-          Clear All
-        </button>
-      </div>
-      <div className="controls-shortcuts-hint">
-        Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
-      </div>
+          <div className="controls-shortcuts-hint">
+            Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
+          </div>
+        </>
+      )}
     </div>
   )
 }

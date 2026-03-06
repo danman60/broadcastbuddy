@@ -12,7 +12,10 @@ interface AppStore {
   currentSession: Session | null
   sessionList: Array<{ id: string; name: string; updatedAt: string }>
   showSettings: boolean
+  showBrandKit: boolean
+  showImport: boolean
   mappingPresets: MappingPreset[]
+  compactMode: boolean
 
   // Setters
   setOverlayState: (s: OverlayState) => void
@@ -21,8 +24,11 @@ interface AppStore {
   setCurrentSession: (s: Session | null) => void
   setSessionList: (list: Array<{ id: string; name: string; updatedAt: string }>) => void
   setShowSettings: (show: boolean) => void
+  setShowBrandKit: (show: boolean) => void
+  setShowImport: (show: boolean) => void
   setMappingPresets: (presets: MappingPreset[]) => void
   addMappingPreset: (preset: MappingPreset) => void
+  setCompactMode: (compact: boolean) => void
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -35,7 +41,10 @@ export const useStore = create<AppStore>((set) => ({
   currentSession: null,
   sessionList: [],
   showSettings: false,
+  showBrandKit: false,
+  showImport: false,
   mappingPresets: [],
+  compactMode: false,
 
   setOverlayState: (s) => set({ overlayState: s }),
   setTriggers: (t, selectedIndex, playedIds, loopMode) => set((state) => ({
@@ -48,10 +57,21 @@ export const useStore = create<AppStore>((set) => ({
   setCurrentSession: (s) => set({ currentSession: s }),
   setSessionList: (list) => set({ sessionList: list }),
   setShowSettings: (show) => set({ showSettings: show }),
+  setShowBrandKit: (show) => set({ showBrandKit: show }),
+  setShowImport: (show) => set({ showImport: show }),
   setMappingPresets: (presets) => set({ mappingPresets: presets }),
   addMappingPreset: (preset) => set((state) => ({
     mappingPresets: [...state.mappingPresets, preset],
   })),
+  setCompactMode: (compact) => {
+    set({ compactMode: compact })
+    window.api.settingsSet('compactMode', compact)
+    if (compact) {
+      window.api.windowResize(600, 700)
+    } else {
+      window.api.windowResize(1100, 800)
+    }
+  },
 }))
 
 // Initialize IPC listeners
@@ -89,6 +109,9 @@ export async function loadInitialState(): Promise<void> {
   store.setOverlayState(overlayState)
   store.setTriggers(triggerData.triggers, triggerData.selectedIndex, playlistStatus.playedIds, playlistStatus.loopMode)
   store.setSettings(settings)
+  if (settings.compactMode) {
+    useStore.setState({ compactMode: true })
+  }
   store.setCurrentSession(currentSession)
   store.setSessionList(sessionList)
 }

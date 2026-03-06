@@ -38,7 +38,7 @@ interface ElectronAPI {
   triggerClearAll: () => Promise<void>
 
   // Session
-  sessionNew: (name: string) => Promise<Session>
+  sessionNew: (name: string, preserveTriggers?: boolean) => Promise<Session>
   sessionSave: () => Promise<Session | null>
   sessionLoad: (id: string) => Promise<Session | null>
   sessionList: () => Promise<Array<{ id: string; name: string; updatedAt: string }>>
@@ -84,6 +84,9 @@ interface ElectronAPI {
     siteName: string
     aiSuggestion?: string
   }>
+
+  // Window
+  windowResize: (width: number, height: number) => Promise<void>
 
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void

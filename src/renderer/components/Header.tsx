@@ -3,8 +3,9 @@ import { useStore } from '../store/useStore'
 import '../styles/header.css'
 
 export function Header() {
-  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings } = useStore()
+  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings, setShowBrandKit, setShowImport, compactMode, setCompactMode } = useStore()
   const [showLoadMenu, setShowLoadMenu] = useState(false)
+  const [showToolsMenu, setShowToolsMenu] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
   // Inline input states
@@ -90,8 +91,8 @@ export function Header() {
       return
     }
 
-    // Create new session first
-    const newSession = await window.api.sessionNew(name)
+    // Create new session, preserving existing triggers
+    const newSession = await window.api.sessionNew(name, true)
     setCurrentSession(newSession)
 
     // Then save current state to it
@@ -125,8 +126,8 @@ export function Header() {
   return (
     <div className="header">
       <div className="header-left">
-        <span className="header-title">BroadcastBuddy</span>
-        {currentSession && (
+        <span className="header-title">{compactMode ? 'BB' : 'BroadcastBuddy'}</span>
+        {!compactMode && currentSession && (
           <span className="header-session-name">{currentSession.name}</span>
         )}
       </div>
@@ -226,12 +227,71 @@ export function Header() {
           )}
         </div>
 
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowSettings(true)}
-        >
-          Settings
-        </button>
+        {/* Tools Menu */}
+        <div style={{ position: 'relative' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowToolsMenu(!showToolsMenu)}
+          >
+            Tools ▼
+          </button>
+          {showToolsMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 4,
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                minWidth: 160,
+                zIndex: 50,
+              }}
+            >
+              <button
+                onClick={() => { setShowBrandKit(true); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Brand Kit
+              </button>
+              <button
+                onClick={() => { setShowImport(true); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Import
+              </button>
+              <button
+                onClick={() => { setCompactMode(!compactMode); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Compact Mode {compactMode ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => { setShowSettings(true); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13,
+                }}
+              >
+                Settings
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {toast && <div className="header-toast">{toast}</div>}
