@@ -1,0 +1,51 @@
+.stream-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stream-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stream-field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+}
+
+.stream-field input,
+.stream-field textarea {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.stream-field input:focus,
+.stream-field textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.stream-key-row,
+.stream-copy-row {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.stream-key-row input,
+.stream-copy-row input,
+.stream-copy-row textarea {
+  flex: 1;
+}

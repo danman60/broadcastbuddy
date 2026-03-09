@@ -36,6 +36,39 @@ export interface OverlayStyling {
   autoHideSeconds: number // 0 = manual hide only
 }
 
+// ── Stream Config ────────────────────────────────────────────────
+
+export interface StreamConfig {
+  streamKey: string
+  rtmpUrl: string
+  viewingLink: string
+  embedCode: string
+  chatLink: string
+}
+
+// ── Notes ────────────────────────────────────────────────────────
+
+export interface Note {
+  id: string
+  text: string
+  timestamp: string // wall clock ISO
+  obsTimecode: string // HH:MM:SS from OBS recording, or empty
+  createdAt: string
+}
+
+// ── Starting Soon ────────────────────────────────────────────────
+
+export interface StartingSoonState {
+  visible: boolean
+  title: string
+  subtitle: string
+  countdownTarget: string // ISO date or empty
+  showCountdown: boolean
+  backgroundColor: string
+  textColor: string
+  accentColor: string
+}
+
 // ── Overlay State (pushed to browser source) ─────────────────────
 
 export interface OverlayState {
@@ -61,6 +94,7 @@ export interface OverlayState {
     backgroundColor: string
     textColor: string
   }
+  startingSoon: StartingSoonState
 }
 
 // ── Session (saved/loaded as JSON) ───────────────────────────────
@@ -75,6 +109,8 @@ export interface Session {
   selectedIndex?: number
   playedIds?: string[]
   loopMode?: LoopMode
+  streamConfig?: StreamConfig
+  notes?: Note[]
   createdAt: string // ISO date
   updatedAt: string // ISO date
 }
@@ -126,6 +162,12 @@ export interface AppSettings {
   sessionsDir: string
   mappingPresets?: MappingPreset[]
   compactMode?: boolean
+  streamConfig?: StreamConfig
+  obsConnection?: {
+    host: string
+    port: number
+    password: string
+  }
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────
@@ -195,6 +237,26 @@ export const IPC = {
   // Window
   WINDOW_RESIZE: 'window:resize',
 
+  // Stream config
+  STREAM_CONFIG_GET: 'stream:config-get',
+  STREAM_CONFIG_SET: 'stream:config-set',
+
+  // Notes
+  NOTES_LIST: 'notes:list',
+  NOTES_ADD: 'notes:add',
+  NOTES_DELETE: 'notes:delete',
+
+  // OBS connection
+  OBS_CONNECT: 'obs:connect',
+  OBS_DISCONNECT: 'obs:disconnect',
+  OBS_STATUS: 'obs:status',
+  OBS_GET_TIMECODE: 'obs:get-timecode',
+
+  // Starting soon
+  STARTING_SOON_SHOW: 'starting-soon:show',
+  STARTING_SOON_HIDE: 'starting-soon:hide',
+  STARTING_SOON_UPDATE: 'starting-soon:update',
+
   // State sync (main - renderer push events)
   STATE_UPDATE: 'state:update',
   OVERLAY_STATE_UPDATE: 'overlay:state-update',
@@ -247,6 +309,17 @@ export const DEFAULT_STYLING: OverlayStyling = {
   autoHideSeconds: 8,
 }
 
+export const DEFAULT_STARTING_SOON: StartingSoonState = {
+  visible: false,
+  title: 'Starting Soon',
+  subtitle: '',
+  countdownTarget: '',
+  showCountdown: true,
+  backgroundColor: '#1a1a2e',
+  textColor: '#ffffff',
+  accentColor: '#667eea',
+}
+
 export const DEFAULT_OVERLAY_STATE: OverlayState = {
   lowerThird: {
     visible: false,
@@ -258,4 +331,13 @@ export const DEFAULT_OVERLAY_STATE: OverlayState = {
   companyLogo: { visible: false, dataUrl: '' },
   clientLogo: { visible: false, dataUrl: '' },
   ticker: { visible: false, text: '', speed: 60, backgroundColor: '#1a1a2e', textColor: '#ffffff' },
+  startingSoon: { ...DEFAULT_STARTING_SOON },
+}
+
+export const DEFAULT_STREAM_CONFIG: StreamConfig = {
+  streamKey: '',
+  rtmpUrl: '',
+  viewingLink: '',
+  embedCode: '',
+  chatLink: '',
 }

@@ -1,11 +1,12 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import fs from 'fs'
-import { IPC, Trigger, OverlayStyling, LoopMode } from '../shared/types'
+import { IPC, Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState } from '../shared/types'
 import * as overlay from './services/overlay'
 import * as session from './services/session'
 import * as settings from './services/settings'
 import * as documentImport from './services/documentImport'
 import * as brandScraper from './services/brandScraper'
+import * as obsConnection from './services/obsConnection'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 
@@ -28,6 +29,10 @@ function pushState(): void {
       overlay.getLoopMode(),
     )
   }
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
 export function registerIpcHandlers(): void {
@@ -187,6 +192,8 @@ export function registerIpcHandlers(): void {
       overlay.getSelectedIndex(),
       overlay.getPlayedSet(),
       overlay.getLoopMode(),
+      overlay.getNotes(),
+      overlay.getStreamConfig(),
     )
     return s
   })
@@ -202,6 +209,8 @@ export function registerIpcHandlers(): void {
         s.selectedIndex,
         s.playedIds,
         s.loopMode,
+        s.notes,
+        s.streamConfig,
       )
       pushState()
     }
@@ -275,6 +284,85 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.TICKER_UPDATE, (_e, updates: Partial<import('../shared/types').OverlayState['ticker']>) => {
     overlay.updateTicker(updates)
     pushState()
+  })
+
+  // ── Stream Config ──────────────────────────────────────────────
+
+  ipcMain.handle(IPC.STREAM_CONFIG_GET, () => {
+    return overlay.getStreamConfig()
+  })
+
+  ipcMain.handle(IPC.STREAM_CONFIG_SET, (_e, config: StreamConfig) => {
+    overlay.setStreamConfig(config)
+    // Also persist to settings
+    settings.set('streamConfig', config)
+  })
+
+  // ── Notes ──────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.NOTES_LIST, () => {
+    return overlay.getNotes()
+  })
+
+  ipcMain.handle(IPC.NOTES_ADD, async (_e, text: string) => {
+    const timecode = await obsConnection.getRecordTimecode()
+    const note = {
+      id: generateId(),
+      text,
+      timestamp: new Date().toISOString(),
+      obsTimecode: timecode,
+      createdAt: new Date().toISOString(),
+    }
+    overlay.addNote(note)
+    return note
+  })
+
+  ipcMain.handle(IPC.NOTES_DELETE, (_e, id: string) => {
+    overlay.deleteNote(id)
+  })
+
+  // ── OBS Connection ─────────────────────────────────────────────
+
+  ipcMain.handle(IPC.OBS_CONNECT, async (_e, host: string, port: number, password?: string) => {
+    try {
+      await obsConnection.connect(host, port, password)
+      return { connected: true }
+    } catch (err) {
+      return { connected: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.OBS_DISCONNECT, () => {
+    obsConnection.disconnect()
+    return { connected: false }
+  })
+
+  ipcMain.handle(IPC.OBS_STATUS, () => {
+    return { connected: obsConnection.isConnected() }
+  })
+
+  ipcMain.handle(IPC.OBS_GET_TIMECODE, async () => {
+    return obsConnection.getRecordTimecode()
+  })
+
+  // ── Starting Soon ──────────────────────────────────────────────
+
+  ipcMain.handle(IPC.STARTING_SOON_SHOW, () => {
+    overlay.showStartingSoon()
+    pushState()
+    broadcastState()
+  })
+
+  ipcMain.handle(IPC.STARTING_SOON_HIDE, () => {
+    overlay.hideStartingSoon()
+    pushState()
+    broadcastState()
+  })
+
+  ipcMain.handle(IPC.STARTING_SOON_UPDATE, (_e, updates: Partial<StartingSoonState>) => {
+    overlay.updateStartingSoon(updates)
+    pushState()
+    broadcastState()
   })
 
   // ── Document import ────────────────────────────────────────────

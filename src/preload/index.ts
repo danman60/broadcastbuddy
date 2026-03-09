@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -58,6 +58,28 @@ contextBridge.exposeInMainWorld('api', {
   tickerHide: () => ipcRenderer.invoke(IPC.TICKER_HIDE),
   tickerUpdate: (updates: Record<string, unknown>) =>
     ipcRenderer.invoke(IPC.TICKER_UPDATE, updates),
+
+  // ── Stream Config ─────────────────────────────────────────────
+  streamConfigGet: () => ipcRenderer.invoke(IPC.STREAM_CONFIG_GET),
+  streamConfigSet: (config: StreamConfig) => ipcRenderer.invoke(IPC.STREAM_CONFIG_SET, config),
+
+  // ── Notes ─────────────────────────────────────────────────────
+  notesList: () => ipcRenderer.invoke(IPC.NOTES_LIST),
+  notesAdd: (text: string) => ipcRenderer.invoke(IPC.NOTES_ADD, text),
+  notesDelete: (id: string) => ipcRenderer.invoke(IPC.NOTES_DELETE, id),
+
+  // ── OBS Connection ────────────────────────────────────────────
+  obsConnect: (host: string, port: number, password?: string) =>
+    ipcRenderer.invoke(IPC.OBS_CONNECT, host, port, password),
+  obsDisconnect: () => ipcRenderer.invoke(IPC.OBS_DISCONNECT),
+  obsStatus: () => ipcRenderer.invoke(IPC.OBS_STATUS),
+  obsGetTimecode: () => ipcRenderer.invoke(IPC.OBS_GET_TIMECODE),
+
+  // ── Starting Soon ─────────────────────────────────────────────
+  startingSoonShow: () => ipcRenderer.invoke(IPC.STARTING_SOON_SHOW),
+  startingSoonHide: () => ipcRenderer.invoke(IPC.STARTING_SOON_HIDE),
+  startingSoonUpdate: (updates: Partial<StartingSoonState>) =>
+    ipcRenderer.invoke(IPC.STARTING_SOON_UPDATE, updates),
 
   // ── Document import ────────────────────────────────────────────
   importBrowse: () => ipcRenderer.invoke(IPC.IMPORT_BROWSE),

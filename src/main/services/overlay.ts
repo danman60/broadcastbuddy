@@ -4,8 +4,12 @@ import {
   OverlayState,
   OverlayStyling,
   Trigger,
+  Note,
+  StreamConfig,
+  StartingSoonState,
   DEFAULT_OVERLAY_STATE,
   DEFAULT_STYLING,
+  DEFAULT_STREAM_CONFIG,
   AnimationType,
   LoopMode,
 } from '../../shared/types'
@@ -24,6 +28,8 @@ let autoFireEnabled = false
 let playedSet: Set<string> = new Set()
 let loopMode: LoopMode = 'none'
 let pingPongDirection: 1 | -1 = 1
+let notes: Note[] = []
+let streamConfig: StreamConfig = { ...DEFAULT_STREAM_CONFIG }
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
@@ -361,6 +367,49 @@ export function updateTicker(updates: Partial<OverlayState['ticker']>): void {
   notifyChange()
 }
 
+// ── Starting Soon ────────────────────────────────────────────────
+
+export function showStartingSoon(): void {
+  overlayState.startingSoon.visible = true
+  notifyChange()
+  logger.info('Starting soon shown')
+}
+
+export function hideStartingSoon(): void {
+  overlayState.startingSoon.visible = false
+  notifyChange()
+  logger.info('Starting soon hidden')
+}
+
+export function updateStartingSoon(updates: Partial<StartingSoonState>): void {
+  overlayState.startingSoon = { ...overlayState.startingSoon, ...updates }
+  notifyChange()
+}
+
+// ── Notes ────────────────────────────────────────────────────────
+
+export function getNotes(): Note[] {
+  return notes
+}
+
+export function addNote(note: Note): void {
+  notes.unshift(note)
+}
+
+export function deleteNote(id: string): void {
+  notes = notes.filter((n) => n.id !== id)
+}
+
+// ── Stream Config ────────────────────────────────────────────────
+
+export function getStreamConfig(): StreamConfig {
+  return streamConfig
+}
+
+export function setStreamConfig(config: StreamConfig): void {
+  streamConfig = config
+}
+
 // ── Reset for new session ────────────────────────────────────────
 
 export function resetState(): void {
@@ -370,6 +419,8 @@ export function resetState(): void {
   playedSet.clear()
   loopMode = 'none'
   pingPongDirection = 1
+  notes = []
+  streamConfig = { ...DEFAULT_STREAM_CONFIG }
   if (autoHideTimer) {
     clearTimeout(autoHideTimer)
     autoHideTimer = null
@@ -387,6 +438,8 @@ export function loadSessionState(
   savedSelectedIndex?: number,
   savedPlayedIds?: string[],
   savedLoopMode?: LoopMode,
+  savedNotes?: Note[],
+  savedStreamConfig?: StreamConfig,
 ): void {
   triggers = sessionTriggers
   // Restore saved index or default to 0
@@ -398,6 +451,9 @@ export function loadSessionState(
   // Restore loop mode
   loopMode = savedLoopMode || 'none'
   pingPongDirection = 1
+  // Restore notes and stream config
+  notes = savedNotes || []
+  streamConfig = savedStreamConfig || { ...DEFAULT_STREAM_CONFIG }
 
   overlayState.lowerThird.styling = { ...styling }
   overlayState.lowerThird.visible = false
@@ -633,6 +689,48 @@ function buildOverlayHTML(): string {
     100% { transform: scale(0) rotate(300deg); opacity: 0; }
   }
 
+  /* ── Starting Soon Scene ── */
+  .starting-soon {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    z-index: 50;
+    text-align: center;
+  }
+  .starting-soon.visible { opacity: 1; }
+  .ss-title {
+    font-size: 72px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .ss-subtitle {
+    font-size: 28px;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-bottom: 40px;
+  }
+  .ss-countdown {
+    font-size: 96px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 4px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .ss-countdown.active { opacity: 1; }
+  .ss-accent-line {
+    width: 120px;
+    height: 4px;
+    border-radius: 2px;
+    margin: 24px auto;
+  }
+
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
@@ -681,11 +779,19 @@ function buildOverlayHTML(): string {
     </div>
   </div>
 
+  <div id="starting-soon" class="starting-soon">
+    <div class="ss-title" id="ss-title"></div>
+    <div class="ss-accent-line" id="ss-accent"></div>
+    <div class="ss-subtitle" id="ss-subtitle"></div>
+    <div class="ss-countdown" id="ss-countdown"></div>
+  </div>
+
   <script>
     const WS_URL = 'ws://127.0.0.1:9877';
     let ws = null;
     let reconnectTimer = null;
     let typewriterTimer = null;
+    let countdownInterval = null;
 
     function connect() {
       ws = new WebSocket(WS_URL);
@@ -852,6 +958,11 @@ function buildOverlayHTML(): string {
         cliLogo.classList.remove('visible');
       }
 
+      // Starting Soon
+      if (msg.overlay.startingSoon) {
+        applyStartingSoon(msg.overlay.startingSoon);
+      }
+
       // Ticker
       const ticker = msg.overlay.ticker;
       const tickerEl = document.getElementById('ticker');
@@ -864,6 +975,59 @@ function buildOverlayHTML(): string {
         const duration = Math.max(10, 1920 / speed * 2);
         tickerText.style.animationDuration = duration + 's';
         tickerEl.classList.toggle('visible', ticker.visible);
+      }
+    }
+
+    function applyStartingSoon(ss) {
+      var ssEl = document.getElementById('starting-soon');
+      var ssTitleEl = document.getElementById('ss-title');
+      var ssSubEl = document.getElementById('ss-subtitle');
+      var ssCountEl = document.getElementById('ss-countdown');
+      var ssAccent = document.getElementById('ss-accent');
+
+      if (!ss) { ssEl.classList.remove('visible'); return; }
+
+      ssTitleEl.textContent = ss.title || '';
+      ssSubEl.textContent = ss.subtitle || '';
+      ssEl.style.background = ss.backgroundColor || '#1a1a2e';
+      ssTitleEl.style.color = ss.textColor || '#ffffff';
+      ssSubEl.style.color = ss.textColor || '#ffffff';
+      ssCountEl.style.color = ss.accentColor || '#667eea';
+      ssAccent.style.background = ss.accentColor || '#667eea';
+
+      if (ss.visible) {
+        ssEl.classList.add('visible');
+      } else {
+        ssEl.classList.remove('visible');
+      }
+
+      // Countdown
+      if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+      if (ss.visible && ss.showCountdown && ss.countdownTarget) {
+        ssCountEl.classList.add('active');
+        function updateCountdown() {
+          var target = new Date(ss.countdownTarget).getTime();
+          var now = Date.now();
+          var diff = Math.max(0, target - now);
+          if (diff <= 0) {
+            ssCountEl.textContent = '00:00';
+            if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+            return;
+          }
+          var h = Math.floor(diff / 3600000);
+          var m = Math.floor((diff % 3600000) / 60000);
+          var s = Math.floor((diff % 60000) / 1000);
+          if (h > 0) {
+            ssCountEl.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+          } else {
+            ssCountEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+          }
+        }
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+      } else {
+        ssCountEl.classList.remove('active');
+        ssCountEl.textContent = '';
       }
     }
 

@@ -1,7 +1,26 @@
 # Current Work - BroadcastBuddy
 
 ## Active Task
-Field Mapper for LLM Import - Phase 1 Core UI complete
+Field notes bug fixes + animation overhaul — COMPLETE
+
+## Recent Changes (2026-03-09)
+
+### Bug Fixes
+- **Slider drag conflict** — Added `stopPropagation` on range input pointer/mouse events (`AnimationPanel.tsx:73-74`)
+- **Session name badge dismiss** — Added click handler to clear session, hover opacity feedback (`Header.tsx:131-136`, `header.css:27-32`)
+- **Compact mode preview** — Hidden `OverlayPreview` entirely in compact mode (`app.css:100-103`)
+
+### Animation Overhaul
+- **Typewriter (browser source)** — JS-driven character-by-character reveal with blinking cursor element, auto-removes cursor after typing completes (`overlay.ts:648-690`)
+- **Typewriter (preview)** — Finer 24-step clip-path reveal + cursor blink animation via pseudo-element (`preview.css:138-158`)
+- **Sparkle (browser source)** — Golden glow keyframes, shimmer sweep via `::after` pseudo-element, 14 randomized particle elements injected via JS with `sparkle-pop` animation (`overlay.ts:560-595, 692-710`)
+- **Sparkle (preview)** — `drop-shadow` glow, `box-shadow` pulse keyframes, shimmer sweep pseudo-element (`preview.css:175-220`)
+- **All animations** — Improved easing curves (cubic-bezier overshoot on zoom/bounce/slide/rise/split), staggered opacity timing
+
+### Plan & Specs
+- Saved field notes roadmap: `docs/plans/2026-03-09-field-notes-roadmap.md`
+- Wrote CC integration spec: `~/projects/CommandCentered/docs/plans/2026-03-09-broadcast-buddy-integration.md`
+- Updated CC CURRENT_WORK.md with email responder + BB integration items
 
 ## Commits
 - `8a13ede` — Phase 1 MVP: core overlay system (41 files)
@@ -9,53 +28,25 @@ Field Mapper for LLM Import - Phase 1 Core UI complete
 - `19a7511` — Brand kit scraper, 30 Google Fonts, split/blur animations
 - `791a8c3` — Playlist mode, per-entry logos, Stream Deck plugin
 - `9ca7ca1` — Playlist system upgrade: DnD, played indicators, loop modes, bulk ops
-- (pending) — Field Mapper for LLM Import
+- `9fab747` — Field Mapper for LLM Import + session save/load fixes
+- `5310d24` — Collapsible panels + compact mode
+- `e5127ef` — Bug fixes (slider, session badge, compact preview) + animation overhaul
 
-## Field Mapper Implementation (IN PROGRESS)
+## Blockers
+- **Git push failed** — No GitHub auth in WSL (no `gh` CLI, SSH keys not configured). Commit `e5127ef` is local only. Need to push manually.
 
-### What Was Added
-- **Types** (`src/shared/types.ts`): Added `LLMExtractedField`, `FieldMapping`, `TransformConfig`, `MappingPreset`, `ExtractionResult`, new IPC channels
-- **LLM Service** (`src/main/services/llmService.ts`): Modified to return `ExtractionResult` with raw fields, sample data, and suggested mappings
-- **Document Import** (`src/main/services/documentImport.ts`): Updated to use new `ExtractionResult` interface
-- **ImportPanel** (`src/renderer/components/ImportPanel.tsx`): Added 'mapping' stage, state management, FieldMapper integration
-- **FieldMapper Component** (`src/renderer/components/FieldMapper.tsx`): New component with:
-  - Draggable source fields
-  - Drop targets for trigger fields (name, title, subtitle, category)
-  - Live preview table with editable cells
-  - Transform support (concat, format, extract, split)
-- **Styles** (`src/renderer/styles/fieldMapper.css`): Complete styling for the mapper UI
+## Next Steps
+1. Push `e5127ef` to remote (needs GitHub auth setup)
+2. Stream key / link storage per-event (field notes item 5)
+3. Notes with OBS recording timecodes (item 6)
+4. Stream Deck draggable button palette (item 7)
+5. Starting Soon overlay section with countdown (item 8)
+6. Visual overlay editor spec (item 12)
+7. Command Center integration — Phase 1 API (see CC spec)
 
-### How It Works
-1. User browses for document → text preview
-2. User clicks "Extract Triggers with AI" → LLM returns raw fields + sample data
-3. **NEW**: Field mapper stage shows:
-   - Left: Source fields discovered by LLM (draggable chips)
-   - Center: Transform options
-   - Right: Trigger target fields (drop zones)
-   - Preview panel: Live table showing mapped results
-4. User drags source fields to targets to map them
-5. Multiple sources can combine (auto-concat mode)
-6. User clicks "Apply & Import" → proceeds to review stage
-
-### Files Modified
-- `src/shared/types.ts` — New field mapping types
-- `src/main/services/llmService.ts` — Return extraction result structure
-- `src/main/services/documentImport.ts` — Updated interface
-- `src/renderer/components/ImportPanel.tsx` — Mapping stage integration
-- `src/renderer/components/FieldMapper.tsx` — **NEW**
-- `src/renderer/styles/fieldMapper.css` — **NEW**
-
-### Build Status
-- `tsc --noEmit` — PASS (zero type errors)
-- `npm run build` — PENDING
-
-### Next Steps
-1. Run full build
-2. Test with actual documents
-3. Add preset save/load (Phase 3)
-4. Consider "learn from edit" feature (Phase 2)
-
-## Known Issues/TODO
-- Preset persistence not implemented yet (Phase 3)
-- Edit-in-preview doesn't actually learn/save transforms yet (Phase 2)
-- No visualization of transform connections (nice-to-have)
+## Context for Next Session
+- Animation code: preview CSS in `src/renderer/styles/preview.css`, browser source in `src/main/services/overlay.ts` (inline HTML template)
+- Typewriter uses JS character reveal in browser source, CSS clip-path in preview
+- Sparkle uses JS particle injection + CSS shimmer in browser source, CSS-only in preview
+- CC integration spec at `~/projects/CommandCentered/docs/plans/2026-03-09-broadcast-buddy-integration.md`
+- CC repo at `~/projects/CommandCentered` — needs `brandLogoUrl` on Client, `overlayConfig` on Event, new `broadcastPackage` tRPC router

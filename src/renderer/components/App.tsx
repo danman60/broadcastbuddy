@@ -12,6 +12,9 @@ import { ImportPanel } from './ImportPanel'
 import { TemplateGallery } from './TemplateGallery'
 import { TickerControls } from './TickerControls'
 import { BrandScraperPanel } from './BrandScraperPanel'
+import { StreamInfoPanel } from './StreamInfoPanel'
+import { NotesPanel } from './NotesPanel'
+import { StartingSoonPanel } from './StartingSoonPanel'
 import { Settings } from './Settings'
 import '../styles/app.css'
 
@@ -38,10 +41,13 @@ export function App() {
           <OverlayControls />
           <TriggerEditor />
           <AnimationPanel />
+          <StartingSoonPanel />
           <TemplateGallery />
           <StylingPanel />
           <LogoManager />
           <TickerControls />
+          <StreamInfoPanel />
+          <NotesPanel />
         </div>
       </div>
       {showBrandKit && (

@@ -16,6 +16,18 @@ const store = new Store<AppSettings>({
     sessionsDir: '',
     mappingPresets: [],
     compactMode: false,
+    streamConfig: {
+      streamKey: '',
+      rtmpUrl: '',
+      viewingLink: '',
+      embedCode: '',
+      chatLink: '',
+    },
+    obsConnection: {
+      host: '127.0.0.1',
+      port: 4455,
+      password: '',
+    },
   },
 })
 

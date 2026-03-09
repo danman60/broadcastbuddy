@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { Session, Trigger, OverlayStyling, DEFAULT_STYLING, LoopMode } from '../../shared/types'
+import { Session, Trigger, OverlayStyling, DEFAULT_STYLING, LoopMode, Note, StreamConfig } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('session')
@@ -50,6 +50,8 @@ export function saveSession(
   selectedIndex?: number,
   playedIds?: string[],
   savedLoopMode?: LoopMode,
+  savedNotes?: Note[],
+  savedStreamConfig?: StreamConfig,
 ): Session | null {
   if (!currentSession) return null
 
@@ -60,6 +62,8 @@ export function saveSession(
   if (selectedIndex !== undefined) currentSession.selectedIndex = selectedIndex
   if (playedIds !== undefined) currentSession.playedIds = playedIds
   if (savedLoopMode !== undefined) currentSession.loopMode = savedLoopMode
+  if (savedNotes !== undefined) currentSession.notes = savedNotes
+  if (savedStreamConfig !== undefined) currentSession.streamConfig = savedStreamConfig
   currentSession.updatedAt = new Date().toISOString()
 
   const filePath = path.join(getSessionsDir(), `${currentSession.id}.json`)
