@@ -225,6 +225,12 @@ export interface BroadcastPackage {
     livestreamUrl: string | null
     embedCode: string | null
   }
+  drive?: {
+    eventFolderId: string | null
+    eventFolderUrl: string | null
+    clientFolderId: string | null
+    clientFolderUrl: string | null
+  }
 }
 
 export interface CCEvent {
@@ -329,6 +335,11 @@ export const IPC = {
   CC_FETCH_EVENTS: 'cc:fetch-events',
   CC_FETCH_PACKAGE: 'cc:fetch-package',
   CC_APPLY_PACKAGE: 'cc:apply-package',
+  CC_UPLOAD_RECORDING: 'cc:upload-recording',
+
+  // OBS recording
+  OBS_GET_LAST_RECORDING: 'obs:get-last-recording',
+  RECORDING_BROWSE: 'recording:browse',
 
   // State sync (main - renderer push events)
   STATE_UPDATE: 'state:update',

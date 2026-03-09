@@ -64,7 +64,7 @@ export function BroadcastPackagePanel() {
         return
       }
       const pkg = result.package as BroadcastPackage
-      const applyResult = await window.api.ccApplyPackage(pkg)
+      const applyResult = await window.api.ccApplyPackage(pkg, eventId)
       if (applyResult.success) {
         setSuccess(`Loaded ${applyResult.triggerCount} triggers from "${pkg.event.eventName}"`)
       } else {

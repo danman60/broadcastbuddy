@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import fs from 'fs'
+import path from 'path'
 import { IPC, Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage } from '../shared/types'
 import * as overlay from './services/overlay'
 import * as session from './services/session'
@@ -410,7 +411,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.CC_APPLY_PACKAGE, (_e, pkg: BroadcastPackage) => {
+  ipcMain.handle(IPC.CC_APPLY_PACKAGE, (_e, pkg: BroadcastPackage, eventId?: string) => {
     // Convert CC triggers to BB triggers
     const newTriggers: Trigger[] = pkg.triggers.map((t, i) => ({
       id: generateId() + i,
@@ -445,7 +446,81 @@ export function registerIpcHandlers(): void {
     }
 
     pushState()
+
+    // Push recording upload context to renderer
+    const win = getMainWindow()
+    if (win) {
+      const folderUrl = pkg.drive?.eventFolderUrl || pkg.drive?.clientFolderUrl || null
+      win.webContents.send('cc:recording-context', eventId || '', pkg.event.eventName, folderUrl)
+    }
+
     return { success: true, triggerCount: newTriggers.length }
+  })
+
+  ipcMain.handle(IPC.CC_UPLOAD_RECORDING, async (_e, baseUrl: string, apiKey: string, tenantId: string, eventId: string, filePath: string, fileName?: string) => {
+    try {
+      const fileBuffer = fs.readFileSync(filePath)
+      const ext = path.extname(filePath).toLowerCase()
+      const mimeMap: Record<string, string> = {
+        '.mp4': 'video/mp4', '.mkv': 'video/x-matroska', '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo', '.flv': 'video/x-flv', '.ts': 'video/mp2t', '.webm': 'video/webm',
+      }
+      const mime = mimeMap[ext] || 'video/mp4'
+      const name = fileName || path.basename(filePath)
+
+      const formData = new FormData()
+      formData.append('file', new Blob([fileBuffer], { type: mime }), name)
+      formData.append('eventId', eventId)
+      if (fileName) formData.append('fileName', fileName)
+
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package/upload`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
+        body: formData,
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const body = await res.json()
+      return { success: true, ...body }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.OBS_GET_LAST_RECORDING, async () => {
+    try {
+      const result = await obsConnection.sendRequest('GetLastReplayBufferReplay') as { savedReplayPath?: string } | null
+      if (result?.savedReplayPath) return { success: true, path: result.savedReplayPath }
+      // Try GetRecordDirectory for the latest file
+      const dirResult = await obsConnection.sendRequest('GetRecordDirectory') as { recordDirectory?: string } | null
+      if (dirResult?.recordDirectory) {
+        // Find most recent video file in directory
+        const dir = dirResult.recordDirectory
+        try {
+          const files = fs.readdirSync(dir)
+            .filter(f => /\.(mp4|mkv|mov|flv|ts|webm|avi)$/i.test(f))
+            .map(f => ({ name: f, time: fs.statSync(path.join(dir, f)).mtime.getTime() }))
+            .sort((a, b) => b.time - a.time)
+          if (files.length > 0) {
+            return { success: true, path: path.join(dir, files[0].name) }
+          }
+        } catch { /* ignore directory read errors */ }
+      }
+      return { success: false, error: 'No recording found' }
+    } catch {
+      return { success: false, error: 'OBS not connected or no recording available' }
+    }
+  })
+
+  ipcMain.handle(IPC.RECORDING_BROWSE, async () => {
+    const win = getMainWindow()
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'Video Files', extensions: ['mp4', 'mkv', 'mov', 'flv', 'ts', 'webm', 'avi'] }],
+    })
+    return result.canceled ? null : result.filePaths[0]
   })
 
   // ── Document import ────────────────────────────────────────────

@@ -88,8 +88,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.CC_FETCH_EVENTS, baseUrl, apiKey, tenantId),
   ccFetchPackage: (baseUrl: string, apiKey: string, tenantId: string, eventId: string) =>
     ipcRenderer.invoke(IPC.CC_FETCH_PACKAGE, baseUrl, apiKey, tenantId, eventId),
-  ccApplyPackage: (pkg: BroadcastPackage) =>
-    ipcRenderer.invoke(IPC.CC_APPLY_PACKAGE, pkg),
+  ccApplyPackage: (pkg: BroadcastPackage, eventId?: string) =>
+    ipcRenderer.invoke(IPC.CC_APPLY_PACKAGE, pkg, eventId),
+  ccUploadRecording: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, filePath: string, fileName?: string) =>
+    ipcRenderer.invoke(IPC.CC_UPLOAD_RECORDING, baseUrl, apiKey, tenantId, eventId, filePath, fileName),
+  obsGetLastRecording: () => ipcRenderer.invoke(IPC.OBS_GET_LAST_RECORDING),
+  recordingBrowse: () => ipcRenderer.invoke(IPC.RECORDING_BROWSE),
 
   // ── Document import ────────────────────────────────────────────
   importBrowse: () => ipcRenderer.invoke(IPC.IMPORT_BROWSE),
