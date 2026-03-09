@@ -192,6 +192,49 @@ export interface AppSettings {
     port: number
     password: string
   }
+  ccConfig?: {
+    baseUrl: string
+    apiKey: string
+    tenantId: string
+  }
+}
+
+// ── Broadcast Package (from Command Center) ──────────────────────
+
+export interface BroadcastPackage {
+  event: {
+    eventName: string
+    eventType: string
+    venueName: string
+    eventDate: string
+  }
+  client: {
+    organization: string
+    brandColor: string | null
+  }
+  triggers: Array<{
+    type: 'title_card' | 'lower_third'
+    name: string
+    subtitle?: string
+    logoUrl?: string | null
+    shiftName?: string
+  }>
+  streaming: {
+    streamKey: string | null
+    rtmpUrl: string | null
+    livestreamUrl: string | null
+    embedCode: string | null
+  }
+}
+
+export interface CCEvent {
+  id: string
+  eventName: string
+  eventType: string
+  venueName: string
+  loadInTime: string
+  status: string
+  client: { organization: string }
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────
@@ -281,6 +324,11 @@ export const IPC = {
   STARTING_SOON_SHOW: 'starting-soon:show',
   STARTING_SOON_HIDE: 'starting-soon:hide',
   STARTING_SOON_UPDATE: 'starting-soon:update',
+
+  // Command Center broadcast package
+  CC_FETCH_EVENTS: 'cc:fetch-events',
+  CC_FETCH_PACKAGE: 'cc:fetch-package',
+  CC_APPLY_PACKAGE: 'cc:apply-package',
 
   // State sync (main - renderer push events)
   STATE_UPDATE: 'state:update',

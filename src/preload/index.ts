@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -82,6 +82,14 @@ contextBridge.exposeInMainWorld('api', {
   startingSoonHide: () => ipcRenderer.invoke(IPC.STARTING_SOON_HIDE),
   startingSoonUpdate: (updates: Partial<StartingSoonState>) =>
     ipcRenderer.invoke(IPC.STARTING_SOON_UPDATE, updates),
+
+  // ── Command Center ────────────────────────────────────────────
+  ccFetchEvents: (baseUrl: string, apiKey: string, tenantId: string) =>
+    ipcRenderer.invoke(IPC.CC_FETCH_EVENTS, baseUrl, apiKey, tenantId),
+  ccFetchPackage: (baseUrl: string, apiKey: string, tenantId: string, eventId: string) =>
+    ipcRenderer.invoke(IPC.CC_FETCH_PACKAGE, baseUrl, apiKey, tenantId, eventId),
+  ccApplyPackage: (pkg: BroadcastPackage) =>
+    ipcRenderer.invoke(IPC.CC_APPLY_PACKAGE, pkg),
 
   // ── Document import ────────────────────────────────────────────
   importBrowse: () => ipcRenderer.invoke(IPC.IMPORT_BROWSE),

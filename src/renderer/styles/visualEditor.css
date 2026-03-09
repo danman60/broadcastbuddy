@@ -32,6 +32,11 @@
   gap: 6px;
 }
 
+.ve-actions .active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .ve-body {
   flex: 1;
   display: flex;
@@ -70,6 +75,54 @@
   z-index: 1;
 }
 
+/* ── Grid overlay ── */
+.ve-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ve-grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ve-grid-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+}
+
+.ve-grid-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+/* ── Snap guides ── */
+.ve-snap-line {
+  position: absolute;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.ve-snap-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.ve-snap-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
 /* ── Elements ── */
 .ve-element {
   position: absolute;
@@ -106,6 +159,42 @@
 .ve-element:hover .ve-label,
 .ve-element.selected .ve-label {
   opacity: 1;
+}
+
+/* ── Resize handles ── */
+.ve-resize-handle {
+  position: absolute;
+  z-index: 20;
+  background: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 2px;
+}
+
+.ve-handle-right {
+  width: 6px;
+  height: 14px;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.ve-handle-bottom {
+  width: 14px;
+  height: 6px;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.ve-handle-bottom-right {
+  width: 8px;
+  height: 8px;
+  right: -8px;
+  bottom: -8px;
+  cursor: nwse-resize;
+  border-radius: 50%;
 }
 
 /* ── Logo elements ── */

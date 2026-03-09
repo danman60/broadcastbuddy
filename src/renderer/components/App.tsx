@@ -15,6 +15,7 @@ import { BrandScraperPanel } from './BrandScraperPanel'
 import { StreamInfoPanel } from './StreamInfoPanel'
 import { NotesPanel } from './NotesPanel'
 import { StartingSoonPanel } from './StartingSoonPanel'
+import { BroadcastPackagePanel } from './BroadcastPackagePanel'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
@@ -50,6 +51,7 @@ export function App() {
           <TickerControls />
           <StreamInfoPanel />
           <NotesPanel />
+          <BroadcastPackagePanel />
         </div>
       </div>
       {showBrandKit && (

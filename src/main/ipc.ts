@@ -1,6 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import fs from 'fs'
-import { IPC, Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState } from '../shared/types'
+import { IPC, Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage } from '../shared/types'
 import * as overlay from './services/overlay'
 import * as session from './services/session'
 import * as settings from './services/settings'
@@ -378,6 +378,74 @@ export function registerIpcHandlers(): void {
     overlay.updateStartingSoon(updates)
     pushState()
     broadcastState()
+  })
+
+  // ── Command Center broadcast package ──────────────────────────
+
+  ipcMain.handle(IPC.CC_FETCH_EVENTS, async (_e, baseUrl: string, apiKey: string, tenantId: string) => {
+    try {
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package`
+      const res = await fetch(url, {
+        headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      return { success: true, events: await res.json() }
+    } catch (err) {
+      return { success: false, error: (err as Error).message, events: [] }
+    }
+  })
+
+  ipcMain.handle(IPC.CC_FETCH_PACKAGE, async (_e, baseUrl: string, apiKey: string, tenantId: string, eventId: string) => {
+    try {
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package/${eventId}`
+      const res = await fetch(url, {
+        headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const body = await res.json()
+      // CC wraps in { success, data }
+      return { success: true, package: body.data || body }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.CC_APPLY_PACKAGE, (_e, pkg: BroadcastPackage) => {
+    // Convert CC triggers to BB triggers
+    const newTriggers: Trigger[] = pkg.triggers.map((t, i) => ({
+      id: generateId() + i,
+      name: t.name,
+      title: t.name,
+      subtitle: t.subtitle || '',
+      category: t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
+      order: i,
+      logoDataUrl: '', // logoUrl would need to be fetched separately
+    }))
+
+    // Apply triggers
+    overlay.clearAllTriggers()
+    for (const t of newTriggers) {
+      overlay.addTrigger(t)
+    }
+
+    // Apply stream config if present
+    if (pkg.streaming.streamKey || pkg.streaming.rtmpUrl) {
+      overlay.setStreamConfig({
+        streamKey: pkg.streaming.streamKey || '',
+        rtmpUrl: pkg.streaming.rtmpUrl || '',
+        viewingLink: pkg.streaming.livestreamUrl || '',
+        embedCode: pkg.streaming.embedCode || '',
+        chatLink: '',
+      })
+    }
+
+    // Apply brand color as accent if available
+    if (pkg.client.brandColor) {
+      overlay.updateStyling({ accentColor: pkg.client.brandColor })
+    }
+
+    pushState()
+    return { success: true, triggerCount: newTriggers.length }
   })
 
   // ── Document import ────────────────────────────────────────────

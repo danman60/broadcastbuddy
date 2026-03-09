@@ -11,6 +11,23 @@ interface DragState {
   startX: number
   startY: number
   startPos: ElementPosition
+  mode: 'move' | 'resize'
+  handle?: string // e.g. 'right', 'bottom-right'
+}
+
+interface SnapLine {
+  axis: 'x' | 'y'
+  position: number // percentage
+}
+
+const SNAP_THRESHOLD = 1.5 // percentage units
+const SNAP_TARGETS = [0, 5, 10, 25, 50, 75, 90, 95, 100]
+
+function findSnap(value: number, targets: number[]): number | null {
+  for (const t of targets) {
+    if (Math.abs(value - t) < SNAP_THRESHOLD) return t
+  }
+  return null
 }
 
 export function VisualEditor({ onClose }: { onClose: () => void }) {
@@ -19,6 +36,8 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<ElementKey | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [layout, setLayout] = useState<OverlayLayout>({ ...DEFAULT_LAYOUT })
+  const [showGrid, setShowGrid] = useState(false)
+  const [snapLines, setSnapLines] = useState<SnapLine[]>([])
 
   useEffect(() => {
     if (overlayState?.lowerThird.styling.layout) {
@@ -26,7 +45,6 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
     }
   }, [])
 
-  // Convert mouse event to canvas percentage coordinates
   const toCanvasPercent = useCallback(
     (clientX: number, clientY: number): { px: number; py: number } => {
       const canvas = canvasRef.current
@@ -50,6 +68,21 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
       startX: px,
       startY: py,
       startPos: { ...layout[element] },
+      mode: 'move',
+    })
+  }
+
+  function handleResizeDown(e: React.MouseEvent, element: ElementKey, handle: string) {
+    e.stopPropagation()
+    e.preventDefault()
+    const { px, py } = toCanvasPercent(e.clientX, e.clientY)
+    setDrag({
+      element,
+      startX: px,
+      startY: py,
+      startPos: { ...layout[element] },
+      mode: 'resize',
+      handle,
     })
   }
 
@@ -58,8 +91,49 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
     const { px, py } = toCanvasPercent(e.clientX, e.clientY)
     const dx = px - drag.startX
     const dy = py - drag.startY
-    const newX = Math.max(0, Math.min(95, drag.startPos.x + dx))
-    const newY = Math.max(0, Math.min(98, drag.startPos.y + dy))
+
+    if (drag.mode === 'resize') {
+      setLayout((prev) => {
+        const pos = { ...prev[drag.element] }
+        const handle = drag.handle || ''
+        if (handle.includes('right')) {
+          pos.width = Math.max(5, Math.min(100 - pos.x, (drag.startPos.width || 20) + dx))
+        }
+        if (handle.includes('bottom')) {
+          pos.height = Math.max(3, Math.min(100 - pos.y, (drag.startPos.height || 10) + dy))
+        }
+        return { ...prev, [drag.element]: pos }
+      })
+      return
+    }
+
+    // Move with snapping
+    let newX = Math.max(0, Math.min(95, drag.startPos.x + dx))
+    let newY = Math.max(0, Math.min(98, drag.startPos.y + dy))
+
+    const activeSnaps: SnapLine[] = []
+    const snapX = findSnap(newX, SNAP_TARGETS)
+    const snapY = findSnap(newY, SNAP_TARGETS)
+
+    if (snapX !== null) {
+      newX = snapX
+      activeSnaps.push({ axis: 'x', position: snapX })
+    }
+    if (snapY !== null) {
+      newY = snapY
+      activeSnaps.push({ axis: 'y', position: snapY })
+    }
+
+    // Also snap to center
+    const elW = layout[drag.element].width || 10
+    const centerX = newX + elW / 2
+    const snapCenterX = findSnap(centerX, [50])
+    if (snapCenterX !== null) {
+      newX = 50 - elW / 2
+      activeSnaps.push({ axis: 'x', position: 50 })
+    }
+
+    setSnapLines(activeSnaps)
     setLayout((prev) => ({
       ...prev,
       [drag.element]: { ...prev[drag.element], x: newX, y: newY },
@@ -68,6 +142,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
 
   function handleMouseUp() {
     setDrag(null)
+    setSnapLines([])
   }
 
   function handleCanvasClick(e: React.MouseEvent) {
@@ -79,6 +154,10 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
       onClose()
+      return
+    }
+    if (e.key === 'g' && !e.ctrlKey && !e.metaKey) {
+      setShowGrid((v) => !v)
       return
     }
     if (!selected) return
@@ -120,6 +199,26 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
   const lt = overlayState.lowerThird
   const s = lt.styling
 
+  const resizeHandles = (element: ElementKey) => {
+    if (selected !== element) return null
+    return (
+      <>
+        <div
+          className="ve-resize-handle ve-handle-right"
+          onMouseDown={(e) => handleResizeDown(e, element, 'right')}
+        />
+        <div
+          className="ve-resize-handle ve-handle-bottom"
+          onMouseDown={(e) => handleResizeDown(e, element, 'bottom')}
+        />
+        <div
+          className="ve-resize-handle ve-handle-bottom-right"
+          onMouseDown={(e) => handleResizeDown(e, element, 'bottom-right')}
+        />
+      </>
+    )
+  }
+
   return (
     <div
       className="ve-overlay"
@@ -132,6 +231,13 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
       <div className="ve-header">
         <span className="ve-title">Visual Overlay Editor</span>
         <div className="ve-actions">
+          <button
+            className={`btn btn-ghost btn-sm${showGrid ? ' active' : ''}`}
+            onClick={() => setShowGrid((v) => !v)}
+            title="Toggle grid (G)"
+          >
+            Grid
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={handleReset}>
             Reset
           </button>
@@ -154,6 +260,27 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
             {/* Safe zone guide */}
             <div className="ve-safe-zone" />
 
+            {/* Grid overlay */}
+            {showGrid && (
+              <div className="ve-grid">
+                {[10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90].map((p) => (
+                  <div key={`gx-${p}`} className="ve-grid-line ve-grid-v" style={{ left: `${p}%` }} />
+                ))}
+                {[10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90].map((p) => (
+                  <div key={`gy-${p}`} className="ve-grid-line ve-grid-h" style={{ top: `${p}%` }} />
+                ))}
+              </div>
+            )}
+
+            {/* Snap guides */}
+            {snapLines.map((sl, i) =>
+              sl.axis === 'x' ? (
+                <div key={`snap-${i}`} className="ve-snap-line ve-snap-v" style={{ left: `${sl.position}%` }} />
+              ) : (
+                <div key={`snap-${i}`} className="ve-snap-line ve-snap-h" style={{ top: `${sl.position}%` }} />
+              ),
+            )}
+
             {/* Company logo */}
             <div
               className={`ve-element ve-logo ${selected === 'companyLogo' ? 'selected' : ''}`}
@@ -166,6 +293,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
                 <span className="ve-placeholder">Company Logo</span>
               )}
               <span className="ve-label">Company Logo</span>
+              {resizeHandles('companyLogo')}
             </div>
 
             {/* Client logo */}
@@ -180,6 +308,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
                 <span className="ve-placeholder">Client Logo</span>
               )}
               <span className="ve-label">Client Logo</span>
+              {resizeHandles('clientLogo')}
             </div>
 
             {/* Lower third */}
@@ -210,6 +339,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               <span className="ve-label">Lower Third</span>
+              {resizeHandles('lowerThird')}
             </div>
 
             {/* Ticker */}
@@ -232,6 +362,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
                 {overlayState.ticker.text || 'Ticker text scrolls here...'}
               </div>
               <span className="ve-label">Ticker</span>
+              {resizeHandles('ticker')}
             </div>
           </div>
         </div>
@@ -270,8 +401,42 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
               />
               <span>%</span>
             </div>
+            {layout[selected].width !== undefined && (
+              <div className="ve-props-field">
+                <label>W</label>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={Number((layout[selected].width || 0).toFixed(1))}
+                  onChange={(e) =>
+                    setLayout((prev) => ({
+                      ...prev,
+                      [selected]: { ...prev[selected], width: Number(e.target.value) },
+                    }))
+                  }
+                />
+                <span>%</span>
+              </div>
+            )}
+            {layout[selected].height !== undefined && (
+              <div className="ve-props-field">
+                <label>H</label>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={Number((layout[selected].height || 0).toFixed(1))}
+                  onChange={(e) =>
+                    setLayout((prev) => ({
+                      ...prev,
+                      [selected]: { ...prev[selected], height: Number(e.target.value) },
+                    }))
+                  }
+                />
+                <span>%</span>
+              </div>
+            )}
             <p className="ve-props-hint">
-              Arrow keys to nudge. Shift+arrow for larger steps.
+              Arrows nudge. Shift+arrow = 2%. G = grid.
             </p>
           </div>
         )}
