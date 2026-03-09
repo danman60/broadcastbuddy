@@ -29,6 +29,12 @@
   padding: 4px 10px;
   background: var(--bg-tertiary);
   border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.header-session-name:hover {
+  opacity: 0.7;
 }
 
 .header-right {

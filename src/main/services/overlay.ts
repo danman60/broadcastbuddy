@@ -534,31 +534,104 @@ function buildOverlayHTML(): string {
   }
 
   /* ── Animation variants ── */
-  .lower-third.anim-slide { transform: translateX(-100px); }
-  .lower-third.anim-slide.visible { transform: translateX(0); }
 
+  /* Slide — smooth entrance from left */
+  .lower-third.anim-slide { transform: translateX(-100px); }
+  .lower-third.anim-slide.visible { transform: translateX(0); transition: opacity calc(var(--anim-dur, 0.5s) * 0.6) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* Fade */
   .lower-third.anim-fade { transform: none; }
 
-  .lower-third.anim-zoom { transform: scale(0.5); }
-  .lower-third.anim-zoom.visible { transform: scale(1); }
+  /* Zoom — scale up with pop */
+  .lower-third.anim-zoom { transform: scale(0.3); }
+  .lower-third.anim-zoom.visible { transform: scale(1); transition: opacity calc(var(--anim-dur, 0.5s) * 0.5) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-  .lower-third.anim-rise { transform: translateY(40px); }
-  .lower-third.anim-rise.visible { transform: translateY(0); }
+  /* Rise — float up smoothly */
+  .lower-third.anim-rise { transform: translateY(60px); }
+  .lower-third.anim-rise.visible { transform: translateY(0); transition: opacity calc(var(--anim-dur, 0.5s) * 0.5) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1); }
 
-  .lower-third.anim-typewriter { transform: none; clip-path: inset(0 100% 0 0); transition: opacity calc(var(--anim-dur, 0.5s) * 0.4) ease, clip-path var(--anim-dur, 0.5s) steps(20, end); }
-  .lower-third.anim-typewriter.visible { clip-path: inset(0 0 0 0); }
+  /* Typewriter — JS-driven character reveal, CSS handles opacity/card visibility */
+  .lower-third.anim-typewriter { transform: none; }
+  .lower-third.anim-typewriter .lt-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--text-color, #fff);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: cursor-blink 0.5s steps(1) infinite;
+  }
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
 
-  .lower-third.anim-bounce { transform: translateY(60px); }
-  .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.34, 1.56, 0.64, 1); }
+  /* Bounce — drop in with bounce */
+  .lower-third.anim-bounce { transform: translateY(-80px); }
+  .lower-third.anim-bounce.visible { transform: translateY(0); transition: opacity calc(var(--anim-dur, 0.5s) * 0.3) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-  .lower-third.anim-split { transform: scaleX(0); }
-  .lower-third.anim-split.visible { transform: scaleX(1); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1); }
+  /* Split — expand from center */
+  .lower-third.anim-split { transform: scaleX(0); transform-origin: center; }
+  .lower-third.anim-split.visible { transform: scaleX(1); transition: opacity calc(var(--anim-dur, 0.5s) * 0.4) ease, transform var(--anim-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1); }
 
+  /* Blur — focus in */
   .lower-third.anim-blur { filter: blur(20px); transform: scale(1.1); }
   .lower-third.anim-blur.visible { filter: blur(0px); transform: scale(1); }
 
-  .lower-third.anim-sparkle { transform: scale(0.8); filter: brightness(2); }
-  .lower-third.anim-sparkle.visible { transform: scale(1); filter: brightness(1); transition: opacity var(--anim-dur, 0.5s) ease, transform var(--anim-dur, 0.5s) ease, filter calc(var(--anim-dur, 0.5s) * 1.6) ease; }
+  /* Sparkle — golden glow + shimmer sweep + particles */
+  .lower-third.anim-sparkle {
+    transform: scale(0.9);
+    filter: brightness(1.8) drop-shadow(0 0 0px rgba(255,215,0,0));
+  }
+  .lower-third.anim-sparkle.visible {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 12px rgba(255,215,0,0.35));
+    transition: opacity calc(var(--anim-dur, 0.5s) * 0.5) ease,
+                transform var(--anim-dur, 0.5s) cubic-bezier(0.34, 1.56, 0.64, 1),
+                filter calc(var(--anim-dur, 0.5s) * 1.2) ease;
+  }
+  .lower-third.anim-sparkle.visible .lt-card {
+    animation: sparkle-glow calc(var(--anim-dur, 0.5s) * 2.5) ease-out;
+    position: relative;
+    overflow: hidden;
+  }
+  .lower-third.anim-sparkle.visible .lt-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.12) 55%, transparent 100%);
+    transform: skewX(-20deg);
+    animation: shimmer-sweep calc(var(--anim-dur, 0.5s) * 1.5) ease-out calc(var(--anim-dur, 0.5s) * 0.3) forwards;
+    pointer-events: none;
+  }
+  @keyframes sparkle-glow {
+    0% { box-shadow: 0 0 0 rgba(255,215,0,0); }
+    20% { box-shadow: 0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.15); }
+    50% { box-shadow: 0 0 15px rgba(255,215,0,0.2); }
+    100% { box-shadow: 0 0 0 rgba(255,215,0,0); }
+  }
+  @keyframes shimmer-sweep {
+    0% { left: -60%; opacity: 1; }
+    100% { left: 130%; opacity: 0; }
+  }
+  .sparkle-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10;
+    background: radial-gradient(circle, #fff 0%, rgba(255,215,0,0.9) 30%, transparent 70%);
+    animation: sparkle-pop ease-out forwards;
+  }
+  @keyframes sparkle-pop {
+    0% { transform: scale(0) rotate(0deg); opacity: 0.9; }
+    40% { transform: scale(1.8) rotate(120deg); opacity: 1; }
+    100% { transform: scale(0) rotate(300deg); opacity: 0; }
+  }
 
   /* ── Ticker / Crawl ── */
   .ticker-bar {
@@ -609,9 +682,10 @@ function buildOverlayHTML(): string {
   </div>
 
   <script>
-    const WS_URL = 'ws://127.0.0.1:${overlayState.lowerThird.styling ? 9877 : 9877}';
+    const WS_URL = 'ws://127.0.0.1:9877';
     let ws = null;
     let reconnectTimer = null;
+    let typewriterTimer = null;
 
     function connect() {
       ws = new WebSocket(WS_URL);
@@ -635,15 +709,28 @@ function buildOverlayHTML(): string {
       ws.onerror = () => {};
     }
 
+    function clearTypewriter() {
+      if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
+      var cursors = document.querySelectorAll('.lt-cursor');
+      cursors.forEach(function(c) { c.remove(); });
+    }
+
+    function clearSparkles() {
+      var particles = document.querySelectorAll('.sparkle-particle');
+      particles.forEach(function(p) { p.remove(); });
+    }
+
     function applyState(msg) {
       const lt = msg.overlay.lowerThird;
       const el = document.getElementById('lt');
       const card = document.getElementById('lt-card');
+      const titleEl = document.getElementById('lt-title');
+      const subtitleEl = document.getElementById('lt-subtitle');
       const s = lt.styling;
 
-      // Update text
-      document.getElementById('lt-title').textContent = lt.title || '';
-      document.getElementById('lt-subtitle').textContent = lt.subtitle || '';
+      // Clear any running effects
+      clearTypewriter();
+      clearSparkles();
 
       // Update CSS custom properties
       card.style.setProperty('--bg-color', s.backgroundColor);
@@ -655,7 +742,8 @@ function buildOverlayHTML(): string {
       card.style.setProperty('--border-radius', s.borderRadius + 'px');
 
       // Animation timing
-      var dur = (s.animationDuration || 0.5) + 's';
+      var durVal = s.animationDuration || 0.5;
+      var dur = durVal + 's';
       var easingMap = { ease:'ease', 'ease-in':'ease-in', 'ease-out':'ease-out', 'ease-in-out':'ease-in-out', linear:'linear', bounce:'cubic-bezier(0.34,1.56,0.64,1)', elastic:'cubic-bezier(0.68,-0.55,0.27,1.55)' };
       var ease = easingMap[s.animationEasing] || 'ease';
       el.style.setProperty('--anim-dur', dur);
@@ -664,16 +752,86 @@ function buildOverlayHTML(): string {
       // Background style
       card.className = 'lt-card bg-' + s.backgroundStyle;
 
-      // Animation class
-      el.className = 'lower-third';
+      // Determine animation
       const anim = s.animation === 'random'
         ? ['slide','fade','zoom','rise','typewriter','bounce','split','blur','sparkle'][Math.floor(Math.random()*9)]
         : s.animation;
+
+      // Set text (typewriter overrides this when visible)
+      if (anim !== 'typewriter' || !lt.visible) {
+        titleEl.textContent = lt.title || '';
+        subtitleEl.textContent = lt.subtitle || '';
+      }
+
+      // Animation class
+      el.className = 'lower-third';
       el.classList.add('anim-' + anim);
 
       // Toggle visibility
       if (lt.visible) {
-        requestAnimationFrame(() => el.classList.add('visible'));
+        requestAnimationFrame(function() {
+          el.classList.add('visible');
+
+          // Typewriter: character-by-character reveal
+          if (anim === 'typewriter') {
+            var fullTitle = lt.title || '';
+            var fullSubtitle = lt.subtitle || '';
+            var total = fullTitle.length + fullSubtitle.length;
+            if (total === 0) { titleEl.textContent = ''; subtitleEl.textContent = ''; return; }
+
+            titleEl.textContent = '';
+            subtitleEl.textContent = '';
+            var charDelay = Math.max(20, (durVal * 1000) / total);
+            var idx = 0;
+
+            // Add cursor to title
+            var cursor = document.createElement('span');
+            cursor.className = 'lt-cursor';
+            titleEl.appendChild(cursor);
+
+            typewriterTimer = setInterval(function() {
+              if (idx < fullTitle.length) {
+                titleEl.textContent = fullTitle.substring(0, idx + 1);
+                titleEl.appendChild(cursor);
+              } else {
+                // Move cursor to subtitle
+                titleEl.textContent = fullTitle;
+                var si = idx - fullTitle.length;
+                subtitleEl.textContent = fullSubtitle.substring(0, si + 1);
+                subtitleEl.appendChild(cursor);
+              }
+              idx++;
+              if (idx >= total) {
+                clearInterval(typewriterTimer);
+                typewriterTimer = null;
+                titleEl.textContent = fullTitle;
+                subtitleEl.textContent = fullSubtitle;
+                // Remove cursor after a brief pause
+                setTimeout(function() { cursor.remove(); }, 800);
+              }
+            }, charDelay);
+          }
+
+          // Sparkle: inject particles around the element
+          if (anim === 'sparkle') {
+            var rect = card.getBoundingClientRect();
+            for (var i = 0; i < 14; i++) {
+              var p = document.createElement('span');
+              p.className = 'sparkle-particle';
+              p.style.left = (Math.random() * 120 - 10) + '%';
+              p.style.top = (Math.random() * 120 - 10) + '%';
+              p.style.animationDelay = (Math.random() * durVal * 0.8) + 's';
+              p.style.animationDuration = (0.3 + Math.random() * 0.5) + 's';
+              var size = 4 + Math.random() * 6;
+              p.style.width = size + 'px';
+              p.style.height = size + 'px';
+              el.appendChild(p);
+              (function(particle) {
+                setTimeout(function() { particle.remove(); }, (durVal * 2 + 1) * 1000);
+              })(p);
+            }
+          }
+        });
       }
 
       // Company logo

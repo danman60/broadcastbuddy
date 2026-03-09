@@ -128,7 +128,13 @@ export function Header() {
       <div className="header-left">
         <span className="header-title">{compactMode ? 'BB' : 'BroadcastBuddy'}</span>
         {!compactMode && currentSession && (
-          <span className="header-session-name">{currentSession.name}</span>
+          <span
+            className="header-session-name"
+            onClick={() => setCurrentSession(null)}
+            title="Click to dismiss"
+          >
+            {currentSession.name}
+          </span>
         )}
       </div>
 

@@ -74,6 +74,8 @@ export function AnimationPanel() {
                   step={0.1}
                   value={duration}
                   onChange={(e) => update({ animationDuration: Number(e.target.value) })}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                 />
                 <span className="anim-duration-val">{duration.toFixed(1)}s</span>
               </div>
