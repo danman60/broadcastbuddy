@@ -6,6 +6,8 @@ import '../styles/startingSoon.css'
 export function StartingSoonPanel() {
   const overlayState = useStore((s) => s.overlayState)
   const [collapsed, setCollapsed] = useState(true)
+  const [mins, setMins] = useState(10)
+  const [secs, setSecs] = useState(0)
 
   if (!overlayState) return null
 
@@ -23,10 +25,18 @@ export function StartingSoonPanel() {
     }
   }
 
-  // Set countdown target to X minutes from now
-  function setCountdownMinutes(minutes: number) {
+  function startCountdown() {
+    const totalSecs = mins * 60 + secs
+    if (totalSecs <= 0) return
+    const target = new Date(Date.now() + totalSecs * 1000).toISOString()
+    update({ countdownTarget: target, countdownSeconds: totalSecs })
+  }
+
+  function setPreset(minutes: number) {
+    setMins(minutes)
+    setSecs(0)
     const target = new Date(Date.now() + minutes * 60 * 1000).toISOString()
-    update({ countdownTarget: target })
+    update({ countdownTarget: target, countdownSeconds: minutes * 60 })
   }
 
   return (
@@ -57,6 +67,16 @@ export function StartingSoonPanel() {
               placeholder="The show begins shortly..."
             />
           </div>
+          <div className="ss-field">
+            <label>Completion Text</label>
+            <input
+              type="text"
+              value={ss.completionText}
+              onChange={(e) => update({ completionText: e.target.value })}
+              placeholder="We're Live!"
+            />
+            <span className="ss-hint">Shown when countdown reaches 00:00</span>
+          </div>
 
           {/* Countdown */}
           <div className="ss-countdown-section">
@@ -69,28 +89,50 @@ export function StartingSoonPanel() {
               Show Countdown
             </label>
             {ss.showCountdown && (
-              <div className="ss-countdown-presets">
-                {[5, 10, 15, 30].map((m) => (
-                  <button
-                    key={m}
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setCountdownMinutes(m)}
-                  >
-                    {m}m
+              <>
+                {/* Exact time input */}
+                <div className="ss-time-input">
+                  <div className="ss-time-field">
+                    <input
+                      type="number"
+                      min={0}
+                      max={180}
+                      value={mins}
+                      onChange={(e) => setMins(Math.max(0, Number(e.target.value)))}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    />
+                    <span>min</span>
+                  </div>
+                  <span className="ss-time-sep">:</span>
+                  <div className="ss-time-field">
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={secs}
+                      onChange={(e) => setSecs(Math.min(59, Math.max(0, Number(e.target.value))))}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    />
+                    <span>sec</span>
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={startCountdown}>
+                    Set
                   </button>
-                ))}
-                <div className="ss-field" style={{ marginTop: 4 }}>
-                  <label>Custom time</label>
-                  <input
-                    type="datetime-local"
-                    value={ss.countdownTarget ? new Date(ss.countdownTarget).toISOString().slice(0, 16) : ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      update({ countdownTarget: val ? new Date(val).toISOString() : '' })
-                    }}
-                  />
                 </div>
-              </div>
+
+                {/* Quick presets */}
+                <div className="ss-countdown-presets">
+                  {[5, 10, 15, 30].map((m) => (
+                    <button
+                      key={m}
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setPreset(m)}
+                    >
+                      {m}m
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 

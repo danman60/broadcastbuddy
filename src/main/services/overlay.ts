@@ -730,6 +730,11 @@ function buildOverlayHTML(): string {
     border-radius: 2px;
     margin: 24px auto;
   }
+  @keyframes ss-completion-pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    60% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
 
   /* ── Ticker / Crawl ── */
   .ticker-bar {
@@ -1005,12 +1010,21 @@ function buildOverlayHTML(): string {
       if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
       if (ss.visible && ss.showCountdown && ss.countdownTarget) {
         ssCountEl.classList.add('active');
+        var completionText = ss.completionText || '';
         function updateCountdown() {
           var target = new Date(ss.countdownTarget).getTime();
           var now = Date.now();
           var diff = Math.max(0, target - now);
           if (diff <= 0) {
-            ssCountEl.textContent = '00:00';
+            // Countdown complete — show completion text
+            ssCountEl.textContent = '';
+            if (completionText) {
+              ssTitleEl.textContent = completionText;
+              ssSubEl.textContent = '';
+              ssTitleEl.style.animation = 'ss-completion-pop 0.6s ease-out';
+            } else {
+              ssCountEl.textContent = '00:00';
+            }
             if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
             return;
           }

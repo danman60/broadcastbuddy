@@ -49,3 +49,24 @@
 .stream-copy-row textarea {
   flex: 1;
 }
+
+.stream-obs-push {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stream-obs-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.stream-obs-error {
+  font-size: 10px;
+  color: #ef4444;
+}
+
+.btn-success {
+  background: #22c55e;
+  color: #fff;
+}

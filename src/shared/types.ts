@@ -63,7 +63,9 @@ export interface StartingSoonState {
   title: string
   subtitle: string
   countdownTarget: string // ISO date or empty
+  countdownSeconds: number // exact seconds for countdown (alternative to target)
   showCountdown: boolean
+  completionText: string // shown when countdown reaches 0
   backgroundColor: string
   textColor: string
   accentColor: string
@@ -251,6 +253,7 @@ export const IPC = {
   OBS_DISCONNECT: 'obs:disconnect',
   OBS_STATUS: 'obs:status',
   OBS_GET_TIMECODE: 'obs:get-timecode',
+  OBS_PUSH_STREAM_KEY: 'obs:push-stream-key',
 
   // Starting soon
   STARTING_SOON_SHOW: 'starting-soon:show',
@@ -314,7 +317,9 @@ export const DEFAULT_STARTING_SOON: StartingSoonState = {
   title: 'Starting Soon',
   subtitle: '',
   countdownTarget: '',
+  countdownSeconds: 0,
   showCountdown: true,
+  completionText: "We're Live!",
   backgroundColor: '#1a1a2e',
   textColor: '#ffffff',
   accentColor: '#667eea',

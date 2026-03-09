@@ -9,11 +9,11 @@
 
 ## Near-term Features
 
-- [ ] **5. Stream key / link storage** — Store stream key, viewing link, embed code per-event. Research OBS WebSocket `SetStreamServiceSettings` for auto-injection.
-- [ ] **6. Notes with OBS timecodes** — Timestamped notes using OBS WebSocket `GetRecordStatus`. OBS WebSocket already connected.
-- [ ] **7. Stream Deck draggable buttons** — Rework Stream Deck config to draggable button palette (not full-page layout). Other system functions share the palette.
-- [ ] **8. Starting Soon overlay section** — New overlay scene type with countdown timer + composition. Possibly a full "scenes" system.
-- [ ] **12. Visual overlay editor spec** — Single-click on preview opens full-screen editor. Drag elements to position. Reflected in actual OBS overlay composition. Write detailed spec.
+- [x] **5. Stream key / link storage** — StreamInfoPanel with per-session storage, copy buttons, show/hide key.
+- [x] **6. Notes with OBS timecodes** — NotesPanel with OBS WebSocket v5 raw client, `GetRecordStatus` timecode stamping.
+- [x] **7. Stream Deck draggable buttons** — Already done. Plugin manifest provides 7 individual draggable button actions.
+- [x] **8. Starting Soon overlay section** — Full scene with countdown timer, preset durations, custom time, colors. Browser source renders full-screen with animated countdown.
+- [x] **12. Visual overlay editor spec** — Written at `docs/plans/2026-03-09-visual-overlay-editor-spec.md`.
 
 ## Future Work
 

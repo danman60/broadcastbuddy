@@ -13,6 +13,8 @@ export function StreamInfoPanel() {
   const [collapsed, setCollapsed] = useState(true)
   const [showKey, setShowKey] = useState(false)
   const [copied, setCopied] = useState('')
+  const [obsStatus, setObsStatus] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
+  const [obsError, setObsError] = useState('')
 
   useEffect(() => {
     window.api.streamConfigGet().then((c: StreamConfig | null) => {
@@ -30,6 +32,21 @@ export function StreamInfoPanel() {
     navigator.clipboard.writeText(text)
     setCopied(label)
     setTimeout(() => setCopied(''), 1500)
+  }
+
+  async function pushToObs() {
+    if (!config.rtmpUrl && !config.streamKey) return
+    setObsStatus('pushing')
+    setObsError('')
+    const result = await window.api.obsPushStreamKey(config.rtmpUrl, config.streamKey)
+    if (result?.success) {
+      setObsStatus('done')
+      setTimeout(() => setObsStatus('idle'), 2000)
+    } else {
+      setObsStatus('error')
+      setObsError(result?.error || 'Failed to push to OBS')
+      setTimeout(() => setObsStatus('idle'), 3000)
+    }
   }
 
   return (
@@ -67,6 +84,24 @@ export function StreamInfoPanel() {
               </button>
             </div>
           </div>
+
+          {/* Push to OBS */}
+          {(config.rtmpUrl || config.streamKey) && (
+            <div className="stream-obs-push">
+              <button
+                className={`btn btn-sm ${obsStatus === 'done' ? 'btn-success' : obsStatus === 'error' ? 'btn-danger' : 'btn-primary'}`}
+                onClick={pushToObs}
+                disabled={obsStatus === 'pushing'}
+              >
+                {obsStatus === 'pushing' ? 'Pushing...'
+                  : obsStatus === 'done' ? 'Pushed to OBS'
+                  : obsStatus === 'error' ? 'Failed'
+                  : 'Push to OBS'}
+              </button>
+              {obsError && <span className="stream-obs-error">{obsError}</span>}
+              <span className="stream-obs-hint">Sets stream service in OBS via WebSocket</span>
+            </div>
+          )}
 
           <div className="stream-field">
             <label>Viewing Link</label>

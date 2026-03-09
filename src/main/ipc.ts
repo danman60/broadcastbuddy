@@ -345,6 +345,21 @@ export function registerIpcHandlers(): void {
     return obsConnection.getRecordTimecode()
   })
 
+  ipcMain.handle(IPC.OBS_PUSH_STREAM_KEY, async (_e, rtmpUrl: string, streamKey: string) => {
+    try {
+      await obsConnection.sendRequest('SetStreamServiceSettings', {
+        streamServiceType: 'rtmp_custom',
+        streamServiceSettings: {
+          server: rtmpUrl,
+          key: streamKey,
+        },
+      })
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ── Starting Soon ──────────────────────────────────────────────
 
   ipcMain.handle(IPC.STARTING_SOON_SHOW, () => {

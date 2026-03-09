@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld('api', {
   obsDisconnect: () => ipcRenderer.invoke(IPC.OBS_DISCONNECT),
   obsStatus: () => ipcRenderer.invoke(IPC.OBS_STATUS),
   obsGetTimecode: () => ipcRenderer.invoke(IPC.OBS_GET_TIMECODE),
+  obsPushStreamKey: (rtmpUrl: string, streamKey: string) =>
+    ipcRenderer.invoke(IPC.OBS_PUSH_STREAM_KEY, rtmpUrl, streamKey),
 
   // ── Starting Soon ─────────────────────────────────────────────
   startingSoonShow: () => ipcRenderer.invoke(IPC.STARTING_SOON_SHOW),
