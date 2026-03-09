@@ -502,6 +502,7 @@ export function stopServer(): void {
 
 function buildOverlayHTML(): string {
   const styling = overlayState.lowerThird.styling
+  const layout = styling.layout || { lowerThird: { x: 3.1, y: 85 }, companyLogo: { x: 2.1, y: 2.8 }, clientLogo: { x: 87.9, y: 2.8 }, ticker: { x: 0, y: 96.3, width: 100 } }
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -517,11 +518,11 @@ function buildOverlayHTML(): string {
     font-family: ${styling.fontFamily};
   }
 
-  /* ── Company logo (top-left) ── */
+  /* ── Company logo ── */
   .company-logo {
     position: absolute;
-    top: 30px;
-    left: 40px;
+    top: ${layout.companyLogo.y}%;
+    left: ${layout.companyLogo.x}%;
     max-height: 80px;
     max-width: 200px;
     opacity: 0;
@@ -529,11 +530,11 @@ function buildOverlayHTML(): string {
   }
   .company-logo.visible { opacity: 1; }
 
-  /* ── Client logo (top-right) ── */
+  /* ── Client logo ── */
   .client-logo {
     position: absolute;
-    top: 30px;
-    right: 40px;
+    top: ${layout.clientLogo.y}%;
+    left: ${layout.clientLogo.x}%;
     max-height: 80px;
     max-width: 200px;
     opacity: 0;
@@ -544,8 +545,8 @@ function buildOverlayHTML(): string {
   /* ── Lower third ── */
   .lower-third {
     position: absolute;
-    bottom: 80px;
-    left: 60px;
+    top: ${layout.lowerThird.y}%;
+    left: ${layout.lowerThird.x}%;
     max-width: 800px;
     opacity: 0;
     transition: opacity var(--anim-dur, 0.5s) var(--anim-ease, ease), transform var(--anim-dur, 0.5s) var(--anim-ease, ease), filter var(--anim-dur, 0.5s) var(--anim-ease, ease);
@@ -739,9 +740,9 @@ function buildOverlayHTML(): string {
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
+    top: ${layout.ticker.y}%;
+    left: ${layout.ticker.x}%;
+    width: ${layout.ticker.width || 100}%;
     height: 40px;
     overflow: hidden;
     opacity: 0;

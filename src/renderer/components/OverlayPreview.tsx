@@ -72,8 +72,8 @@ export function OverlayPreview() {
   ].filter(Boolean).join(' ')
 
   return (
-    <div className="overlay-preview">
-      <div className="preview-label">Preview</div>
+    <div className="overlay-preview" onClick={() => useStore.getState().setShowVisualEditor(true)} title="Click to open Visual Editor">
+      <div className="preview-label">Preview (click to edit layout)</div>
       <div className="preview-canvas" ref={canvasRef}>
         {/* Company logo */}
         {overlayState.companyLogo.visible && overlayState.companyLogo.dataUrl && (

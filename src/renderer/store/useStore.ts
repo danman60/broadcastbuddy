@@ -16,6 +16,7 @@ interface AppStore {
   showImport: boolean
   mappingPresets: MappingPreset[]
   compactMode: boolean
+  showVisualEditor: boolean
 
   // Setters
   setOverlayState: (s: OverlayState) => void
@@ -29,6 +30,7 @@ interface AppStore {
   setMappingPresets: (presets: MappingPreset[]) => void
   addMappingPreset: (preset: MappingPreset) => void
   setCompactMode: (compact: boolean) => void
+  setShowVisualEditor: (show: boolean) => void
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -45,6 +47,7 @@ export const useStore = create<AppStore>((set) => ({
   showImport: false,
   mappingPresets: [],
   compactMode: false,
+  showVisualEditor: false,
 
   setOverlayState: (s) => set({ overlayState: s }),
   setTriggers: (t, selectedIndex, playedIds, loopMode) => set((state) => ({
@@ -72,6 +75,7 @@ export const useStore = create<AppStore>((set) => ({
       window.api.windowResize(1100, 800)
     }
   },
+  setShowVisualEditor: (show) => set({ showVisualEditor: show }),
 }))
 
 // Initialize IPC listeners

@@ -16,6 +16,7 @@ import { StreamInfoPanel } from './StreamInfoPanel'
 import { NotesPanel } from './NotesPanel'
 import { StartingSoonPanel } from './StartingSoonPanel'
 import { Settings } from './Settings'
+import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
 
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
   const showBrandKit = useStore((s) => s.showBrandKit)
   const showImport = useStore((s) => s.showImport)
   const compactMode = useStore((s) => s.compactMode)
+  const showVisualEditor = useStore((s) => s.showVisualEditor)
 
   useEffect(() => {
     initStoreListeners()
@@ -73,6 +75,9 @@ export function App() {
         </div>
       )}
       {showSettings && <Settings />}
+      {showVisualEditor && (
+        <VisualEditor onClose={() => useStore.getState().setShowVisualEditor(false)} />
+      )}
     </div>
   )
 }

@@ -21,6 +21,27 @@ export type BackgroundStyle = 'solid' | 'gradient' | 'glass' | 'accent-bar'
 export type AnimationType = 'slide' | 'fade' | 'zoom' | 'rise' | 'typewriter' | 'bounce' | 'split' | 'blur' | 'sparkle' | 'random'
 export type EasingType = 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear' | 'bounce' | 'elastic'
 
+export interface ElementPosition {
+  x: number // % from left (0-100)
+  y: number // % from top (0-100)
+  width?: number // % width
+  height?: number // % height
+}
+
+export interface OverlayLayout {
+  lowerThird: ElementPosition
+  companyLogo: ElementPosition
+  clientLogo: ElementPosition
+  ticker: ElementPosition
+}
+
+export const DEFAULT_LAYOUT: OverlayLayout = {
+  lowerThird: { x: 3.1, y: 85 },
+  companyLogo: { x: 2.1, y: 2.8 },
+  clientLogo: { x: 87.9, y: 2.8 },
+  ticker: { x: 0, y: 96.3, width: 100 },
+}
+
 export interface OverlayStyling {
   fontFamily: string
   fontSize: number // px
@@ -34,6 +55,7 @@ export interface OverlayStyling {
   animationDuration: number // seconds
   animationEasing: EasingType
   autoHideSeconds: number // 0 = manual hide only
+  layout?: OverlayLayout
 }
 
 // ── Stream Config ────────────────────────────────────────────────
