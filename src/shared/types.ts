@@ -199,9 +199,22 @@ export interface AppSettings {
   }
 }
 
+// ── Checklist Item (from Command Center) ─────────────────────────
+
+export interface CCChecklistItem {
+  id: string
+  label: string
+  checked: boolean
+  category: string
+  sortOrder: number
+}
+
 // ── Broadcast Package (from Command Center) ──────────────────────
 
 export interface BroadcastPackage {
+  eventId: string
+  version: string
+  generatedAt: string
   event: {
     eventName: string
     eventType: string
@@ -212,6 +225,12 @@ export interface BroadcastPackage {
     organization: string
     brandColor: string | null
   }
+  company: {
+    name: string | null
+    logoUrl: string | null
+    primaryColor: string | null
+    secondaryColor: string | null
+  }
   triggers: Array<{
     type: 'title_card' | 'lower_third'
     name: string
@@ -219,6 +238,8 @@ export interface BroadcastPackage {
     logoUrl?: string | null
     shiftName?: string
   }>
+  checklist: CCChecklistItem[]
+  overlayConfig: Record<string, unknown> | null
   streaming: {
     streamKey: string | null
     rtmpUrl: string | null
@@ -336,6 +357,9 @@ export const IPC = {
   CC_FETCH_PACKAGE: 'cc:fetch-package',
   CC_APPLY_PACKAGE: 'cc:apply-package',
   CC_UPLOAD_RECORDING: 'cc:upload-recording',
+  CC_SYNC_CHECKLIST: 'cc:sync-checklist',
+  CC_SAVE_OVERLAY_CONFIG: 'cc:save-overlay-config',
+  CC_FETCH_CHECKLIST: 'cc:fetch-checklist',
 
   // OBS recording
   OBS_GET_LAST_RECORDING: 'obs:get-last-recording',
@@ -374,7 +398,12 @@ export interface WsCommandMessage {
   data?: Record<string, unknown>
 }
 
-export type WsMessage = WsIdentifyMessage | WsStateMessage | WsCommandMessage
+export interface WsBroadcastPackageMessage {
+  type: 'broadcast_package'
+  data: BroadcastPackage
+}
+
+export type WsMessage = WsIdentifyMessage | WsStateMessage | WsCommandMessage | WsBroadcastPackageMessage
 
 // ── Defaults ─────────────────────────────────────────────────────
 

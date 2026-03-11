@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -92,6 +92,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.CC_APPLY_PACKAGE, pkg, eventId),
   ccUploadRecording: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, filePath: string, fileName?: string) =>
     ipcRenderer.invoke(IPC.CC_UPLOAD_RECORDING, baseUrl, apiKey, tenantId, eventId, filePath, fileName),
+  ccFetchChecklist: (baseUrl: string, apiKey: string, tenantId: string, eventId: string) =>
+    ipcRenderer.invoke(IPC.CC_FETCH_CHECKLIST, baseUrl, apiKey, tenantId, eventId),
+  ccSyncChecklist: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, items: Array<{ id: string; checked: boolean }>) =>
+    ipcRenderer.invoke(IPC.CC_SYNC_CHECKLIST, baseUrl, apiKey, tenantId, eventId, items),
+  ccSaveOverlayConfig: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, config: Record<string, unknown>) =>
+    ipcRenderer.invoke(IPC.CC_SAVE_OVERLAY_CONFIG, baseUrl, apiKey, tenantId, eventId, config),
   obsGetLastRecording: () => ipcRenderer.invoke(IPC.OBS_GET_LAST_RECORDING),
   recordingBrowse: () => ipcRenderer.invoke(IPC.RECORDING_BROWSE),
 

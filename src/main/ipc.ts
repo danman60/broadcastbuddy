@@ -411,17 +411,34 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.CC_APPLY_PACKAGE, (_e, pkg: BroadcastPackage, eventId?: string) => {
-    // Convert CC triggers to BB triggers
-    const newTriggers: Trigger[] = pkg.triggers.map((t, i) => ({
-      id: generateId() + i,
-      name: t.name,
-      title: t.name,
-      subtitle: t.subtitle || '',
-      category: t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
-      order: i,
-      logoDataUrl: '', // logoUrl would need to be fetched separately
-    }))
+  ipcMain.handle(IPC.CC_APPLY_PACKAGE, async (_e, pkg: BroadcastPackage, eventId?: string) => {
+    // Convert CC triggers to BB triggers, fetching logos in parallel
+    const newTriggers: Trigger[] = await Promise.all(
+      pkg.triggers.map(async (t, i) => {
+        let logoDataUrl = ''
+        if (t.logoUrl) {
+          try {
+            const res = await fetch(t.logoUrl)
+            if (res.ok) {
+              const buffer = Buffer.from(await res.arrayBuffer())
+              const contentType = res.headers.get('content-type') || 'image/png'
+              logoDataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
+            }
+          } catch {
+            // Skip failed logo fetches
+          }
+        }
+        return {
+          id: generateId() + i,
+          name: t.name,
+          title: t.name,
+          subtitle: t.subtitle || '',
+          category: t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
+          order: i,
+          logoDataUrl,
+        }
+      })
+    )
 
     // Apply triggers
     overlay.clearAllTriggers()
@@ -440,18 +457,64 @@ export function registerIpcHandlers(): void {
       })
     }
 
+    // Apply company logo if available
+    if (pkg.company?.logoUrl) {
+      try {
+        const res = await fetch(pkg.company.logoUrl)
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer())
+          const contentType = res.headers.get('content-type') || 'image/png'
+          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
+          overlay.setCompanyLogo(dataUrl)
+        }
+      } catch {
+        // Skip failed logo fetch
+      }
+    }
+
     // Apply brand color as accent if available
     if (pkg.client.brandColor) {
       overlay.updateStyling({ accentColor: pkg.client.brandColor })
     }
 
+    // Apply company primary color if no brand color
+    if (!pkg.client.brandColor && pkg.company?.primaryColor) {
+      overlay.updateStyling({ accentColor: pkg.company.primaryColor })
+    }
+
+    // Apply saved overlay config if present
+    if (pkg.overlayConfig) {
+      const oc = pkg.overlayConfig as Record<string, unknown>
+      const stylingUpdates: Partial<import('../shared/types').OverlayStyling> = {}
+      if (oc.fontFamily) stylingUpdates.fontFamily = oc.fontFamily as string
+      if (oc.fontSize) stylingUpdates.fontSize = oc.fontSize as number
+      if (oc.textColor) stylingUpdates.textColor = oc.textColor as string
+      if (oc.backgroundColor) stylingUpdates.backgroundColor = oc.backgroundColor as string
+      if (oc.backgroundStyle) stylingUpdates.backgroundStyle = oc.backgroundStyle as import('../shared/types').BackgroundStyle
+      if (oc.accentColor) stylingUpdates.accentColor = oc.accentColor as string
+      if (oc.borderRadius) stylingUpdates.borderRadius = oc.borderRadius as number
+      if (oc.animation) stylingUpdates.animation = oc.animation as import('../shared/types').AnimationType
+      if (oc.animationDuration) stylingUpdates.animationDuration = oc.animationDuration as number
+      if (oc.autoHideSeconds) stylingUpdates.autoHideSeconds = oc.autoHideSeconds as number
+      if (Object.keys(stylingUpdates).length > 0) {
+        overlay.updateStyling(stylingUpdates)
+      }
+    }
+
     pushState()
 
-    // Push recording upload context to renderer
+    // Push recording upload context + checklist to renderer
     const win = getMainWindow()
     if (win) {
       const folderUrl = pkg.drive?.eventFolderUrl || pkg.drive?.clientFolderUrl || null
-      win.webContents.send('cc:recording-context', eventId || '', pkg.event.eventName, folderUrl)
+      win.webContents.send('cc:recording-context', pkg.eventId || eventId || '', pkg.event.eventName, folderUrl)
+      win.webContents.send('cc:checklist-update', pkg.checklist || [])
+      win.webContents.send('cc:package-applied', {
+        eventId: pkg.eventId || eventId,
+        eventName: pkg.event.eventName,
+        company: pkg.company,
+        version: pkg.version,
+      })
     }
 
     return { success: true, triggerCount: newTriggers.length }
@@ -483,6 +546,61 @@ export function registerIpcHandlers(): void {
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
       const body = await res.json()
       return { success: true, ...body }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ── CC Checklist sync ────────────────────────────────────────────
+
+  ipcMain.handle(IPC.CC_FETCH_CHECKLIST, async (_e, baseUrl: string, apiKey: string, tenantId: string, eventId: string) => {
+    try {
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package/${eventId}/checklist`
+      const res = await fetch(url, {
+        headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const body = await res.json()
+      return { success: true, checklist: body.data || [] }
+    } catch (err) {
+      return { success: false, error: (err as Error).message, checklist: [] }
+    }
+  })
+
+  ipcMain.handle(IPC.CC_SYNC_CHECKLIST, async (_e, baseUrl: string, apiKey: string, tenantId: string, eventId: string, items: Array<{ id: string; checked: boolean }>) => {
+    try {
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package/${eventId}/checklist`
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'X-API-Key': apiKey,
+          'X-Tenant-Id': tenantId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const body = await res.json()
+      return { success: true, updated: body.updated }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.CC_SAVE_OVERLAY_CONFIG, async (_e, baseUrl: string, apiKey: string, tenantId: string, eventId: string, config: Record<string, unknown>) => {
+    try {
+      const url = `${baseUrl.replace(/\/$/, '')}/api/v1/broadcast-package/${eventId}/overlay-config`
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'X-API-Key': apiKey,
+          'X-Tenant-Id': tenantId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      return { success: true }
     } catch (err) {
       return { success: false, error: (err as Error).message }
     }

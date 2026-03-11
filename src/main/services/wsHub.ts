@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
+import { BrowserWindow } from 'electron'
 import {
   getOverlayState,
   fireLowerThird,
@@ -111,6 +112,18 @@ export function start(port: number): void {
 
         if (msg.type === 'command') {
           handleCommand(msg.action, msg.data)
+        }
+
+        // Handle broadcast_package pushed from CC's pushToApp mutation
+        if (msg.type === 'broadcast_package' && msg.data) {
+          logger.info('Received broadcast package push from CC')
+          const windows = BrowserWindow.getAllWindows()
+          const win = windows.length > 0 ? windows[0] : null
+          if (win) {
+            // Forward to renderer — BroadcastPackagePanel listens for this
+            // and auto-applies via ccApplyPackage
+            win.webContents.send('cc:package-pushed', msg.data)
+          }
         }
       } catch (err) {
         logger.error('Bad WS message:', err)
