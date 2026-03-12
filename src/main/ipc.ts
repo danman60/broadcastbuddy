@@ -446,8 +446,8 @@ export function registerIpcHandlers(): void {
       overlay.addTrigger(t)
     }
 
-    // Apply stream config if present
-    if (pkg.streaming.streamKey || pkg.streaming.rtmpUrl) {
+    // Apply stream config if any streaming field is present
+    if (pkg.streaming.streamKey || pkg.streaming.rtmpUrl || pkg.streaming.livestreamUrl || pkg.streaming.embedCode) {
       overlay.setStreamConfig({
         streamKey: pkg.streaming.streamKey || '',
         rtmpUrl: pkg.streaming.rtmpUrl || '',
@@ -466,6 +466,21 @@ export function registerIpcHandlers(): void {
           const contentType = res.headers.get('content-type') || 'image/png'
           const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
           overlay.setCompanyLogo(dataUrl)
+        }
+      } catch {
+        // Skip failed logo fetch
+      }
+    }
+
+    // Apply client logo if available
+    if (pkg.client.logoUrl) {
+      try {
+        const res = await fetch(pkg.client.logoUrl)
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer())
+          const contentType = res.headers.get('content-type') || 'image/png'
+          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
+          overlay.setClientLogo(dataUrl)
         }
       } catch {
         // Skip failed logo fetch

@@ -224,6 +224,7 @@ export interface BroadcastPackage {
   client: {
     organization: string
     brandColor: string | null
+    logoUrl?: string | null
   }
   company: {
     name: string | null
