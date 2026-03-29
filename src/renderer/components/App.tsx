@@ -17,6 +17,7 @@ import { NotesPanel } from './NotesPanel'
 import { StartingSoonPanel } from './StartingSoonPanel'
 import { BroadcastPackagePanel } from './BroadcastPackagePanel'
 import { RecordingUploadPanel } from './RecordingUploadPanel'
+import { GalleryPanel } from './GalleryPanel'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
@@ -54,6 +55,7 @@ export function App() {
           <NotesPanel />
           <BroadcastPackagePanel />
           <RecordingUploadPanel />
+          <GalleryPanel />
         </div>
       </div>
       {showBrandKit && (

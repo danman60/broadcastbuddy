@@ -9,6 +9,7 @@ export function Settings() {
   const [httpPort, setHttpPort] = useState(9876)
   const [wsPort, setWsPort] = useState(9877)
   const [apiKey, setApiKey] = useState('')
+  const [geminiKey, setGeminiKey] = useState('')
 
   // OBS connection
   const [obsHost, setObsHost] = useState('127.0.0.1')
@@ -22,6 +23,7 @@ export function Settings() {
       setHttpPort(settings.server.httpPort)
       setWsPort(settings.server.wsPort)
       setApiKey(settings.deepseekApiKey)
+      setGeminiKey(settings.geminiApiKey || '')
       if (settings.obsConnection) {
         setObsHost(settings.obsConnection.host)
         setObsPort(settings.obsConnection.port)
@@ -56,6 +58,7 @@ export function Settings() {
   async function handleSave() {
     await window.api.settingsSet('server', { httpPort, wsPort })
     await window.api.settingsSet('deepseekApiKey', apiKey)
+    await window.api.settingsSet('geminiApiKey', geminiKey)
     const updated = await window.api.settingsGet()
     setSettings(updated)
     setShowSettings(false)
@@ -154,6 +157,18 @@ export function Settings() {
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
             />
+          </div>
+          <div className="settings-field">
+            <label>Gemini API Key</label>
+            <input
+              type="password"
+              value={geminiKey}
+              onChange={(e) => setGeminiKey(e.target.value)}
+              placeholder="AIza..."
+            />
+            <p style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+              Used for Gallery Builder video analysis
+            </p>
           </div>
         </div>
 

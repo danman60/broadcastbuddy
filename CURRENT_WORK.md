@@ -1,47 +1,45 @@
 # Current Work - BroadcastBuddy
 
 ## Active Task
-All CC + BB integration work complete for this session.
+Gallery / Photo Sorting system — sorting pipeline built, UI pending.
 
-## Recent Changes (2026-03-09)
+## Recent Changes (2026-03-29)
 
-### CC Commit df6fca1 — Trigger CRUD, production checklist, LLM import
-- BroadcastTrigger Prisma model + 8 tRPC procedures (list, create, update, delete, reorder, clearAll, generateFromOperators, importFromDocument)
-- ProductionChecklistItem model + 7 procedures (list, initDefaults, toggle, add, delete, resetAll)
-- broadcastPackage router updated: prefers custom triggers over auto-generated
-- broadcast-buddy page: 3-tab UI (Triggers/Checklist/Package Preview)
-- LLM import uses DeepSeek (OpenAI-compatible SDK)
-- Fixed `client` router name collision → `clientEntity` (7 page files updated)
-- Migration SQL written but NOT yet applied to Supabase
+### Gallery Photo Sorting Pipeline
+- **New types**: `RoutineBoundary`, `PhotoMatch`, `GalleryConfig`, `GalleryProgress` in `shared/types.ts`
+- **New IPC channels**: `GALLERY_BROWSE_VIDEO`, `GALLERY_BROWSE_PHOTOS`, `GALLERY_ANALYZE_VIDEO`, `GALLERY_READ_EXIF`, `GALLERY_MATCH_PHOTOS`, `GALLERY_SET_OFFSET`, `GALLERY_GET_CONFIG`, `GALLERY_UPLOAD_TO_CC`, `GALLERY_PROGRESS`
+- **New service**: `src/main/services/galleryService.ts` — full pipeline:
+  - Gemini video analysis (Files API upload → routine boundary detection)
+  - EXIF extraction (exifreader, ported from CompSync)
+  - Clock offset detection (sampling algorithm from CompSync)
+  - Photo-to-routine matching (exact/gap/unmatched tiers)
+  - CC gallery upload (create gallery, create routines, upload photos, publish)
+  - Manual offset override for known camera clock skew
+- **IPC handlers** wired in `ipc.ts`
+- **Preload API** bindings in `preload/index.ts`
+- **Dependency**: `exifreader` installed
+- **Build**: passes clean (electron-vite build)
 
-### BB Commits (this session)
-- `05e0417` — Visual overlay editor with drag-and-drop layout
-- `e12535a` — Visual editor Phase 2 (resize, snap, grid) + CC broadcast package consumer
-- `04ecd6b` — Recording upload to Google Drive via CC
+### CC Gallery Spec
+- Full spec written to `~/projects/CommandCentered/INBOX.md`
+- Gallery hosted at `gallery.streamstage.live` via CC repo
+- R2 buckets for photo storage (not Supabase)
+- DB models: galleries, gallery_routines, gallery_photos
+- API endpoints for BB to upload to
 
-## Commits
-- `8a13ede` — Phase 1 MVP: core overlay system
-- `5fef0ea` — Phase 2+3: document import, templates, ticker
-- `19a7511` — Brand kit scraper, 30 Google Fonts, split/blur animations
-- `791a8c3` — Playlist mode, per-entry logos, Stream Deck plugin
-- `9ca7ca1` — Playlist upgrade: DnD, played indicators, loop modes, bulk ops
-- `9fab747` — Field Mapper for LLM Import + session save/load fixes
-- `5310d24` — Collapsible panels + compact mode
-- `e5127ef` — Bug fixes + animation overhaul
-- `3de204e` — Stream info, OBS notes, starting soon, visual editor spec
-- `0b7cba8` — OBS stream key injection + countdown timer improvements
-- `05e0417` — Visual overlay editor with drag-and-drop layout
-- `e12535a` — Visual editor Phase 2 (resize, snap, grid) + CC broadcast package consumer
-- `04ecd6b` — Recording upload to Google Drive via CC
+## Previous Commits
+- `89064b9` — sync tracking files before Linux migration
+- `c3d5e89` — streaming config fix for link/embed, client logo sync
+- `5caa65d` — full CC sync v2: package type, checklist two-way sync, overlay config, WebSocket push
 
 ## Pending
-- **Apply CC migration to Supabase** — Run the SQL in `~/projects/CommandCentered/app/prisma/migrations/20260309_add_broadcast_triggers_and_checklist/migration.sql` via Supabase SQL Editor. Creates `broadcast_triggers` and `production_checklist_items` tables in `commandcentered` schema. No `.env` with DATABASE_URL exists locally, so needs Supabase MCP or dashboard.
-- No Supabase MCP tools were available in this session — try again after reboot or use Playwright to open Supabase dashboard.
+- **Apply CC migration to Supabase** — broadcast_triggers + production_checklist_items tables
+- **CC gallery API endpoints** — spec delivered to CC INBOX.md with exact contracts
 
 ## Future Work
-- VDO.Ninja integration (https://github.com/steveseguin/vdo.ninja) — screen share, remote camera feeds
+- **Trigger fire timestamps** — record firedAt + obsTimecode on every trigger fire, use as recording windows for photo matching (Gemini becomes fallback for post-hoc analysis)
+- VDO.Ninja integration
 - Tablet production view + Android app
 - CDN viewership + integrated chat
 - Remotion render-on-demand event animations
 - Wi-Fi Display integration
-- Auto email responder (Command Center scope)

@@ -183,6 +183,7 @@ export interface AppSettings {
   overlay: OverlayStyling
   companyLogoPath: string
   deepseekApiKey: string
+  geminiApiKey: string
   sessionsDir: string
   mappingPresets?: MappingPreset[]
   compactMode?: boolean
@@ -366,6 +367,17 @@ export const IPC = {
   OBS_GET_LAST_RECORDING: 'obs:get-last-recording',
   RECORDING_BROWSE: 'recording:browse',
 
+  // Gallery / Photo Sorting
+  GALLERY_BROWSE_VIDEO: 'gallery:browse-video',
+  GALLERY_BROWSE_PHOTOS: 'gallery:browse-photos',
+  GALLERY_ANALYZE_VIDEO: 'gallery:analyze-video',
+  GALLERY_READ_EXIF: 'gallery:read-exif',
+  GALLERY_MATCH_PHOTOS: 'gallery:match-photos',
+  GALLERY_SET_OFFSET: 'gallery:set-offset',
+  GALLERY_GET_CONFIG: 'gallery:get-config',
+  GALLERY_UPLOAD_TO_CC: 'gallery:upload-to-cc',
+  GALLERY_PROGRESS: 'gallery:progress',
+
   // State sync (main - renderer push events)
   STATE_UPDATE: 'state:update',
   OVERLAY_STATE_UPDATE: 'overlay:state-update',
@@ -405,6 +417,49 @@ export interface WsBroadcastPackageMessage {
 }
 
 export type WsMessage = WsIdentifyMessage | WsStateMessage | WsCommandMessage | WsBroadcastPackageMessage
+
+// ── Gallery / Photo Sorting Types ────────────────────────────────
+
+export interface RoutineBoundary {
+  index: number // matches trigger order
+  name: string // routine name from Gemini or trigger
+  timestampStart: string // ISO date — start of routine in video
+  timestampEnd: string // ISO date — end of routine in video
+  videoOffsetStartSec: number // seconds from video start
+  videoOffsetEndSec: number // seconds from video start
+  description: string // Gemini's description (costume, group/solo, etc.)
+  confidence: number // 0-1 Gemini confidence
+}
+
+export interface PhotoMatch {
+  filePath: string
+  thumbnailPath?: string
+  captureTime: string // ISO — from EXIF
+  confidence: 'exact' | 'gap' | 'unmatched'
+  matchedRoutineIndex?: number // index into RoutineBoundary array
+  uploaded: boolean
+}
+
+export interface GalleryConfig {
+  eventId: string // CC event ID (if linked)
+  galleryId?: string // CC gallery ID (after creation)
+  galleryUrl?: string // public URL
+  videoPath: string // OBS recording path
+  photoFolderPath: string // SD card / photo folder
+  clockOffsetMs: number // camera clock offset from system clock
+  manualOffsetMs: number // user-provided offset override (e.g. -420000 for 7 min)
+  routineBoundaries: RoutineBoundary[]
+  photoMatches: PhotoMatch[]
+  status: 'idle' | 'analyzing-video' | 'reading-exif' | 'matching' | 'uploading' | 'complete' | 'error'
+  error?: string
+}
+
+export interface GalleryProgress {
+  stage: GalleryConfig['status']
+  message: string
+  current: number
+  total: number
+}
 
 // ── Defaults ─────────────────────────────────────────────────────
 

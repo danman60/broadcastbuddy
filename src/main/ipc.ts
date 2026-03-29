@@ -8,6 +8,7 @@ import * as settings from './services/settings'
 import * as documentImport from './services/documentImport'
 import * as brandScraper from './services/brandScraper'
 import * as obsConnection from './services/obsConnection'
+import * as galleryService from './services/galleryService'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 
@@ -688,6 +689,81 @@ export function registerIpcHandlers(): void {
     const win = getMainWindow()
     if (win) {
       win.setSize(width, height)
+    }
+  })
+
+  // ── Gallery / Photo Sorting ──────────────────────────────────
+
+  // Wire progress events to renderer
+  galleryService.setProgressCallback((progress) => {
+    const win = getMainWindow()
+    if (win) {
+      win.webContents.send(IPC.GALLERY_PROGRESS, progress)
+    }
+  })
+
+  ipcMain.handle(IPC.GALLERY_BROWSE_VIDEO, async () => {
+    return galleryService.browseVideo()
+  })
+
+  ipcMain.handle(IPC.GALLERY_BROWSE_PHOTOS, async () => {
+    return galleryService.browsePhotoFolder()
+  })
+
+  ipcMain.handle(IPC.GALLERY_ANALYZE_VIDEO, async (_e, videoPath: string, geminiApiKey: string) => {
+    try {
+      const triggers = overlay.getTriggers()
+      const boundaries = await galleryService.analyzeVideo(videoPath, triggers, geminiApiKey)
+      return { success: true, boundaries }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.GALLERY_READ_EXIF, async (_e, folderPath?: string) => {
+    try {
+      const photos = await galleryService.readExifTimestamps(folderPath)
+      return { success: true, count: photos.length }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.GALLERY_MATCH_PHOTOS, async (_e, manualOffsetMs?: number) => {
+    try {
+      if (manualOffsetMs !== undefined) {
+        galleryService.setManualOffset(manualOffsetMs)
+      }
+      const matches = await galleryService.rematchWithOffset()
+      const matched = matches.filter((m) => m.confidence !== 'unmatched').length
+      return { success: true, matched, unmatched: matches.length - matched, matches }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.GALLERY_SET_OFFSET, (_e, offsetMs: number) => {
+    galleryService.setManualOffset(offsetMs)
+  })
+
+  ipcMain.handle(IPC.GALLERY_GET_CONFIG, () => {
+    return galleryService.getConfig()
+  })
+
+  ipcMain.handle(IPC.GALLERY_UPLOAD_TO_CC, async (_e, title: string) => {
+    try {
+      const cc = settings.get('ccConfig') as { baseUrl: string; apiKey: string; tenantId: string } | undefined
+      if (!cc?.baseUrl || !cc?.apiKey || !cc?.tenantId) {
+        throw new Error('Command Center not configured. Set CC connection in Settings.')
+      }
+      const config = galleryService.getConfig()
+      if (!config.eventId) {
+        throw new Error('No event linked. Apply a CC broadcast package first.')
+      }
+      const result = await galleryService.uploadToCC(cc.baseUrl, cc.apiKey, cc.tenantId, config.eventId, title)
+      return { success: true, ...result }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
     }
   })
 

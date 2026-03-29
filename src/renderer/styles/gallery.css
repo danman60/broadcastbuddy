@@ -1,0 +1,273 @@
+.gallery-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Section grouping */
+.gallery-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gallery-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Step number indicator */
+.gallery-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-dim, #2a2a3e);
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.gallery-step-num.active {
+  background: var(--accent, #667eea);
+  color: #fff;
+}
+
+.gallery-step-num.done {
+  background: var(--success, #4ade80);
+  color: #1a1a2e;
+}
+
+/* Badges */
+.gallery-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--bg-dim, #2a2a3e);
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+.gallery-badge-success {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success, #4ade80);
+}
+
+.gallery-badge-danger {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--danger, #f87171);
+}
+
+.gallery-badge-sm {
+  font-size: 8px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
+/* Row layout */
+.gallery-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Offset controls */
+.gallery-offset-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.gallery-label {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.gallery-offset-hint {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-style: italic;
+}
+
+/* Progress */
+.gallery-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gallery-progress-bar {
+  height: 3px;
+  background: var(--bg-dim, #2a2a3e);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gallery-progress-fill {
+  height: 100%;
+  background: var(--accent, #667eea);
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.gallery-progress-text {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* Routine list */
+.gallery-routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.gallery-routine-item {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: var(--bg-dim, #2a2a3e);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.gallery-routine-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.gallery-routine-item.compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.gallery-routine-item.unmatched {
+  opacity: 0.6;
+}
+
+.gallery-routine-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.gallery-routine-num {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-dim);
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.gallery-routine-name {
+  flex: 1;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-routine-time {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.gallery-routine-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-dim);
+  padding-top: 2px;
+}
+
+.gallery-routine-confidence {
+  font-style: italic;
+}
+
+/* Stats row */
+.gallery-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.gallery-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding: 4px;
+  border-radius: 4px;
+  background: var(--bg-dim, #2a2a3e);
+}
+
+.gallery-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.gallery-stat-label {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gallery-stat-success .gallery-stat-value {
+  color: var(--success, #4ade80);
+}
+
+.gallery-stat-warning .gallery-stat-value {
+  color: var(--warning, #fbbf24);
+}
+
+.gallery-stat-danger .gallery-stat-value {
+  color: var(--danger, #f87171);
+}
+
+/* Done state */
+.gallery-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 4px;
+  background: rgba(74, 222, 128, 0.1);
+  font-size: 11px;
+}
+
+.gallery-done-check {
+  color: var(--success, #4ade80);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gallery-done-link {
+  color: var(--accent, #667eea);
+  text-decoration: underline;
+  font-size: 10px;
+  margin-left: auto;
+}
+
+/* Error */
+.gallery-error {
+  color: var(--danger, #f87171);
+  font-size: 11px;
+  padding: 4px 0;
+}

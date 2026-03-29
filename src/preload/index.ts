@@ -114,6 +114,21 @@ contextBridge.exposeInMainWorld('api', {
   windowResize: (width: number, height: number) =>
     ipcRenderer.invoke(IPC.WINDOW_RESIZE, width, height),
 
+  // ── Gallery / Photo Sorting ────────────────────────────────────
+  galleryBrowseVideo: () => ipcRenderer.invoke(IPC.GALLERY_BROWSE_VIDEO),
+  galleryBrowsePhotos: () => ipcRenderer.invoke(IPC.GALLERY_BROWSE_PHOTOS),
+  galleryAnalyzeVideo: (videoPath: string, geminiApiKey: string) =>
+    ipcRenderer.invoke(IPC.GALLERY_ANALYZE_VIDEO, videoPath, geminiApiKey),
+  galleryReadExif: (folderPath?: string) =>
+    ipcRenderer.invoke(IPC.GALLERY_READ_EXIF, folderPath),
+  galleryMatchPhotos: (manualOffsetMs?: number) =>
+    ipcRenderer.invoke(IPC.GALLERY_MATCH_PHOTOS, manualOffsetMs),
+  gallerySetOffset: (offsetMs: number) =>
+    ipcRenderer.invoke(IPC.GALLERY_SET_OFFSET, offsetMs),
+  galleryGetConfig: () => ipcRenderer.invoke(IPC.GALLERY_GET_CONFIG),
+  galleryUploadToCC: (title: string) =>
+    ipcRenderer.invoke(IPC.GALLERY_UPLOAD_TO_CC, title),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))
