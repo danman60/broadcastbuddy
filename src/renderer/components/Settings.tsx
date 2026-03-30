@@ -18,6 +18,12 @@ export function Settings() {
   const [obsConnected, setObsConnected] = useState(false)
   const [obsError, setObsError] = useState('')
 
+  // R2 / Storage
+  const [r2Endpoint, setR2Endpoint] = useState('')
+  const [r2AccessKeyId, setR2AccessKeyId] = useState('')
+  const [r2SecretAccessKey, setR2SecretAccessKey] = useState('')
+  const [r2Bucket, setR2Bucket] = useState('streamstage-galleries')
+
   useEffect(() => {
     if (settings) {
       setHttpPort(settings.server.httpPort)
@@ -28,6 +34,12 @@ export function Settings() {
         setObsHost(settings.obsConnection.host)
         setObsPort(settings.obsConnection.port)
         setObsPassword(settings.obsConnection.password)
+      }
+      if (settings.r2Config) {
+        setR2Endpoint(settings.r2Config.endpoint || '')
+        setR2AccessKeyId(settings.r2Config.accessKeyId || '')
+        setR2SecretAccessKey(settings.r2Config.secretAccessKey || '')
+        setR2Bucket(settings.r2Config.bucket || 'streamstage-galleries')
       }
     }
     checkObsStatus()
@@ -59,6 +71,7 @@ export function Settings() {
     await window.api.settingsSet('server', { httpPort, wsPort })
     await window.api.settingsSet('deepseekApiKey', apiKey)
     await window.api.settingsSet('geminiApiKey', geminiKey)
+    await window.api.settingsSet('r2Config', { endpoint: r2Endpoint, accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey, bucket: r2Bucket })
     const updated = await window.api.settingsGet()
     setSettings(updated)
     setShowSettings(false)
@@ -170,6 +183,49 @@ export function Settings() {
               Used for Gallery Builder video analysis
             </p>
           </div>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">R2 / Storage (Gallery Photos)</div>
+          <div className="settings-field">
+            <label>R2 Endpoint</label>
+            <input
+              type="text"
+              value={r2Endpoint}
+              onChange={(e) => setR2Endpoint(e.target.value)}
+              placeholder="https://xxxxx.r2.cloudflarestorage.com"
+            />
+          </div>
+          <div className="settings-field">
+            <label>Access Key ID</label>
+            <input
+              type="text"
+              value={r2AccessKeyId}
+              onChange={(e) => setR2AccessKeyId(e.target.value)}
+              placeholder="R2 access key"
+            />
+          </div>
+          <div className="settings-field">
+            <label>Secret Access Key</label>
+            <input
+              type="password"
+              value={r2SecretAccessKey}
+              onChange={(e) => setR2SecretAccessKey(e.target.value)}
+              placeholder="R2 secret key"
+            />
+          </div>
+          <div className="settings-field">
+            <label>Bucket</label>
+            <input
+              type="text"
+              value={r2Bucket}
+              onChange={(e) => setR2Bucket(e.target.value)}
+              placeholder="streamstage-galleries"
+            />
+          </div>
+          <p style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+            Photos upload direct to R2 — CC API is metadata only
+          </p>
         </div>
 
         <div style={{ marginTop: 8 }}>

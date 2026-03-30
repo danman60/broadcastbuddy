@@ -22,6 +22,7 @@ function createEmptyConfig(): GalleryConfig {
   return {
     eventId: '',
     videoPath: '',
+    videoPaths: [],
     photoFolderPath: '',
     clockOffsetMs: 0,
     manualOffsetMs: 0,
@@ -147,72 +148,74 @@ export async function readExifTimestamps(folderPath?: string): Promise<{ path: s
 
 // ── Clock Offset Detection ──────────────────────────────────────
 
+/**
+ * Detect clock offset using density-jump method.
+ * Finds the transition from pre-show (sparse test shots) to show start
+ * (rapid continuous shooting), then compares to first routine time.
+ */
 function detectClockOffset(
   photos: { path: string; captureTime: Date }[],
   boundaries: RoutineBoundary[],
 ): number {
   if (photos.length === 0 || boundaries.length === 0) return 0
 
-  // Convert boundaries to time windows
-  const windows = boundaries.map((b) => ({
-    start: new Date(b.timestampStart).getTime(),
-    end: new Date(b.timestampEnd).getTime(),
-  })).sort((a, b) => a.start - b.start)
+  const sorted = [...photos].sort((a, b) => a.captureTime.getTime() - b.captureTime.getTime())
+  const firstRoutineTime = new Date(boundaries[0].timestampStart).getTime()
 
-  // Sample up to 10 evenly-spaced photos
-  const sampleCount = Math.min(10, photos.length)
-  const step = Math.max(1, Math.floor(photos.length / sampleCount))
-  const samplePhotos: typeof photos = []
-  for (let i = 0; i < photos.length && samplePhotos.length < sampleCount; i += step) {
-    samplePhotos.push(photos[i])
-  }
+  // Find density jump: gap > 5 min followed by rapid shooting (10 photos in < 2 min)
+  const GAP_THRESHOLD = 5 * 60 * 1000 // 5 minutes
+  const RAPID_WINDOW = 2 * 60 * 1000 // 2 minutes
+  const MIN_RAPID_COUNT = 5
 
-  // Generate candidate offsets from sample photos vs window midpoints
-  const candidates: number[] = [0]
-  for (const photo of samplePhotos) {
-    const distances = windows.map((w) => ({
-      w,
-      dist: Math.abs(photo.captureTime.getTime() - (w.start + w.end) / 2),
-    }))
-    distances.sort((a, b) => a.dist - b.dist)
-    for (const { w } of distances.slice(0, 3)) {
-      const mid = (w.start + w.end) / 2
-      candidates.push(mid - photo.captureTime.getTime())
-    }
-  }
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i].captureTime.getTime() - sorted[i - 1].captureTime.getTime()
+    if (gap > GAP_THRESHOLD) {
+      // Check if what follows is rapid shooting
+      const nextBatch = sorted.slice(i, i + 10)
+      if (nextBatch.length >= MIN_RAPID_COUNT) {
+        const batchSpan = nextBatch[nextBatch.length - 1].captureTime.getTime() - nextBatch[0].captureTime.getTime()
+        if (batchSpan < RAPID_WINDOW) {
+          // First show photo found — camera time minus routine time = offset
+          const firstShowPhotoTime = sorted[i].captureTime.getTime()
+          const offset = firstRoutineTime - firstShowPhotoTime
+          logger.info(
+            `Clock offset (density-jump): ${Math.round(offset / 1000)}s — first show photo at ${sorted[i].captureTime.toISOString()}, first routine at ${new Date(firstRoutineTime).toISOString()}`,
+          )
 
-  // Score each candidate
-  const BUFFER = 30_000
-  let bestOffset = 0
-  let bestScore = 0
-  const tested = new Set<number>()
+          // Validate: apply offset, check what % of photos match
+          const windows = boundaries.map((b) => ({
+            start: new Date(b.timestampStart).getTime(),
+            end: new Date(b.timestampEnd).getTime(),
+          })).sort((a, b) => a.start - b.start)
+          const BUFFER = 60_000
+          let matched = 0
+          for (const photo of sorted) {
+            const adjusted = photo.captureTime.getTime() + offset
+            if (adjusted < windows[0].start - BUFFER) continue // pre-show
+            for (const w of windows) {
+              if (adjusted >= w.start - BUFFER && adjusted <= w.end + BUFFER) {
+                matched++
+                break
+              }
+            }
+          }
+          const showPhotos = sorted.filter((p) => p.captureTime.getTime() + offset >= windows[0].start - BUFFER).length
+          const matchPct = showPhotos > 0 ? Math.round((matched / showPhotos) * 100) : 0
+          logger.info(`Offset validation: ${matched}/${showPhotos} show photos matched (${matchPct}%)`)
 
-  for (const candidate of candidates) {
-    const rounded = Math.round(candidate / 1000) * 1000
-    if (tested.has(rounded)) continue
-    tested.add(rounded)
+          if (matchPct < 50) {
+            logger.warn('Low match rate — offset may be incorrect, user should verify manually')
+          }
 
-    let score = 0
-    for (const photo of photos) {
-      const adjusted = photo.captureTime.getTime() + rounded
-      for (const w of windows) {
-        if (adjusted >= w.start - BUFFER && adjusted <= w.end + BUFFER) {
-          score++
-          break
+          return offset
         }
       }
     }
-
-    if (score > bestScore) {
-      bestScore = score
-      bestOffset = rounded
-    }
   }
 
-  logger.info(
-    `Clock offset detected: ${Math.round(bestOffset / 1000)}s (camera ${bestOffset > 0 ? 'behind' : 'ahead'}) — ${bestScore}/${photos.length} photos matched`,
-  )
-  return bestOffset
+  // Fallback: no density jump found, return 0 and let user set manually
+  logger.warn('No density jump found — could not auto-detect clock offset. Set manually.')
+  return 0
 }
 
 // ── Photo-to-Routine Matching ───────────────────────────────────
@@ -261,6 +264,30 @@ export function matchPhotos(
         confidence: 'gap' as const,
         matchedRoutineIndex: gap.index,
         uploaded: false,
+      }
+    }
+
+    // Pre-show: before first routine
+    if (adjustedTime < windows[0].start - BUFFER_MS) {
+      return {
+        filePath: photo.path,
+        captureTime: photo.captureTime.toISOString(),
+        confidence: 'pre-show' as const,
+        uploaded: false,
+      }
+    }
+
+    // Intermission: in a gap > 10 min between routines
+    for (let i = 0; i < windows.length - 1; i++) {
+      const gapStart = windows[i].end
+      const gapEnd = windows[i + 1].start
+      if (gapEnd - gapStart > 10 * 60 * 1000 && adjustedTime > gapStart && adjustedTime < gapEnd) {
+        return {
+          filePath: photo.path,
+          captureTime: photo.captureTime.toISOString(),
+          confidence: 'intermission' as const,
+          uploaded: false,
+        }
       }
     }
 

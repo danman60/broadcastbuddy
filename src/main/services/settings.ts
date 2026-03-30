@@ -29,6 +29,12 @@ const store = new Store<AppSettings>({
       port: 4455,
       password: '',
     },
+    r2Config: {
+      endpoint: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+      bucket: 'streamstage-galleries',
+    },
   },
 })
 

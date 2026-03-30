@@ -198,6 +198,12 @@ export interface AppSettings {
     apiKey: string
     tenantId: string
   }
+  r2Config?: {
+    endpoint: string
+    accessKeyId: string
+    secretAccessKey: string
+    bucket: string
+  }
 }
 
 // ── Checklist Item (from Command Center) ─────────────────────────
@@ -376,6 +382,10 @@ export const IPC = {
   GALLERY_SET_OFFSET: 'gallery:set-offset',
   GALLERY_GET_CONFIG: 'gallery:get-config',
   GALLERY_UPLOAD_TO_CC: 'gallery:upload-to-cc',
+  GALLERY_BROWSE_VIDEOS: 'gallery:browse-videos',
+  GALLERY_TRANSCRIBE: 'gallery:transcribe',
+  GALLERY_UPLOAD_R2: 'gallery:upload-r2',
+  GALLERY_RUN_PIPELINE_V2: 'gallery:run-pipeline-v2',
   GALLERY_PROGRESS: 'gallery:progress',
 
   // State sync (main - renderer push events)
@@ -435,22 +445,31 @@ export interface PhotoMatch {
   filePath: string
   thumbnailPath?: string
   captureTime: string // ISO — from EXIF
-  confidence: 'exact' | 'gap' | 'unmatched'
+  confidence: 'exact' | 'gap' | 'pre-show' | 'intermission' | 'unmatched'
   matchedRoutineIndex?: number // index into RoutineBoundary array
   uploaded: boolean
+}
+
+export interface TranscriptSegment {
+  start: number // seconds from audio start
+  end: number
+  text: string
+  confidence?: number
 }
 
 export interface GalleryConfig {
   eventId: string // CC event ID (if linked)
   galleryId?: string // CC gallery ID (after creation)
   galleryUrl?: string // public URL
-  videoPath: string // OBS recording path
+  videoPath: string // OBS recording path (legacy single-video)
+  videoPaths: string[] // multiple video files (Act 1 + Act 2)
   photoFolderPath: string // SD card / photo folder
   clockOffsetMs: number // camera clock offset from system clock
   manualOffsetMs: number // user-provided offset override (e.g. -420000 for 7 min)
   routineBoundaries: RoutineBoundary[]
+  transcriptionSegments?: TranscriptSegment[]
   photoMatches: PhotoMatch[]
-  status: 'idle' | 'analyzing-video' | 'reading-exif' | 'matching' | 'uploading' | 'complete' | 'error'
+  status: 'idle' | 'extracting-audio' | 'transcribing' | 'analyzing-video' | 'reading-exif' | 'matching' | 'uploading-r2' | 'registering' | 'uploading' | 'complete' | 'error'
   error?: string
 }
 
@@ -459,6 +478,13 @@ export interface GalleryProgress {
   message: string
   current: number
   total: number
+}
+
+export interface R2Config {
+  endpoint: string
+  accessKeyId: string
+  secretAccessKey: string
+  bucket: string
 }
 
 // ── Defaults ─────────────────────────────────────────────────────

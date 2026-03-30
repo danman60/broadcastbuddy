@@ -767,5 +767,59 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ── Gallery V2: Transcription + Direct R2 Upload ──────────────
+
+  ipcMain.handle(IPC.GALLERY_BROWSE_VIDEOS, async () => {
+    const { dialog, BrowserWindow } = await import('electron')
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return []
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Select Video Files (can select multiple for Act 1, Act 2, etc.)',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Video Files', extensions: ['mp4', 'mkv', 'mov', 'ts', 'webm'] }],
+    })
+    if (result.canceled) return []
+    return result.filePaths
+  })
+
+  ipcMain.handle(IPC.GALLERY_TRANSCRIBE, async (_e, videoPaths: string[]) => {
+    try {
+      const { processMultipleVideos } = await import('./services/audioTranscription')
+      const triggers = overlay.getTriggers()
+      const triggerNames = triggers.map((t) => t.name)
+      const win = getMainWindow()
+      const result = await processMultipleVideos(videoPaths, triggerNames, (msg) => {
+        if (win) win.webContents.send(IPC.GALLERY_PROGRESS, { stage: 'transcribing', message: msg, current: 0, total: 0 })
+      })
+      return { success: true, boundaries: result.boundaries, segmentCount: result.segments.length }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.GALLERY_UPLOAD_R2, async (_e, folderPath: string, gallerySlug: string) => {
+    try {
+      const r2Conf = settings.get('r2Config') as { endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string } | undefined
+      if (!r2Conf?.endpoint || !r2Conf?.accessKeyId || !r2Conf?.secretAccessKey) {
+        throw new Error('R2 not configured. Set R2 credentials in Settings.')
+      }
+      const { createR2Client, uploadBatch, buildUploadItems } = await import('./services/r2Upload')
+      const client = createR2Client(r2Conf)
+      const items = buildUploadItems(folderPath, gallerySlug)
+      const win = getMainWindow()
+      const result = await uploadBatch(client, r2Conf.bucket, items, 8, (progress) => {
+        if (win) win.webContents.send(IPC.GALLERY_PROGRESS, {
+          stage: 'uploading-r2',
+          message: `Uploading: ${progress.completed}/${progress.total} — ${progress.currentFile}`,
+          current: progress.completed,
+          total: progress.total,
+        })
+      })
+      return { success: true, completed: result.completed, failed: result.failed.length }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   logger.info('IPC handlers registered')
 }

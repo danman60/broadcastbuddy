@@ -129,6 +129,13 @@ contextBridge.exposeInMainWorld('api', {
   galleryUploadToCC: (title: string) =>
     ipcRenderer.invoke(IPC.GALLERY_UPLOAD_TO_CC, title),
 
+  // Gallery V2: Transcription + Direct R2 Upload
+  galleryBrowseVideos: () => ipcRenderer.invoke(IPC.GALLERY_BROWSE_VIDEOS),
+  galleryTranscribe: (videoPaths: string[]) =>
+    ipcRenderer.invoke(IPC.GALLERY_TRANSCRIBE, videoPaths),
+  galleryUploadR2: (folderPath: string, gallerySlug: string) =>
+    ipcRenderer.invoke(IPC.GALLERY_UPLOAD_R2, folderPath, gallerySlug),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))

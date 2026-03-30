@@ -13,6 +13,7 @@
     "dist:installer": "electron-vite build && electron-builder --win"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1019.0",
     "electron-log": "^5.1.1",
     "electron-store": "^6.0.1",
     "exifreader": "^4.37.0",
@@ -20,6 +21,7 @@
     "mammoth": "^1.11.0",
     "openai": "^6.25.0",
     "pdf-lib": "^1.17.1",
+    "sharp": "^0.34.5",
     "ws": "^8.19.0",
     "zustand": "^4.5.0"
   },

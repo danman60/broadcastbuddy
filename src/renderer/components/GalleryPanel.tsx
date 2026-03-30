@@ -3,12 +3,14 @@ import { useStore } from '../store/useStore'
 import type { RoutineBoundary, PhotoMatch, GalleryProgress } from '../../shared/types'
 import '../styles/gallery.css'
 
-type Step = 'idle' | 'video' | 'photos' | 'matching' | 'review' | 'upload' | 'done'
+type Step = 'idle' | 'transcribing' | 'video' | 'photos' | 'matching' | 'review' | 'uploading-r2' | 'upload' | 'done'
 
 interface MatchSummary {
   total: number
   exact: number
   gap: number
+  preShow: number
+  intermission: number
   unmatched: number
   byRoutine: Map<number, { name: string; count: number }>
 }
@@ -19,6 +21,7 @@ export function GalleryPanel() {
 
   const [step, setStep] = useState<Step>('idle')
   const [videoPath, setVideoPath] = useState('')
+  const [videoPaths, setVideoPaths] = useState<string[]>([])
   const [photoFolder, setPhotoFolder] = useState('')
   const [boundaries, setBoundaries] = useState<RoutineBoundary[]>([])
   const [matches, setMatches] = useState<PhotoMatch[]>([])
@@ -41,6 +44,8 @@ export function GalleryPanel() {
   const summary: MatchSummary | null = matches.length > 0 ? (() => {
     const exact = matches.filter((m) => m.confidence === 'exact').length
     const gap = matches.filter((m) => m.confidence === 'gap').length
+    const preShow = matches.filter((m) => m.confidence === 'pre-show').length
+    const intermission = matches.filter((m) => m.confidence === 'intermission').length
     const unmatched = matches.filter((m) => m.confidence === 'unmatched').length
     const byRoutine = new Map<number, { name: string; count: number }>()
     for (const m of matches) {
@@ -50,7 +55,7 @@ export function GalleryPanel() {
       entry.count++
       byRoutine.set(m.matchedRoutineIndex, entry)
     }
-    return { total: matches.length, exact, gap, unmatched, byRoutine }
+    return { total: matches.length, exact, gap, preShow, intermission, unmatched, byRoutine }
   })() : null
 
   const geminiKey = settings?.geminiApiKey || ''
@@ -59,7 +64,31 @@ export function GalleryPanel() {
     const path = await window.api.galleryBrowseVideo()
     if (path) {
       setVideoPath(path)
+      setVideoPaths([path])
       setError('')
+    }
+  }
+
+  async function handleBrowseVideos() {
+    const paths = await window.api.galleryBrowseVideos()
+    if (paths && paths.length > 0) {
+      setVideoPaths(paths)
+      setVideoPath(paths[0])
+      setError('')
+    }
+  }
+
+  async function handleTranscribe() {
+    if (videoPaths.length === 0) return
+    setError('')
+    setStep('transcribing')
+    const result = await window.api.galleryTranscribe(videoPaths)
+    if (result.success) {
+      setBoundaries(result.boundaries)
+      setStep('photos')
+    } else {
+      setError(result.error)
+      setStep('idle')
     }
   }
 
@@ -156,7 +185,7 @@ export function GalleryPanel() {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
-  const isProcessing = step === 'video' || step === 'matching' || step === 'upload'
+  const isProcessing = step === 'video' || step === 'transcribing' || step === 'matching' || step === 'upload' || step === 'uploading-r2'
 
   return (
     <div className="panel collapsible">
@@ -184,34 +213,50 @@ export function GalleryPanel() {
             </div>
           )}
 
-          {/* Step 1: Select video */}
+          {/* Step 1: Select video + detect routines */}
           <div className="gallery-section">
             <div className="gallery-section-header">
-              <span className={`gallery-step-num ${step === 'idle' || step === 'video' ? 'active' : boundaries.length > 0 ? 'done' : ''}`}>1</span>
-              <span>Analyze Video</span>
+              <span className={`gallery-step-num ${step === 'idle' || step === 'video' || step === 'transcribing' ? 'active' : boundaries.length > 0 ? 'done' : ''}`}>1</span>
+              <span>Detect Routines</span>
             </div>
             <div className="gallery-row">
               <input
                 type="text"
                 readOnly
-                value={videoPath}
-                placeholder="Select OBS recording..."
+                value={videoPaths.length > 1 ? `${videoPaths.length} video files selected` : videoPath}
+                placeholder="Select OBS recording(s)..."
                 className="input input-sm"
                 style={{ flex: 1, fontSize: 10 }}
               />
-              <button className="btn btn-sm btn-ghost" onClick={handleBrowseVideo} disabled={isProcessing}>
+              <button className="btn btn-sm btn-ghost" onClick={handleBrowseVideos} disabled={isProcessing}>
                 Browse
               </button>
             </div>
-            {videoPath && boundaries.length === 0 && (
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={handleAnalyzeVideo}
-                disabled={isProcessing || !videoPath}
-                style={{ marginTop: 4 }}
-              >
-                {step === 'video' ? 'Analyzing...' : `Analyze with Gemini (${triggers.length} triggers loaded)`}
-              </button>
+            {videoPaths.length > 1 && (
+              <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>
+                {videoPaths.map((p, i) => <div key={i}>Act {i + 1}: {p.split(/[/\\]/).pop()}</div>)}
+              </div>
+            )}
+            {videoPaths.length > 0 && boundaries.length === 0 && (
+              <div className="gallery-row" style={{ marginTop: 4, gap: 4 }}>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={handleTranscribe}
+                  disabled={isProcessing}
+                  style={{ flex: 1 }}
+                >
+                  {step === 'transcribing' ? 'Transcribing...' : `Transcribe Audio (${triggers.length} triggers)`}
+                </button>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={handleAnalyzeVideo}
+                  disabled={isProcessing || !videoPath}
+                  title="Fallback: use Gemini vision to detect routines"
+                  style={{ fontSize: 9 }}
+                >
+                  {step === 'video' ? '...' : 'Gemini'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -329,6 +374,10 @@ export function GalleryPanel() {
                 <div className="gallery-stat gallery-stat-warning">
                   <span className="gallery-stat-value">{summary.gap}</span>
                   <span className="gallery-stat-label">Gap</span>
+                </div>
+                <div className="gallery-stat">
+                  <span className="gallery-stat-value">{summary.preShow + summary.intermission}</span>
+                  <span className="gallery-stat-label">Pre/Inter</span>
                 </div>
                 <div className="gallery-stat gallery-stat-danger">
                   <span className="gallery-stat-value">{summary.unmatched}</span>
