@@ -88,12 +88,25 @@ python3 -c "from faster_whisper import WhisperModel; ..."
 - [x] EXIF extracted from R2 (not SD card) — 7,214 photos, all have timestamps, range 12:05:18–16:07:39
 - [x] Script: `/mnt/firmament/extract-r2-exif.py` (boto3 range reads, 20 threads, ~167 files/sec)
 - [x] Output: `/mnt/firmament/r2-exif-timestamps.json`
-- [x] Applied -486s offset and ran full matching against 53 routine windows
-- [x] Match results: **7,074 exact / 99 pre-show / 41 intermission / 0 gap / 0 unmatched**
-- [x] Script: `/mnt/firmament/match-photos-to-routines.py`
-- [x] Output: `/mnt/firmament/photo-routine-assignments.json`
-- [ ] Cross-check needed: verify offset against Part 2 (The Incredibles at ~14:53:36 camera time)
+- [x] **v1 (timestamp-based, REPLACED):** Applied -486s offset, matched against 53 routine windows → 7,074 exact / 99 pre-show / 41 intermission. **Problem: photos bled across routine boundaries** — transcript timestamps are approximate, especially interpolated ones.
+- [x] **v2 (gap-detection, CURRENT):** Find natural gaps > 15s between consecutive photos (stage transitions). Merge segments < 15 photos into neighbors. Result: exact 53-routine match.
+  - 71 gaps > 15s found across 7,214 photos
+  - Pre-show: 71 scattered photos (camera warmup before 13:04)
+  - Act 1: 28 routines, 4,104 photos (13:04–14:21)
+  - Intermission: 23.7 min gap (14:21–14:44)
+  - Act 2: 25 routines, 3,039 photos (14:44–15:59)
+  - **7,143 photos assigned**, 71 pre-show excluded
+- [x] Script: `/mnt/firmament/match-photos-to-routines.py` (v1), gap analysis in subagent (v2)
+- [x] Output: `/mnt/firmament/photo-routine-assignments-v2.json` (current)
+- [x] DB re-inserted: deleted all gallery_media, re-inserted 7,143 with correct section_ids
 - [x] Routine time windows ready from Step 4 (42 confirmed + 11 interpolated, 53 total)
+
+### Why Timestamp Matching Failed (v1) → Gap Detection (v2)
+**Root cause:** Transcript-based routine timestamps are approximate. The announcer's "welcome to the stage" doesn't precisely mark when the photographer starts/stops shooting. Interpolated routines (11 of 53) had even looser timestamps. This caused photos to bleed across boundaries — e.g., last 26 photos of CAR WASH were assigned to IF THEY COULD SEE ME NOW.
+
+**Gap detection works because:** The photographer naturally stops shooting during stage transitions (costume changes, group exits). A gap > 15 seconds between consecutive photos = a routine boundary. This is deterministic and doesn't depend on transcript quality.
+
+**For future automation:** Gap detection should be the primary method. Transcript timestamps are useful for naming/ordering the gaps but not for cut points.
 
 ### Clock Offset Detection — Method Used + Lessons
 **What worked:** Find the first real show photo, compare to first routine system time. Simple subtraction.
@@ -109,14 +122,10 @@ python3 -c "from faster_whisper import WhisperModel; ..."
 4. Read EXIF from ALL photos, build density histogram, find the offset that maximizes alignment with routine windows
 5. Trigger fire timestamps make this moot — exact windows, offset detection trivially works
 
-## Step 5b: CC Database Readiness (BLOCKER)
-- [ ] Gallery tables do NOT exist in Supabase — Prisma migration never applied
-- [ ] Tables needed: `galleries`, `gallery_sections`, `gallery_media` (all in `commandcentered` schema)
-- [ ] Enums needed: `GalleryPreset`, `GalleryAccess`, `GalleryMediaType`
-- [ ] Code exists: API routes, tRPC router (`gallery.ts`), frontend pages, types — all reference Prisma models
-- [ ] Need to verify `galleryRouter` is registered in main tRPC app router
-- [ ] Collab message sent to CC-2 session (2026-03-30 ~13:35 ET) requesting migration
-- [ ] `recital-clock-offset.json` has WRONG value (0s from failed algorithm) — correct offset is +486s from manual method
+## Step 5b: CC Database Readiness (RESOLVED)
+- [x] Gallery tables exist in `commandcentered` schema (initial check queried wrong schema)
+- [x] `galleryRouter` registered in main tRPC app router (line 94, 20 procedures)
+- [x] `recital-clock-offset.json` has WRONG value (0s from failed algorithm) — correct offset is +486s from manual method
 
 ### What's built in CC code (confirmed via GitNexus + file reads)
 - `app/src/app/api/v1/gallery/route.ts` — POST create gallery
@@ -137,17 +146,14 @@ python3 -c "from faster_whisper import WhisperModel; ..."
 - `seedFromTriggers` endpoint can populate sections from broadcast_triggers (but those are the wrong 85 — need the correct 53 from program OCR)
 
 ## Step 6: Assign Photos to Routines
-- [x] Method: Python script on SpyBalloon + CC collab for DB writes
-- [x] 53 sections payload prepared: `/mnt/firmament/gallery-sections-payload.json` (28 Act 1 + 25 Act 2, categories: 31 Solo, 15 Group, 7 Duo/Trio)
-- [x] Photo assignments prepared: `/mnt/firmament/photo-routine-assignments.json` (7,214 entries)
-- [x] Collab message sent to CC-2 with full swap plan (delete 87 wrong sections, insert 53 correct, register 7,214 media)
-- [x] CC-2 executed section swap: deleted 87 wrong sections, inserted 53 correct ones (2026-03-30 ~13:55 ET)
-- [x] CC-2 registered 7,214 gallery_media rows: 7,074 with section assignments, 140 unassigned (pre-show + intermission)
-- [x] All 53 sections have photo_count updated, gallery total_photos = 7,214
+- [x] **Pass 1 (timestamp-based, superseded):** 7,074 matched, 140 unassigned. Had bleed-across-boundary errors.
+- [x] **Pass 2 (gap-detection, current):** 7,143 matched to 53 sections, 71 pre-show excluded. Clean boundaries.
+- [x] DB cleared and re-inserted with correct section_ids (2026-03-30 ~20:45 ET)
+- [x] All 53 sections have photo_count updated, gallery total_photos = 7,143
 - [x] Photos stay in R2 `unsorted/` — DB section_id assignment only, no file moves
-- [x] Thumbnails: using **Cloudflare Image Resizing** (on-the-fly, edge-cached, no pre-generation). thumbnail_r2_key stays NULL — CF transforms at URL level. Fallback: sharp batch on FIRMAMENT.
-- [ ] Publish: holding until CC gallery page refactor (lazy-load sections, not 7K at once). CC-2 will publish when ready (~1 hour from 13:58 ET)
-- [ ] Delete test gallery `f6d31f09` — CC-2 handling
+- [x] **Thumbnails generated and uploaded:** 7,214 thumbnails (400px wide, 80% JPEG) via Pillow on FIRMAMENT from SD card, uploaded to R2 via rclone. Pattern: `{dir}/thumbs/{filename}`. All gallery_media rows have thumbnail_r2_key set.
+- [x] Test gallery `f6d31f09` deleted by CC-2
+- [ ] Publish: holding until CC gallery page refactor (lazy-load sections)
 
 ### EXIF Extraction Method (for future automation)
 - Used boto3 S3 range reads from R2 (first 64KB per file) — EXIF is in JPEG header
@@ -160,6 +166,17 @@ python3 -c "from faster_whisper import WhisperModel; ..."
 - [x] Choreographer names: included in gallery_sections (from recital-program.json OCR)
 - [x] Dancer/performer names: included in gallery_sections subtitle + dancers fields
 - [x] Source: Program image OCR (`/mnt/firmament/2.jpg` Act 1, `/mnt/firmament/3.jpg` Act 2)
+- [x] **OCR data corrected:** Gemini Vision OCR misaligned performers/choreographers for 18 of 53 routines. Routines 36-37 swapped, routines 40-51 shifted by 1. Fixed by manually verifying all 53 against PNG images. 53/53 now verified correct.
+- [x] DB sections updated via SQL CASE statement (2026-03-30 ~20:30 ET)
+
+### OCR Alignment Bug — Root Cause + Future Fix
+**What happened:** Gemini Vision extracted the program table but shifted performer/choreographer columns starting at routine 36 (Act 2). Two error patterns: (1) routines 36-37 had performers swapped, (2) routines 40-51 had performers shifted by 1 position — each routine got the next routine's data. Classic table OCR misalignment when columns get tight.
+
+**For future automation:** The program OCR prompt needs to:
+1. Extract row-by-row, not as a bulk table
+2. Include the routine number in each row for cross-validation
+3. Verify column alignment by checking that solo performer names appear in only one routine
+4. Return structured JSON per row, not a grid
 
 ## Step 8: Gallery Publish
 - [ ] Gallery URL: `https://gallery.streamstage.live/spring-recital-2026`

@@ -1,58 +1,55 @@
 # Current Work - BroadcastBuddy
 
 ## Active Task
-Gallery Builder pipeline upgrade — replaced broken Gemini/CC-API pipeline with transcription + direct R2 upload.
+Gallery photo sorting for 7Attitudes recital — manual run complete, app pipeline upgraded.
 
-## What Was Done This Session
+## Session 2 Summary (2026-03-30 afternoon)
 
-### Gallery Photo Sorting (manual run complete)
-- 7,214 photos uploaded to R2, EXIF extracted, matched to 53 routines
-- 7,074 matched / 99 pre-show / 41 intermission / 0 unmatched
-- CC DB populated: 53 sections + 7,214 gallery_media rows
-- Thumbnails: using CF Image Resizing (on-the-fly). Backfill job pending on FIRMAMENT.
-- Gallery awaiting publish (CC-2 refactoring page for lazy-load)
+### Data Fixes
+- **OCR misalignment fixed:** 18 of 53 routines had wrong performer/choreographer from Gemini Vision table OCR. Verified all 53 against program PNGs — 53/53 correct.
+- **Photo assignments reprocessed:** Replaced timestamp-based matching (v1, had bleed-across errors) with gap-detection (v2, clean boundaries). 7,143 photos assigned to 53 sections, 71 pre-show excluded.
+- **Thumbnails backfilled:** 7,214 thumbnails generated from SD card via Pillow on FIRMAMENT, uploaded to R2, DB updated.
 
-### Gallery Builder App Code (Phase 1 complete)
-- **New: `r2Upload.ts`** — S3 client, batch upload with semaphore (8 parallel), thumbnail generation with sharp at ingest time, R2 listing
-- **New: `audioTranscription.ts`** — ffmpeg audio extraction, faster-whisper transcription via Python, announcement parsing with fuzzy match, multi-video support
-- **Replaced: `detectClockOffset()`** — density-jump method (find pre-show→show transition) replaces broken sampling algorithm
-- **Extended: `matchPhotos()`** — added pre-show and intermission confidence categories
-- **Types**: R2Config, TranscriptSegment, expanded GalleryConfig (videoPaths, new statuses), expanded PhotoMatch confidence
-- **4 new IPC channels**: browse-videos, transcribe, upload-r2, run-pipeline-v2
-- **Settings UI**: R2 endpoint, access key, secret key, bucket
-- **GalleryPanel UI**: Transcription-first flow, multi-video browse, Gemini as fallback
-- **Dependencies**: @aws-sdk/client-s3, sharp
+### App Code (Gallery Pipeline v2) — committed ac48b61
+- **New: `r2Upload.ts`** — S3 client, batch upload with 8-parallel semaphore, thumbnail gen with sharp at ingest
+- **New: `audioTranscription.ts`** — ffmpeg audio extraction, faster-whisper via Python, announcement fuzzy matching
+- **Replaced: `detectClockOffset()`** — density-jump method replaces broken sampling
+- **Extended: `matchPhotos()`** — pre-show/intermission categories
+- **Settings UI** — R2 credentials panel
+- **GalleryPanel UI** — transcription-first flow, multi-video browse, Gemini fallback
+- **Deps:** @aws-sdk/client-s3, sharp
 
-### Build Status
-- TypeScript: clean (zero errors)
-- electron-vite build: passes (main + preload + renderer)
+### Remotion Overlays (separate session — RemotionVideo-1)
+- 53 ProRes 4444 transparent lower third overlays rendering
+- DaVinci Resolve Lua marker script for timeline placement
+- Using corrected routine data from verified JSON
 
-## Still Needed
-1. **CC bulk-register endpoint** — POST /api/v1/gallery/{id}/media/bulk-register (collab with CC-2)
-2. **Thumbnail backfill** — 7,214 existing photos need thumbnails generated on FIRMAMENT
-3. **Gallery publish** — CC-2 finishing page refactor, then publish
-4. **End-to-end test** — install on Windows, run full pipeline with real event
-5. **Phase 2 polish**: EXIF from R2 range reads, parallel local EXIF, section enrichment
+### Gallery Status
+- **CC page refactored** — lazy-load, program-style grid, Act 1/Act 2 rows
+- **Ready to publish** — pending Dan's preview approval
+- Gallery URL: `https://gallery.streamstage.live/spring-recital-2026`
 
-## Key Files
-- `src/main/services/r2Upload.ts` — R2 direct upload with thumbnails
-- `src/main/services/audioTranscription.ts` — ffmpeg + faster-whisper pipeline
-- `src/main/services/galleryService.ts` — clock offset v2, match categories
-- `src/shared/types.ts` — all gallery type changes
-- `src/main/ipc.ts` — new handlers
-- `src/renderer/components/GalleryPanel.tsx` — transcription-first UI
-- `src/renderer/components/Settings.tsx` — R2 config UI
-- `docs/plans/2026-03-30-gallery-automation-spec.md` — full spec
-- `docs/plans/2026-03-30-gallery-runbook.md` — manual run log
+## Key Lessons Logged in Runbook
+1. Gap detection > timestamp matching for photo-routine assignment
+2. Gemini Vision OCR misaligns table columns — need row-by-row extraction
+3. Density-jump > sampling for clock offset detection
+4. Direct R2 upload mandatory (Vercel 4.5MB limit)
+5. Audio transcription > Gemini video for long recitals
 
-## Data Files (on FIRMAMENT /mnt/firmament/)
-- `recital-timeline-v3.json` — 53 routines with timestamps
-- `recital-program.json` — OCR'd program
-- `r2-exif-timestamps.json` — 7,214 EXIF timestamps from R2
-- `photo-routine-assignments.json` — matching results
-- `gallery-sections-payload.json` — 53 sections for CC bulk create
+## Files on FIRMAMENT (/mnt/firmament/)
+- `recital-timeline-v3.json` — 53 routines, CORRECTED performers/choreographers
+- `recital-program.json` — CORRECTED program data
+- `photo-routine-assignments-v2.json` — gap-based assignments (current)
+- `r2-exif-timestamps.json` — 7,214 EXIF timestamps
+- `thumbnail-backfill.py` — backfill script
 - `extract-r2-exif.py` — R2 EXIF extraction script
-- `match-photos-to-routines.py` — matching script
 
 ## Recent Commits
-- `8f65194` — Gallery Builder: Gemini video analysis, EXIF matching, CC upload pipeline + UI
+- `ac48b61` — Gallery pipeline v2: transcription, direct R2 upload, thumbnails
+- `8f65194` — Gallery Builder: Gemini video analysis, EXIF matching, CC upload
+
+## Still Needed
+1. CC bulk-register endpoint (for future galleries — this one was done via direct SQL)
+2. End-to-end test of BB app on Windows with real event
+3. Phase 2 polish: EXIF from R2 range reads, parallel local EXIF, section enrichment
+4. Program OCR improvement (row-by-row extraction to prevent misalignment)
