@@ -32,7 +32,14 @@ After a full feature-parity scan vs CompSyncElectronApp, ported ALL generic-valu
 - **child-process upload** still a reserved flag, not wired (needs v4 signer).
 
 ## Build / test status
-electron-vite build clean (EXIT 0) after every wave. Latest: main ~? KB, renderer 475KB. NOTHING runtime-tested — needs a Windows machine + OBS + tablet + a Supabase project (chat) + an SD import (photo). No QA-agent run. BB has no Windows installer built yet. Next session: Windows installer + QA-agent pass to actually exercise OBS record control, audio meters, slow zoom, and the new overlay elements against live OBS.
+electron-vite build clean (EXIT 0) after every wave. NSIS installer built on Linux+wine (96MB, bundles wifi-display-server.exe + 3 mingw DLLs in resources). Copied to `/mnt/firmament/BroadcastBuddy-Setup-2026-05-20.exe` (stale Mar-29 build also still at FIRMAMENT root, untouched).
+
+STILL NOTHING runtime-tested. To verify: install the FIRMAMENT exe on Windows, connect OBS, exercise record control / audio meters / slow zoom / transition revert / overlay elements / starting-soon media. Chat needs a BB Supabase project + `chat_messages` table. Photo hardening needs an SD import. No QA-agent run yet. Build correctness ≠ feature correctness.
+
+## Also done this session
+- Starting-soon pre-show media (sponsor carousel, slideshow, social bar, welcome) — commit `bb83367`. Audio visualizer deferred.
+- CSController committed + pushed (`2f7798e`, master): dual-source + codec selection + remote logging (bundled prior-session work).
+- Windows NSIS installer built + staged to FIRMAMENT.
 
 ## Last Session Before This (Gallery v2)
 Gallery Builder pipeline upgrade + first event processing for 7Attitudes recital. Replaced broken Gemini/CC-API pipeline with transcription + direct R2 upload. Processed 7,214 photos into 53 routines, fixed OCR and matching bugs, generated thumbnails, coordinated with CC and Remotion sessions.
