@@ -7,6 +7,37 @@ export function Header() {
   const [showLoadMenu, setShowLoadMenu] = useState(false)
   const [showToolsMenu, setShowToolsMenu] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [wifiDisplayRunning, setWifiDisplayRunning] = useState(false)
+
+  // Poll WiFi display status on mount so the Tablet badge reflects autoStart.
+  useEffect(() => {
+    window.api?.wifiDisplayStatus?.().then((s) => {
+      if (s) setWifiDisplayRunning(!!s.running)
+    }).catch(() => {})
+  }, [])
+
+  // One-press recovery: stop → start. Operator workflow when the tablet
+  // stream gets a capture-error loop or the tablet went silent. Falls back to
+  // opening Settings if no monitor has been picked yet.
+  async function handleTabletRestart(): Promise<void> {
+    try {
+      try { await window.api.wifiDisplayStop() } catch {}
+      const result = await window.api.wifiDisplayStart()
+      if (result && (result as { error?: string }).error) {
+        // No monitor configured (or other start failure) — bounce to Settings.
+        setWifiDisplayRunning(false)
+        setShowSettings(true)
+        showToast((result as { error?: string }).error || 'Open Settings to pick a monitor')
+        return
+      }
+      setWifiDisplayRunning(!!(result as { running?: boolean }).running)
+      // Also kick a discover-request so any silent tablet re-announces.
+      try { await window.api.wifiDisplayPingTablet() } catch {}
+      showToast('Tablet display restarted')
+    } catch (err) {
+      showToast('Tablet restart failed')
+    }
+  }
 
   // Inline input states
   const [showNewInput, setShowNewInput] = useState(false)
@@ -232,6 +263,29 @@ export function Header() {
             </div>
           )}
         </div>
+
+        {/* Tablet (WiFi display) — click to restart + ping tablet */}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={handleTabletRestart}
+          title="Click to restart tablet display + re-announce to tablet"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: wifiDisplayRunning ? '#22c55e' : '#fbbf24',
+              display: 'inline-block',
+            }}
+          />
+          Tablet
+        </button>
 
         {/* Tools Menu */}
         <div style={{ position: 'relative' }}>

@@ -3,6 +3,8 @@ import { join } from 'path'
 import * as settings from './services/settings'
 import * as overlay from './services/overlay'
 import * as wsHub from './services/wsHub'
+import * as wifiDisplay from './services/wifiDisplay'
+import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers } from './ipc'
 import { createLogger } from './logger'
 
@@ -47,6 +49,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   logger.info('BroadcastBuddy starting...')
 
+  // Reap orphaned wifi-display process from a previous crash before anything
+  // else binds the discovery port.
+  wifiDisplay.killOrphanedProcess()
+
   // 1. Load settings
   const serverConfig = settings.get('server')
   const overlayStyling = settings.get('overlay')
@@ -69,6 +75,23 @@ app.whenReady().then(() => {
   // 7. Wire state change → broadcast
   overlay.setOnStateChange(() => wsHub.broadcastState())
 
+  // 8. Tablet log sink (POST endpoint for CSController logs)
+  try {
+    startTabletLogServer()
+  } catch (err) {
+    logger.warn(`tabletLogServer start failed: ${err instanceof Error ? err.message : err}`)
+  }
+
+  // 9. Auto-start wifi display if configured
+  const wdSettings = settings.get('wifiDisplay')
+  if (wdSettings?.autoStart && wdSettings.monitorIndex !== null) {
+    wifiDisplay.start().then(() => {
+      logger.info('Auto-started wifi display streaming')
+    }).catch((err: Error) => {
+      logger.warn(`Auto-start wifi display failed: ${err.message}`)
+    })
+  }
+
   logger.info('All services started')
 })
 
@@ -80,6 +103,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   logger.info('Shutting down...')
+  wifiDisplay.cleanup()
+  stopTabletLogServer()
   wsHub.stop()
   overlay.stopServer()
 })

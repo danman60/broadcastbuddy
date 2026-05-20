@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import { AppSettings, DEFAULT_STYLING } from '../../shared/types'
+import { AppSettings, DEFAULT_STYLING, DEFAULT_WIFI_DISPLAY } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('settings')
@@ -35,6 +35,7 @@ const store = new Store<AppSettings>({
       secretAccessKey: '',
       bucket: 'streamstage-galleries',
     },
+    wifiDisplay: { ...DEFAULT_WIFI_DISPLAY },
   },
 })
 
@@ -54,5 +55,17 @@ export function set<K extends keyof AppSettings>(key: K, val: AppSettings[K]): v
 export function setAll(settings: Partial<AppSettings>): void {
   for (const [key, val] of Object.entries(settings)) {
     store.set(key as keyof AppSettings, val)
+  }
+}
+
+// Convenience wrappers matching the CompSyncElectronApp settings API so
+// ported services (wifiDisplay, etc.) need no rewrite at the call site.
+export function getSettings(): AppSettings {
+  return store.store
+}
+
+export function setSettings(partial: Partial<AppSettings>): void {
+  for (const [key, val] of Object.entries(partial)) {
+    store.set(key as keyof AppSettings, val as never)
   }
 }

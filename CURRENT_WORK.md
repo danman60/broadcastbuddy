@@ -1,9 +1,40 @@
 # Current Work - BroadcastBuddy
 
-## Last Session Summary
+## Last Session Summary (2026-05-20)
+**Wave 1 port from CompSyncElectronApp → BroadcastBuddy: WiFi display + tablet pack.** Goal is to bring BB to parity with the field-hardened features in CompSyncElectronApp (the user calls it "CS Controller" colloquially, but the source-of-truth Electron repo is `~/projects/CompSyncElectronApp`; the `~/projects/CSController` repo is the Android tablet receiver). Strategy: port features directly into BB now, extract shared packages once 2–3 features have landed (workspace decision deferred until shape is obvious from real usage).
+
+Ported wifiDisplay.ts (~500 LOC) + tabletLogServer.ts (~160 LOC) from CompSync. Wired into BB main/preload/ipc/renderer. Added Tablet button to Header (one-tap stop→start→ping recovery). Added full WiFi display section to Settings (monitor select, bitrate, fps, encoder, ports, client IP, autostart, Ping Tablet button). Copied wifi-display-server.exe + 3 mingw DLLs into BB resources/ and added extraResources to electron-builder. TypeScript build clean (656K out, no errors).
+
+CSController APK made dual-source aware: discovery payload's optional new `app` field tells the tablet which host found it. Defaults to "CompSync" when absent so existing CompSync hosts work unchanged. BB sends `app: "BroadcastBuddy"`. UI strings on ConnectionScreen genericized ("CompSync Remote Control" → "Tablet Remote Control"; "Searching for CompSync..." → "Searching for host (CompSync / BroadcastBuddy)..."; "Server Found" → "${srv.app} Found").
+
+## Wave Plan (port order from CompSyncElectronApp)
+1. **DONE** WiFi display + tablet pack (~3d → done in one session)
+2. **NEXT** Slow zoom + transition revert (obs.ts + slowZoom.ts, ~1.5d, no domain coupling)
+3. SD photo sync + upload pipeline (~7d, biggest data win, needs R2/S3 dual-backend + Routine→Trigger wrapping for matcher)
+4. Chat + pinning (~3d, needs separate BB Supabase project; "Wave 2 — port after infra features" per user)
+
+Deferred (domain-divergent, need Programme/Trigger abstraction first): up-next/that-was, routine-aware cut/next, routine-window photo sync.
+
+## Last Session Before This (Gallery v2)
 Gallery Builder pipeline upgrade + first event processing for 7Attitudes recital. Replaced broken Gemini/CC-API pipeline with transcription + direct R2 upload. Processed 7,214 photos into 53 routines, fixed OCR and matching bugs, generated thumbnails, coordinated with CC and Remotion sessions.
 
-## What Changed
+## What Changed (this session, WiFi display port)
+- `src/main/services/wifiDisplay.ts` — NEW, ~500 LOC ported from CompSync. UDP discovery (port 5002, type `compsync-discover` payload with new `app: "BroadcastBuddy"` field), child-process supervision of wifi-display-server.exe, capture-error watchdog (5/7s → auto-restart, cap 3), unexpected-exit auto-restart (cap 3), topology-change debounce restart, tablet IP drift one-shot adoption, pre-spawn taskkill of stale binary to free UDP 5000/5001, Windows ABOVENORMAL priority bump, opt-in HEVC NVENC (off by default, no bundled ffmpeg yet).
+- `src/main/services/tabletLogServer.ts` — NEW, ~160 LOC. POST `/tablet-log` on `0.0.0.0:8766` ingests batched Android log lines into electron-log with `[tablet:<host>]` prefix.
+- `src/shared/types.ts` — added `MonitorInfo`, `WifiDisplayState`, `WifiDisplaySettings`, `DEFAULT_WIFI_DISPLAY`; extended `AppSettings.wifiDisplay`; added 6 IPC channels (`WIFI_DISPLAY_*` + `PING_TABLET`).
+- `src/main/services/settings.ts` — `wifiDisplay` default block; added `getSettings()`/`setSettings()` convenience wrappers so future CompSync-port code lands with no rewrite.
+- `src/main/index.ts` — imports + wiring: `wifiDisplay.killOrphanedProcess()` early, `startTabletLogServer()` + auto-start during `whenReady`, `cleanup` + `stopTabletLogServer` on `before-quit`.
+- `src/main/ipc.ts` — 6 handlers (GET_MONITORS, START, STOP, STATUS, SET_MONITOR, PING_TABLET).
+- `src/preload/index.ts` — matching `wifiDisplay*` bridge methods.
+- `src/renderer/components/Header.tsx` — Tablet button (green dot=running, amber=stopped). Click = stop → start → ping. Falls back to opening Settings if no monitor configured.
+- `src/renderer/components/Settings.tsx` — Tablet Display section with monitor select / bitrate / fps / encoder / IP / ports / autostart / Start-Stop-Ping controls.
+- `resources/wifi-display-server.exe` + `libstdc++-6.dll` + `libgcc_s_seh-1.dll` + `libwinpthread-1.dll` — copied from CompSync (5.8MB exe + 27MB DLLs).
+- `package.json` — `build.extraResources` added so electron-builder bundles the binary + DLLs into the installer.
+
+CSController repo (`~/projects/CSController`):
+- `app/src/main/java/com/compsync/controller/ui/ConnectionScreen.kt` — `DiscoveredServer` gained `app: String = "CompSync"`. JSON parsed via `obj.optString("app", "CompSync")` so old payloads still work. Three display strings genericized for dual-source.
+
+## Previous Session
 - `ac48b61` Gallery pipeline v2 — r2Upload.ts, audioTranscription.ts, density-jump offset, gap matching, R2 settings UI, GalleryPanel transcription flow (10 files)
 - `721a876` Retrospective + runbook updates (4 files)
 - [DB only] 18 gallery_sections updated with corrected performer/choreographer data

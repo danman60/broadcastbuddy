@@ -9,6 +9,7 @@ import * as documentImport from './services/documentImport'
 import * as brandScraper from './services/brandScraper'
 import * as obsConnection from './services/obsConnection'
 import * as galleryService from './services/galleryService'
+import * as wifiDisplay from './services/wifiDisplay'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 
@@ -819,6 +820,41 @@ export function registerIpcHandlers(): void {
     } catch (err) {
       return { success: false, error: (err as Error).message }
     }
+  })
+
+  // ── WiFi Display (tablet stream) ──────────────────────────────
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_GET_MONITORS, () => {
+    return wifiDisplay.getMonitors()
+  })
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_START, async () => {
+    try {
+      await wifiDisplay.start()
+      return wifiDisplay.getStatus()
+    } catch (err) {
+      return { running: false, monitorIndex: null, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_STOP, async () => {
+    await wifiDisplay.stop()
+    return wifiDisplay.getStatus()
+  })
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_STATUS, () => {
+    return wifiDisplay.getStatus()
+  })
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_SET_MONITOR, (_e, monitorIndex: number | null) => {
+    const current = settings.get('wifiDisplay')
+    settings.set('wifiDisplay', { ...(current ?? {}) as import('../shared/types').WifiDisplaySettings, monitorIndex })
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.WIFI_DISPLAY_PING_TABLET, () => {
+    wifiDisplay.pingTabletForDiscovery()
+    return { ok: true }
   })
 
   logger.info('IPC handlers registered')

@@ -204,6 +204,47 @@ export interface AppSettings {
     secretAccessKey: string
     bucket: string
   }
+  wifiDisplay?: WifiDisplaySettings
+}
+
+// ── WiFi Display (tablet stream) ─────────────────────────────────
+
+export interface MonitorInfo {
+  id: number
+  label: string
+  width: number
+  height: number
+  x: number
+  y: number
+}
+
+export interface WifiDisplayState {
+  running: boolean
+  monitorIndex: number | null
+}
+
+export interface WifiDisplaySettings {
+  monitorIndex: number | null
+  bitrate: number
+  fps: number
+  clientIp: string | null
+  videoPort: number
+  touchPort: number
+  autoStart: boolean
+  // 'openh264' = software encoder (default, always works). 'hevc-nvenc' = GPU
+  // offload via bundled ffmpeg; tablet must also flip to video/hevc MediaCodec.
+  encoder?: 'openh264' | 'hevc-nvenc'
+}
+
+export const DEFAULT_WIFI_DISPLAY: WifiDisplaySettings = {
+  monitorIndex: null,
+  bitrate: 3000,
+  fps: 30,
+  clientIp: null,
+  videoPort: 5000,
+  touchPort: 5001,
+  autoStart: false,
+  encoder: 'openh264',
 }
 
 // ── Checklist Item (from Command Center) ─────────────────────────
@@ -393,6 +434,14 @@ export const IPC = {
   OVERLAY_STATE_UPDATE: 'overlay:state-update',
   TRIGGERS_UPDATED: 'triggers:updated',
   SESSION_UPDATED: 'session:updated',
+
+  // WiFi Display (tablet stream)
+  WIFI_DISPLAY_GET_MONITORS: 'wifi-display:get-monitors',
+  WIFI_DISPLAY_START: 'wifi-display:start',
+  WIFI_DISPLAY_STOP: 'wifi-display:stop',
+  WIFI_DISPLAY_STATUS: 'wifi-display:status',
+  WIFI_DISPLAY_SET_MONITOR: 'wifi-display:set-monitor',
+  WIFI_DISPLAY_PING_TABLET: 'wifi-display:ping-tablet',
 } as const
 
 // ── WebSocket Protocol ───────────────────────────────────────────

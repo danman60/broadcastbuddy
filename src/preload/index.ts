@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -135,6 +135,20 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.GALLERY_TRANSCRIBE, videoPaths),
   galleryUploadR2: (folderPath: string, gallerySlug: string) =>
     ipcRenderer.invoke(IPC.GALLERY_UPLOAD_R2, folderPath, gallerySlug),
+
+  // ── WiFi Display (tablet stream) ──────────────────────────────
+  wifiDisplayGetMonitors: (): Promise<MonitorInfo[]> =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_GET_MONITORS),
+  wifiDisplayStart: (): Promise<WifiDisplayState & { error?: string }> =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_START),
+  wifiDisplayStop: (): Promise<WifiDisplayState> =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_STOP),
+  wifiDisplayStatus: (): Promise<WifiDisplayState> =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_STATUS),
+  wifiDisplaySetMonitor: (monitorIndex: number | null) =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_SET_MONITOR, monitorIndex),
+  wifiDisplayPingTablet: () =>
+    ipcRenderer.invoke(IPC.WIFI_DISPLAY_PING_TABLET),
 
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {

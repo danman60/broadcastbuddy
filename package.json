@@ -48,6 +48,18 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources/",
+        "to": ".",
+        "filter": [
+          "wifi-display-server.exe",
+          "libstdc++-6.dll",
+          "libgcc_s_seh-1.dll",
+          "libwinpthread-1.dll"
+        ]
+      }
+    ],
     "win": {
       "target": [
         "nsis",

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { AppSettings } from '../../shared/types'
+import type { AppSettings, MonitorInfo, WifiDisplaySettings } from '../../shared/types'
+import { DEFAULT_WIFI_DISPLAY } from '../../shared/types'
 import '../styles/settings.css'
 
 export function Settings() {
@@ -24,6 +25,12 @@ export function Settings() {
   const [r2SecretAccessKey, setR2SecretAccessKey] = useState('')
   const [r2Bucket, setR2Bucket] = useState('streamstage-galleries')
 
+  // WiFi Display (tablet stream)
+  const [monitors, setMonitors] = useState<MonitorInfo[]>([])
+  const [wifi, setWifi] = useState<WifiDisplaySettings>(DEFAULT_WIFI_DISPLAY)
+  const [wifiRunning, setWifiRunning] = useState(false)
+  const [wifiError, setWifiError] = useState('')
+
   useEffect(() => {
     if (settings) {
       setHttpPort(settings.server.httpPort)
@@ -41,9 +48,61 @@ export function Settings() {
         setR2SecretAccessKey(settings.r2Config.secretAccessKey || '')
         setR2Bucket(settings.r2Config.bucket || 'streamstage-galleries')
       }
+      if (settings.wifiDisplay) {
+        setWifi(settings.wifiDisplay)
+      }
     }
     checkObsStatus()
+    refreshMonitors()
+    refreshWifiStatus()
   }, [settings])
+
+  async function refreshMonitors() {
+    try {
+      const m = await window.api.wifiDisplayGetMonitors()
+      setMonitors(m || [])
+    } catch {
+      setMonitors([])
+    }
+  }
+
+  async function refreshWifiStatus() {
+    try {
+      const s = await window.api.wifiDisplayStatus()
+      setWifiRunning(!!s?.running)
+    } catch {
+      setWifiRunning(false)
+    }
+  }
+
+  function updateWifi(patch: Partial<WifiDisplaySettings>) {
+    setWifi((prev) => ({ ...prev, ...patch }))
+  }
+
+  async function handleWifiStart() {
+    setWifiError('')
+    // Persist settings first so the service reads the latest values.
+    await window.api.settingsSet('wifiDisplay', wifi)
+    const result = await window.api.wifiDisplayStart()
+    if (result && (result as { error?: string }).error) {
+      setWifiError((result as { error?: string }).error || 'Start failed')
+      setWifiRunning(false)
+    } else {
+      setWifiRunning(!!(result as { running?: boolean }).running)
+    }
+  }
+
+  async function handleWifiStop() {
+    setWifiError('')
+    await window.api.wifiDisplayStop()
+    setWifiRunning(false)
+  }
+
+  async function handleWifiPingTablet() {
+    try {
+      await window.api.wifiDisplayPingTablet()
+    } catch {}
+  }
 
   async function checkObsStatus() {
     const status = await window.api.obsStatus()
@@ -72,6 +131,7 @@ export function Settings() {
     await window.api.settingsSet('deepseekApiKey', apiKey)
     await window.api.settingsSet('geminiApiKey', geminiKey)
     await window.api.settingsSet('r2Config', { endpoint: r2Endpoint, accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey, bucket: r2Bucket })
+    await window.api.settingsSet('wifiDisplay', wifi)
     const updated = await window.api.settingsGet()
     setSettings(updated)
     setShowSettings(false)
@@ -226,6 +286,113 @@ export function Settings() {
           <p style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
             Photos upload direct to R2 — CC API is metadata only
           </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Tablet Display (WiFi)</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Stream a monitor to a wireless tablet via wifi-display-server. Touch input on
+            the tablet controls the PC. Pair with the CSController APK.
+          </p>
+          <div className="settings-field">
+            <label>Monitor</label>
+            <select
+              value={wifi.monitorIndex ?? ''}
+              onChange={(e) => updateWifi({ monitorIndex: e.target.value === '' ? null : parseInt(e.target.value) })}
+            >
+              <option value="">Select monitor...</option>
+              {monitors.map((m, i) => (
+                <option key={m.id} value={i}>
+                  {m.label || `Display ${i + 1}`} ({m.width}x{m.height})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Bitrate (kbps)</label>
+            <input
+              type="number"
+              min={1000}
+              max={10000}
+              step={500}
+              value={wifi.bitrate}
+              onChange={(e) => updateWifi({ bitrate: parseInt(e.target.value) || 3000 })}
+            />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>FPS</label>
+            <select
+              value={wifi.fps}
+              onChange={(e) => updateWifi({ fps: parseInt(e.target.value) })}
+            >
+              <option value={15}>15</option>
+              <option value={24}>24</option>
+              <option value={30}>30</option>
+              <option value={60}>60</option>
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Encoder</label>
+            <select
+              value={wifi.encoder ?? 'openh264'}
+              onChange={(e) => updateWifi({ encoder: e.target.value as 'openh264' | 'hevc-nvenc' })}
+            >
+              <option value="openh264">H.264 (OpenH264)</option>
+              <option value="hevc-nvenc">H.265/HEVC (NVENC)</option>
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Client IP</label>
+            <input
+              type="text"
+              value={wifi.clientIp || ''}
+              placeholder="broadcast (leave empty)"
+              onChange={(e) => updateWifi({ clientIp: e.target.value || null })}
+            />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Video Port</label>
+            <input
+              type="number"
+              value={wifi.videoPort}
+              onChange={(e) => updateWifi({ videoPort: parseInt(e.target.value) || 5000 })}
+            />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Touch Port</label>
+            <input
+              type="number"
+              value={wifi.touchPort}
+              onChange={(e) => updateWifi({ touchPort: parseInt(e.target.value) || 5001 })}
+            />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Auto-start</label>
+            <input
+              type="checkbox"
+              checked={wifi.autoStart}
+              onChange={(e) => updateWifi({ autoStart: e.target.checked })}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
+              Start tablet stream when BroadcastBuddy launches
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            {wifiRunning ? (
+              <>
+                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>Running</span>
+                <button className="btn btn-ghost btn-sm" onClick={handleWifiStop}>Stop</button>
+                <button className="btn btn-ghost btn-sm" onClick={handleWifiPingTablet}>Ping Tablet</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={handleWifiStart}>
+                Start Streaming
+              </button>
+            )}
+          </div>
+          {wifiError && (
+            <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{wifiError}</p>
+          )}
         </div>
 
         <div style={{ marginTop: 8 }}>
