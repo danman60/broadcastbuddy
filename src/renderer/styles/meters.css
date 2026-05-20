@@ -1,0 +1,72 @@
+/* Horizontal audio meters (OBS InputVolumeMeters → dBFS). Color zones match
+   the CompSync convention: green healthy, yellow approaching clip, red hot. */
+
+.audio-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audio-meter-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-meter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-meter-bar {
+  position: relative;
+  height: 10px;
+  background: rgba(45, 45, 66, 0.6);
+  border: 1px solid rgba(80, 80, 120, 0.4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.audio-meter-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  transition: width 0.08s linear;
+}
+
+.audio-meter-fill.good { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.audio-meter-fill.medium { background: linear-gradient(90deg, #22c55e, #fbbf24); }
+.audio-meter-fill.hot { background: linear-gradient(90deg, #22c55e, #fbbf24, #ef4444); }
+.audio-meter-fill.silent { background: var(--text-muted); opacity: 0.3; }
+
+/* Peak-hold tick — a thin bright line that lags the fill and decays slowly. */
+.audio-meter-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+  transition: left 0.12s linear;
+}
+
+.audio-meter-db {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* Compact mode: tighten the label column. */
+.compact .audio-meter-row {
+  grid-template-columns: 64px 1fr 40px;
+  gap: 6px;
+}

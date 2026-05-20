@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store/useStore'
+import type { RecordState } from '../../shared/types'
+import { IPC } from '../../shared/types'
 import '../styles/header.css'
 
 export function Header() {
@@ -8,6 +10,9 @@ export function Header() {
   const [showToolsMenu, setShowToolsMenu] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [wifiDisplayRunning, setWifiDisplayRunning] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [recTimecode, setRecTimecode] = useState('')
+  const [recBusy, setRecBusy] = useState(false)
 
   // Poll WiFi display status on mount so the Tablet badge reflects autoStart.
   useEffect(() => {
@@ -15,6 +20,64 @@ export function Header() {
       if (s) setWifiDisplayRunning(!!s.running)
     }).catch(() => {})
   }, [])
+
+  // Record state: seed from a one-shot status query, then react to live
+  // RecordStateChanged pushes (OBS Outputs subscription → main → renderer).
+  useEffect(() => {
+    window.api?.obsRecordStatus?.().then((s) => {
+      if (s) {
+        setRecording(!!s.active)
+        setRecTimecode(s.timecode || '')
+      }
+    }).catch(() => {})
+    const onUpdate = (next: unknown) => {
+      const s = next as RecordState
+      setRecording(!!s.active)
+      if (!s.active) setRecTimecode('')
+    }
+    window.api.on(IPC.OBS_RECORD_STATE_UPDATE, onUpdate)
+    return () => window.api.removeAllListeners(IPC.OBS_RECORD_STATE_UPDATE)
+  }, [])
+
+  // While recording, poll the live OBS timecode for the elapsed readout. OBS
+  // is the clock source — no local timer that can drift from the real file.
+  useEffect(() => {
+    if (!recording) return
+    let cancelled = false
+    const tick = () => {
+      window.api?.obsGetTimecode?.().then((tc) => {
+        if (!cancelled && tc) setRecTimecode(tc)
+      }).catch(() => {})
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [recording])
+
+  async function handleToggleRecord(): Promise<void> {
+    if (recBusy) return
+    setRecBusy(true)
+    try {
+      const res = await window.api.obsToggleRecord()
+      if (!res?.success) {
+        showToast(res?.error || 'OBS not connected')
+      } else {
+        // Optimistic flip; the RecordStateChanged push reconciles authoritatively.
+        setRecording(!!res.active)
+        showToast(res.active ? 'Recording started' : 'Recording stopped')
+      }
+    } catch {
+      showToast('Record toggle failed')
+    } finally {
+      setRecBusy(false)
+    }
+  }
+
+  // Trim OBS's HH:MM:SS.mmm timecode down to HH:MM:SS for the badge.
+  function fmtTimecode(tc: string): string {
+    const dot = tc.indexOf('.')
+    return dot >= 0 ? tc.slice(0, dot) : tc
+  }
 
   // One-press recovery: stop → start. Operator workflow when the tablet
   // stream gets a capture-error loop or the tablet went silent. Falls back to
@@ -263,6 +326,21 @@ export function Header() {
             </div>
           )}
         </div>
+
+        {/* Record toggle — start/stop OBS recording. Blinks red while live and
+            shows elapsed timecode (OBS is the clock source). */}
+        <button
+          className={`btn btn-sm header-rec-btn${recording ? ' recording' : ''}`}
+          onClick={handleToggleRecord}
+          disabled={recBusy}
+          title={recording ? 'Click to stop recording' : 'Click to start recording'}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <span className="header-rec-dot" />
+          {recording
+            ? (recTimecode ? `REC ${fmtTimecode(recTimecode)}` : 'REC')
+            : 'REC'}
+        </button>
 
         {/* Tablet (WiFi display) — click to restart + ping tablet */}
         <button

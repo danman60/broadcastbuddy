@@ -19,6 +19,7 @@ import { BroadcastPackagePanel } from './BroadcastPackagePanel'
 import { RecordingUploadPanel } from './RecordingUploadPanel'
 import { GalleryPanel } from './GalleryPanel'
 import { ChatPanel } from './ChatPanel'
+import { AudioMeters } from './AudioMeters'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
@@ -56,6 +57,7 @@ export function App() {
           <NotesPanel />
           <BroadcastPackagePanel />
           <RecordingUploadPanel />
+          <AudioMeters />
           <GalleryPanel />
           <ChatPanel />
         </div>

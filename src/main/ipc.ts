@@ -366,6 +366,52 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ── OBS Recording control ─────────────────────────────────────
+
+  // Push live record-state + audio levels to the renderer. RecordStateChanged
+  // arrives on the Outputs subscription; InputVolumeMeters on the high-volume
+  // subscription (both OR-ed into the Identify bitmask in obsConnection.ts).
+  obsConnection.setOnRecordStateChanged((state) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.OBS_RECORD_STATE_UPDATE, state)
+  })
+
+  obsConnection.setOnAudioLevels((levels) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.OBS_AUDIO_LEVELS, levels)
+  })
+
+  ipcMain.handle(IPC.OBS_START_RECORD, async () => {
+    try {
+      await obsConnection.startRecording()
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.OBS_STOP_RECORD, async () => {
+    try {
+      const outputPath = await obsConnection.stopRecording()
+      return { success: true, outputPath }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.OBS_TOGGLE_RECORD, async () => {
+    try {
+      const active = await obsConnection.toggleRecording()
+      return { success: true, active }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.OBS_RECORD_STATUS, async () => {
+    return obsConnection.getRecordStatus()
+  })
+
   // ── Starting Soon ──────────────────────────────────────────────
 
   ipcMain.handle(IPC.STARTING_SOON_SHOW, () => {

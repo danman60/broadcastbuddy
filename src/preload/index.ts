@@ -77,6 +77,12 @@ contextBridge.exposeInMainWorld('api', {
   obsPushStreamKey: (rtmpUrl: string, streamKey: string) =>
     ipcRenderer.invoke(IPC.OBS_PUSH_STREAM_KEY, rtmpUrl, streamKey),
 
+  // ── OBS Recording control ─────────────────────────────────────
+  obsStartRecord: () => ipcRenderer.invoke(IPC.OBS_START_RECORD),
+  obsStopRecord: () => ipcRenderer.invoke(IPC.OBS_STOP_RECORD),
+  obsToggleRecord: () => ipcRenderer.invoke(IPC.OBS_TOGGLE_RECORD),
+  obsRecordStatus: () => ipcRenderer.invoke(IPC.OBS_RECORD_STATUS),
+
   // ── Starting Soon ─────────────────────────────────────────────
   startingSoonShow: () => ipcRenderer.invoke(IPC.STARTING_SOON_SHOW),
   startingSoonHide: () => ipcRenderer.invoke(IPC.STARTING_SOON_HIDE),

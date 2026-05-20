@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -87,6 +87,12 @@ interface ElectronAPI {
 
   // Window
   windowResize: (width: number, height: number) => Promise<void>
+
+  // OBS Recording control
+  obsStartRecord: () => Promise<{ success: boolean; error?: string }>
+  obsStopRecord: () => Promise<{ success: boolean; outputPath?: string; error?: string }>
+  obsToggleRecord: () => Promise<{ success: boolean; active?: boolean; error?: string }>
+  obsRecordStatus: () => Promise<RecordState>
 
   // OBS Slow Zoom
   obsSlowZoomTriggerWide: () => Promise<SlowZoomStatus>

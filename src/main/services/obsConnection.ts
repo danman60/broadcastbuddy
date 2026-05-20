@@ -16,6 +16,23 @@ const connectedCallbacks: ConnectedCallback[] = []
 const disconnectedCallbacks: DisconnectedCallback[] = []
 const sceneChangedCallbacks: Array<(name: string | null) => void> = []
 
+// Record + audio-meter consumers (main → renderer push, wired in ipc.ts).
+export interface RecordState {
+  active: boolean
+  paused: boolean
+  timecode: string
+}
+
+// One audio input's post-fader peak per channel, already converted to a 0..1
+// multiplier (OBS magnitude). Renderer converts to dBFS for display.
+export interface AudioInputLevel {
+  inputName: string
+  levels: number[] // post-fader peak per channel (0..1 mul)
+}
+
+const recordStateCallbacks: Array<(state: RecordState) => void> = []
+const audioLevelsCallbacks: Array<(levels: AudioInputLevel[]) => void> = []
+
 export function onConnected(cb: ConnectedCallback): void {
   connectedCallbacks.push(cb)
 }
@@ -27,6 +44,19 @@ export function onDisconnected(cb: DisconnectedCallback): void {
 export function setOnSceneChanged(cb: (name: string | null) => void): void {
   sceneChangedCallbacks.push(cb)
 }
+
+export function setOnRecordStateChanged(cb: (state: RecordState) => void): void {
+  recordStateCallbacks.push(cb)
+}
+
+export function setOnAudioLevels(cb: (levels: AudioInputLevel[]) => void): void {
+  audioLevelsCallbacks.push(cb)
+}
+
+// InputVolumeMeters fires ~50/sec. Coalesce to ~20/sec (50ms) before forwarding
+// to the renderer so we don't flood the IPC channel.
+const METER_THROTTLE_MS = 50
+let lastMeterSendMs = 0
 
 // ── Transition cache + auto-revert state machine ────────────────────────
 // Populated by refreshTransitionList() on identify + after any
@@ -152,10 +182,14 @@ export function connect(host: string, port: number, password?: string): Promise<
 }
 
 function sendIdentify(hello: { authentication?: { challenge: string; salt: string } }, password?: string): void {
-  // EventSubscriptions bitmask — subscribe to General + Scenes + Transitions
-  // (1 << 0 | 1 << 2 | 1 << 3 = 13). Without this, op:5 events never arrive
-  // even though the connection is otherwise healthy.
-  const eventSubscriptions = (1 << 0) | (1 << 2) | (1 << 3)
+  // EventSubscriptions bitmask. Without this, op:5 events never arrive even
+  // though the connection is otherwise healthy.
+  //   General (1<<0=1) + Scenes (1<<2=4) + Transitions (1<<3=8)  = 13  (waves 1-2)
+  //   Outputs (1<<6=64)             → RecordStateChanged / StreamStateChanged
+  //   InputVolumeMeters (1<<16=65536) → separate HIGH-VOLUME subscription that
+  //   must be explicitly OR-ed into the Identify bitmask (not in EventSubscription.All).
+  // Final mask = 13 | 64 | 65536 = 65613.
+  const eventSubscriptions = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 6) | (1 << 16)
 
   const identify: {
     op: number
@@ -198,6 +232,45 @@ function handleEvent(eventType: string | undefined, eventData: Record<string, un
       // Refresh cache opportunistically — list can grow if operator adds a
       // transition in OBS while BB is running.
       refreshTransitionList().catch(() => { /* logged in helper */ })
+      break
+    }
+    case 'RecordStateChanged': {
+      const outputState = (eventData?.outputState as string) ?? ''
+      const active = outputState === 'OBS_WEBSOCKET_OUTPUT_STARTED'
+      const stopped = outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPED'
+      // Only push on settled started/stopped states; ignore STARTING/STOPPING.
+      if (!active && !stopped) return
+      const state: RecordState = {
+        active,
+        paused: false,
+        timecode: '',
+      }
+      logger.info(`RecordStateChanged: ${outputState} active=${active}`)
+      for (const cb of recordStateCallbacks) {
+        try { cb(state) } catch (err) {
+          logger.warn(`onRecordStateChanged callback threw: ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      break
+    }
+    case 'InputVolumeMeters': {
+      if (audioLevelsCallbacks.length === 0) return
+      const now = Date.now()
+      if (now - lastMeterSendMs < METER_THROTTLE_MS) return
+      lastMeterSendMs = now
+      const inputs = (eventData?.inputs as Array<{ inputName?: string; inputLevelsMul?: number[][] }>) ?? []
+      const levels: AudioInputLevel[] = inputs.map((input) => ({
+        inputName: (input.inputName as string) ?? '',
+        // inputLevelsMul[channel] = [pre-fader, post-fader, post-fader-peak].
+        // Use post-fader peak (index 2) so operator gain changes in OBS move the
+        // meters; fall back down the chain when fewer values are present.
+        levels: (input.inputLevelsMul ?? []).map((ch) => ch[2] ?? ch[1] ?? ch[0] ?? 0),
+      }))
+      for (const cb of audioLevelsCallbacks) {
+        try { cb(levels) } catch (err) {
+          logger.warn(`onAudioLevels callback threw: ${err instanceof Error ? err.message : err}`)
+        }
+      }
       break
     }
     case 'SceneTransitionEnded': {
@@ -256,6 +329,39 @@ export async function getRecordTimecode(): Promise<string> {
     return status?.outputTimecode || ''
   } catch {
     return ''
+  }
+}
+
+// ── Recording control ─────────────────────────────────────────────────────
+
+export async function startRecording(): Promise<void> {
+  await sendRequest('StartRecord')
+  logger.info('StartRecord')
+}
+
+export async function stopRecording(): Promise<string> {
+  const result = (await sendRequest('StopRecord')) as { outputPath?: string } | null
+  logger.info(`StopRecord — path: ${result?.outputPath ?? '(none)'}`)
+  return result?.outputPath || ''
+}
+
+export async function toggleRecording(): Promise<boolean> {
+  const result = (await sendRequest('ToggleRecord')) as { outputActive?: boolean } | null
+  return !!result?.outputActive
+}
+
+export async function getRecordStatus(): Promise<RecordState> {
+  try {
+    const status = (await sendRequest('GetRecordStatus')) as
+      | { outputActive?: boolean; outputPaused?: boolean; outputTimecode?: string }
+      | null
+    return {
+      active: !!status?.outputActive,
+      paused: !!status?.outputPaused,
+      timecode: status?.outputTimecode || '',
+    }
+  } catch {
+    return { active: false, paused: false, timecode: '' }
   }
 }
 

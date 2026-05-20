@@ -400,6 +400,21 @@ export interface CCEvent {
   client: { organization: string }
 }
 
+// ── OBS Recording + Audio Meters ─────────────────────────────────
+
+export interface RecordState {
+  active: boolean
+  paused: boolean
+  timecode: string // HH:MM:SS.mmm from OBS, or empty
+}
+
+// One OBS audio input's post-fader peak per channel, as a 0..1 multiplier
+// (OBS magnitude). Renderer converts to dBFS for display.
+export interface AudioInputLevel {
+  inputName: string
+  levels: number[]
+}
+
 // ── IPC Channels ─────────────────────────────────────────────────
 
 export const IPC = {
@@ -482,6 +497,16 @@ export const IPC = {
   OBS_STATUS: 'obs:status',
   OBS_GET_TIMECODE: 'obs:get-timecode',
   OBS_PUSH_STREAM_KEY: 'obs:push-stream-key',
+
+  // OBS recording control (start/stop/toggle + live state push)
+  OBS_START_RECORD: 'obs:start-record',
+  OBS_STOP_RECORD: 'obs:stop-record',
+  OBS_TOGGLE_RECORD: 'obs:toggle-record',
+  OBS_RECORD_STATUS: 'obs:record-status',
+  OBS_RECORD_STATE_UPDATE: 'obs:record-state-update', // main → renderer push
+
+  // OBS audio meters (InputVolumeMeters, throttled push)
+  OBS_AUDIO_LEVELS: 'obs:audio-levels', // main → renderer push
 
   // Starting soon
   STARTING_SOON_SHOW: 'starting-soon:show',

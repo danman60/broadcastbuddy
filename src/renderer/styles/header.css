@@ -86,3 +86,38 @@
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
+
+/* Record toggle button */
+.header-rec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+.header-rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted, #6b7280);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.header-rec-btn.recording {
+  border-color: #ef4444;
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.header-rec-btn.recording .header-rec-dot {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+  animation: headerRecBlink 1s steps(1, end) infinite;
+}
+
+@keyframes headerRecBlink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0.25; }
+}
