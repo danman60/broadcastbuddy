@@ -277,11 +277,68 @@ function applyTriggerToOverlay(t: Trigger): void {
   overlayState.lowerThird.name = t.name
   overlayState.lowerThird.title = t.title
   overlayState.lowerThird.subtitle = t.subtitle
+  overlayState.lowerThird.label = '' // normal selection clears any UP NEXT / THAT WAS chip
   // Apply per-trigger logo to client logo slot if present
   if (t.logoDataUrl) {
     overlayState.clientLogo.dataUrl = t.logoDataUrl
     overlayState.clientLogo.visible = true
   }
+}
+
+// ── Up Next / That Was ───────────────────────────────────────────
+// Fire the lower-third using the neighbouring trigger's data, prefixed with a
+// label chip. Honours loop/ping-pong wrap; in 'none' mode returns false when
+// there's no neighbour (so the UI can disable the button). Does NOT advance the
+// playlist position — these are informational graphics around the current item.
+
+function neighbourIndex(forward: boolean): number {
+  if (triggers.length === 0) return -1
+  const last = triggers.length - 1
+  const base = selectedIndex < 0 ? 0 : selectedIndex
+  if (loopMode === 'none') {
+    const next = forward ? base + 1 : base - 1
+    return next >= 0 && next <= last ? next : -1
+  }
+  // loop + ping-pong both wrap for the purpose of "what's adjacent"
+  if (forward) return base >= last ? 0 : base + 1
+  return base <= 0 ? last : base - 1
+}
+
+function fireNeighbour(forward: boolean, label: string): boolean {
+  const idx = neighbourIndex(forward)
+  if (idx < 0) return false
+  const t = triggers[idx]
+  overlayState.lowerThird.name = t.name
+  overlayState.lowerThird.title = t.title
+  overlayState.lowerThird.subtitle = t.subtitle
+  overlayState.lowerThird.label = label
+  if (t.logoDataUrl) {
+    overlayState.clientLogo.dataUrl = t.logoDataUrl
+    overlayState.clientLogo.visible = true
+  }
+  fireLowerThird()
+  return true
+}
+
+export function fireUpNext(label = 'UP NEXT'): boolean {
+  return fireNeighbour(true, label)
+}
+
+export function fireThatWas(label = 'THAT WAS'): boolean {
+  return fireNeighbour(false, label)
+}
+
+// ── Overlay leveling grid ────────────────────────────────────────
+
+export function toggleGrid(): boolean {
+  overlayState.gridVisible = !overlayState.gridVisible
+  notifyChange()
+  logger.info(`Overlay grid ${overlayState.gridVisible ? 'shown' : 'hidden'}`)
+  return overlayState.gridVisible
+}
+
+export function getGridVisible(): boolean {
+  return overlayState.gridVisible
 }
 
 // ── Overlay control ──────────────────────────────────────────────
@@ -314,6 +371,16 @@ export function hideLowerThird(): void {
   }
   notifyChange()
   logger.info('Lower third hidden')
+}
+
+// Fire arbitrary text as a lower-third (used by the chat "pin to screen" path).
+// Does not touch the playlist position.
+export function fireText(title: string, subtitle = '', label = ''): void {
+  overlayState.lowerThird.name = title
+  overlayState.lowerThird.title = title
+  overlayState.lowerThird.subtitle = subtitle
+  overlayState.lowerThird.label = label
+  fireLowerThird()
 }
 
 // ── Styling ──────────────────────────────────────────────────────
@@ -578,16 +645,43 @@ function buildOverlayHTML(): string {
     border-left: 4px solid var(--accent-color, #667eea);
   }
 
+  /* ── Lower-third label chip (UP NEXT / THAT WAS / pinned) ── */
+  .lt-label {
+    display: none;
+    align-self: flex-start;
+    font-size: calc(var(--font-size, 28px) * 0.42);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: calc(var(--border-radius, 8px) * 0.6);
+    margin-bottom: 8px;
+    color: var(--label-color, #1a1a2e);
+    background: var(--label-bg, #667eea);
+  }
+  .lt-card.has-label .lt-label { display: inline-block; }
+
   .lt-title {
     font-size: var(--font-size, 28px);
     font-weight: var(--font-weight, 600);
     line-height: 1.3;
+    text-transform: var(--title-transform, none);
+    letter-spacing: var(--title-letter-spacing, 0px);
   }
   .lt-subtitle {
-    font-size: calc(var(--font-size, 28px) * 0.7);
+    font-size: var(--subtitle-size, calc(var(--font-size, 28px) * 0.7));
     font-weight: 400;
     opacity: 0.85;
     margin-top: 4px;
+    color: var(--subtitle-color, var(--text-color, #ffffff));
+  }
+  /* Optional legibility treatments */
+  .lt-card.text-shadow .lt-title,
+  .lt-card.text-shadow .lt-subtitle {
+    text-shadow: 0 2px 6px rgba(0,0,0,0.65);
+  }
+  .lt-card.text-glow .lt-title {
+    text-shadow: 0 0 14px var(--accent-color, #667eea), 0 0 4px rgba(0,0,0,0.4);
   }
 
   /* ── Animation variants ── */
@@ -737,6 +831,42 @@ function buildOverlayHTML(): string {
     100% { transform: scale(1); opacity: 1; }
   }
 
+  /* ── Operator leveling grid (rule-of-thirds) ── */
+  /* Operator-only — toggled OFF before going live. Lines use a white core with
+     a 1px black drop-shadow so they stay visible over light or dark footage. */
+  .bb-grid {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px;
+    height: 1080px;
+    display: none;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .bb-grid.visible { display: block; }
+  .bb-grid .gl {
+    position: absolute;
+    background: rgba(255,255,255,0.5);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+  }
+  /* Verticals at 1/3 and 2/3 */
+  .bb-grid .v1 { left: 33.333%; top: 0; width: 1px; height: 100%; }
+  .bb-grid .v2 { left: 66.666%; top: 0; width: 1px; height: 100%; }
+  /* Horizontals at 1/3 and 2/3 */
+  .bb-grid .h1 { top: 33.333%; left: 0; height: 1px; width: 100%; }
+  .bb-grid .h2 { top: 66.666%; left: 0; height: 1px; width: 100%; }
+  /* Diagonals corner-to-corner */
+  .bb-grid .diag {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+  }
+  .bb-grid .diag svg { width: 100%; height: 100%; display: block; }
+  /* Center crosshair */
+  .bb-grid .cross-v { left: 50%; top: calc(50% - 20px); width: 1px; height: 40px; }
+  .bb-grid .cross-h { top: 50%; left: calc(50% - 20px); height: 1px; width: 40px; }
+
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
@@ -780,9 +910,25 @@ function buildOverlayHTML(): string {
 
   <div id="lt" class="lower-third">
     <div id="lt-card" class="lt-card bg-solid">
+      <div class="lt-label" id="lt-label"></div>
       <div class="lt-title" id="lt-title"></div>
       <div class="lt-subtitle" id="lt-subtitle"></div>
     </div>
+  </div>
+
+  <div id="bb-grid" class="bb-grid">
+    <div class="gl v1"></div>
+    <div class="gl v2"></div>
+    <div class="gl h1"></div>
+    <div class="gl h2"></div>
+    <div class="diag">
+      <svg viewBox="0 0 1920 1080" preserveAspectRatio="none">
+        <line x1="0" y1="0" x2="1920" y2="1080" stroke="rgba(255,255,255,0.35)" stroke-width="1" />
+        <line x1="1920" y1="0" x2="0" y2="1080" stroke="rgba(255,255,255,0.35)" stroke-width="1" />
+      </svg>
+    </div>
+    <div class="gl cross-v"></div>
+    <div class="gl cross-h"></div>
   </div>
 
   <div id="starting-soon" class="starting-soon">
@@ -838,6 +984,7 @@ function buildOverlayHTML(): string {
       const card = document.getElementById('lt-card');
       const titleEl = document.getElementById('lt-title');
       const subtitleEl = document.getElementById('lt-subtitle');
+      const labelEl = document.getElementById('lt-label');
       const s = lt.styling;
 
       // Clear any running effects
@@ -853,6 +1000,21 @@ function buildOverlayHTML(): string {
       card.style.setProperty('--font-weight', s.fontWeight);
       card.style.setProperty('--border-radius', s.borderRadius + 'px');
 
+      // Richer title/subtitle styling
+      card.style.setProperty('--title-transform', s.titleTextTransform || 'none');
+      card.style.setProperty('--title-letter-spacing', (s.titleLetterSpacing || 0) + 'px');
+      if (s.subtitleFontSize && s.subtitleFontSize > 0) {
+        card.style.setProperty('--subtitle-size', s.subtitleFontSize + 'px');
+      } else {
+        card.style.setProperty('--subtitle-size', 'calc(' + s.fontSize + 'px * 0.7)');
+      }
+      card.style.setProperty('--subtitle-color', s.subtitleColor || s.textColor);
+      card.style.setProperty('--label-color', s.labelColor || '#1a1a2e');
+      card.style.setProperty('--label-bg', s.labelBackgroundColor || '#667eea');
+
+      // Label chip (UP NEXT / THAT WAS / pinned)
+      labelEl.textContent = lt.label || '';
+
       // Animation timing
       var durVal = s.animationDuration || 0.5;
       var dur = durVal + 's';
@@ -861,8 +1023,12 @@ function buildOverlayHTML(): string {
       el.style.setProperty('--anim-dur', dur);
       el.style.setProperty('--anim-ease', ease);
 
-      // Background style
-      card.className = 'lt-card bg-' + s.backgroundStyle;
+      // Background style + optional treatments + label visibility
+      var cardClasses = 'lt-card bg-' + s.backgroundStyle;
+      if (s.textShadow) cardClasses += ' text-shadow';
+      if (s.textGlow) cardClasses += ' text-glow';
+      if (lt.label) cardClasses += ' has-label';
+      card.className = cardClasses;
 
       // Determine animation
       const anim = s.animation === 'random'
@@ -982,6 +1148,10 @@ function buildOverlayHTML(): string {
         tickerText.style.animationDuration = duration + 's';
         tickerEl.classList.toggle('visible', ticker.visible);
       }
+
+      // Operator leveling grid
+      var gridEl = document.getElementById('bb-grid');
+      if (gridEl) gridEl.classList.toggle('visible', !!msg.overlay.gridVisible);
     }
 
     function applyStartingSoon(ss) {

@@ -7,13 +7,18 @@ Ported wifiDisplay.ts (~500 LOC) + tabletLogServer.ts (~160 LOC) from CompSync. 
 
 CSController APK made dual-source aware: discovery payload's optional new `app` field tells the tablet which host found it. Defaults to "CompSync" when absent so existing CompSync hosts work unchanged. BB sends `app: "BroadcastBuddy"`. UI strings on ConnectionScreen genericized ("CompSync Remote Control" → "Tablet Remote Control"; "Searching for CompSync..." → "Searching for host (CompSync / BroadcastBuddy)..."; "Server Found" → "${srv.app} Found").
 
-## Wave Plan (port order from CompSyncElectronApp)
-1. **DONE** WiFi display + tablet pack (~3d → done in one session)
-2. **NEXT** Slow zoom + transition revert (obs.ts + slowZoom.ts, ~1.5d, no domain coupling)
-3. SD photo sync + upload pipeline (~7d, biggest data win, needs R2/S3 dual-backend + Routine→Trigger wrapping for matcher)
-4. Chat + pinning (~3d, needs separate BB Supabase project; "Wave 2 — port after infra features" per user)
+## Wave Plan (port order from CompSyncElectronApp) — ALL WAVES DONE 2026-05-20
+1. **DONE** WiFi display + tablet pack (committed `d07d711`)
+2. **DONE** Slow zoom + transition revert — slowZoom.ts (wide/tight scene toggle via OBS Move Transition), obsConnection.ts auto-revert-to-Cut state machine (500ms settle after any non-Cut transition end). OverlayControls buttons + Revert pill. Settings live in electron-store (no Settings UI section yet — operator edits scene/transition names via JSON; deferred follow-up).
+3. **DONE** Photo pipeline hardening — faststart mp4 (ffmpegFaststart.ts), import dedup manifest (importManifest.ts), clock-offset sanity (year-range reject + 24h cap), lightweight 2-tier priority upload. SKIPPED: child-process upload (reserved flag `r2Config.useChildProcessUpload`, not wired — needs v4 signer or worker AWS bundle); full per-routine round-robin photo tier (too coupled to CompSync jobQueue).
+4. **DONE** Chat + pinning — chatBridge.ts (Supabase Realtime, config-injected, OFF by default; no-ops without config), ChatPanel.tsx, Settings "Operator Chat" group. Pinning fires message as lower-third. Needs a BB Supabase project + `chat_messages` table (schema in chatBridge.ts header comment) before it can be enabled.
 
-Deferred (domain-divergent, need Programme/Trigger abstraction first): up-next/that-was, routine-aware cut/next, routine-window photo sync.
+Bonus (same session): Up Next / That Was buttons (fire neighbour trigger with label chip, no playlist advance); 8 richer OverlayStyling fields (text-transform, letter-spacing, separate subtitle styling, shadow/glow, label colors, 100–900 weights); overlay leveling grid (rule-of-thirds + diagonals + crosshair, toggle button, default off).
+
+Still deferred (domain-divergent, need Programme/Trigger abstraction): routine-aware cut/next, routine-window photo sync (the deep CompSync versions). Up-next/that-was shipped in the lightweight trigger-neighbour form.
+
+## Build / test status (post-waves)
+electron-vite build clean (EXIT 0): main 160KB, preload 14.8KB, renderer 435KB. NOT runtime-tested — all features need a Windows machine + OBS + a tablet to exercise. WiFi display + slow zoom require OBS connected. Chat requires a Supabase project. No QA agent run yet.
 
 ## Last Session Before This (Gallery v2)
 Gallery Builder pipeline upgrade + first event processing for 7Attitudes recital. Replaced broken Gemini/CC-API pipeline with transcription + direct R2 upload. Processed 7,214 photos into 53 routines, fixed OCR and matching bugs, generated thumbnails, coordinated with CC and Remotion sessions.

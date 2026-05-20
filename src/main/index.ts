@@ -4,9 +4,13 @@ import * as settings from './services/settings'
 import * as overlay from './services/overlay'
 import * as wsHub from './services/wsHub'
 import * as wifiDisplay from './services/wifiDisplay'
+import * as obsConnection from './services/obsConnection'
+import * as slowZoom from './services/slowZoom'
+import * as chatBridge from './services/chatBridge'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers } from './ipc'
 import { createLogger } from './logger'
+import { IPC } from '../shared/types'
 
 const logger = createLogger('main')
 
@@ -92,6 +96,21 @@ app.whenReady().then(() => {
     })
   }
 
+  // 10. Wire slow-zoom scene-change watcher + push status updates to renderer.
+  //     Safe to register even with OBS disconnected — the scene-change hook
+  //     only fires while a live OBS connection exists.
+  slowZoom.register()
+  slowZoom.setOnStatusChanged((status) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send(IPC.OBS_SLOW_ZOOM_STATUS_UPDATE, status)
+  })
+
+  // 11. Restore transition auto-revert preference. The flag is read by the
+  //     OBS event handler each time a transition ends — flipping it here is
+  //     idempotent and survives OBS reconnects without re-init.
+  const revertPref = settings.get('obsTransitionRevert')
+  if (revertPref) obsConnection.setTransitionRevertEnabled(true)
+
   logger.info('All services started')
 })
 
@@ -105,6 +124,7 @@ app.on('before-quit', () => {
   logger.info('Shutting down...')
   wifiDisplay.cleanup()
   stopTabletLogServer()
+  chatBridge.disconnect()
   wsHub.stop()
   overlay.stopServer()
 })

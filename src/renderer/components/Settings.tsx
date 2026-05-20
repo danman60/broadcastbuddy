@@ -31,6 +31,12 @@ export function Settings() {
   const [wifiRunning, setWifiRunning] = useState(false)
   const [wifiError, setWifiError] = useState('')
 
+  // Operator chat (Supabase Realtime, off by default)
+  const [chatUrl, setChatUrl] = useState('')
+  const [chatKey, setChatKey] = useState('')
+  const [chatEventId, setChatEventId] = useState('')
+  const [chatEnabled, setChatEnabled] = useState(false)
+
   useEffect(() => {
     if (settings) {
       setHttpPort(settings.server.httpPort)
@@ -50,6 +56,12 @@ export function Settings() {
       }
       if (settings.wifiDisplay) {
         setWifi(settings.wifiDisplay)
+      }
+      if (settings.chatConfig) {
+        setChatUrl(settings.chatConfig.supabaseUrl || '')
+        setChatKey(settings.chatConfig.supabaseAnonKey || '')
+        setChatEventId(settings.chatConfig.eventId || '')
+        setChatEnabled(!!settings.chatConfig.enabled)
       }
     }
     checkObsStatus()
@@ -132,6 +144,15 @@ export function Settings() {
     await window.api.settingsSet('geminiApiKey', geminiKey)
     await window.api.settingsSet('r2Config', { endpoint: r2Endpoint, accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey, bucket: r2Bucket })
     await window.api.settingsSet('wifiDisplay', wifi)
+    await window.api.settingsSet('chatConfig', {
+      supabaseUrl: chatUrl.trim(),
+      supabaseAnonKey: chatKey.trim(),
+      eventId: chatEventId.trim(),
+      enabled: chatEnabled,
+    })
+    // (Re)init the chat bridge from the just-saved config. Connects when
+    // enabled + configured, disconnects otherwise.
+    try { await window.api.chatReconfigure() } catch { /* chat optional */ }
     const updated = await window.api.settingsGet()
     setSettings(updated)
     setShowSettings(false)
@@ -393,6 +414,54 @@ export function Settings() {
           {wifiError && (
             <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{wifiError}</p>
           )}
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Operator Chat (Supabase Realtime)</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Realtime chat between operators (control room ↔ booth) with the ability
+            to pin a message as an on-screen lower-third. Off until configured.
+            Requires a Supabase project with a <code>chat_messages</code> table
+            (schema documented in chatBridge.ts).
+          </p>
+          <div className="settings-field">
+            <label>Supabase URL</label>
+            <input
+              type="text"
+              value={chatUrl}
+              onChange={(e) => setChatUrl(e.target.value)}
+              placeholder="https://xxxxx.supabase.co"
+            />
+          </div>
+          <div className="settings-field">
+            <label>Anon Key</label>
+            <input
+              type="password"
+              value={chatKey}
+              onChange={(e) => setChatKey(e.target.value)}
+              placeholder="eyJ..."
+            />
+          </div>
+          <div className="settings-field">
+            <label>Event ID</label>
+            <input
+              type="text"
+              value={chatEventId}
+              onChange={(e) => setChatEventId(e.target.value)}
+              placeholder="Scopes chat to one event"
+            />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Enable</label>
+            <input
+              type="checkbox"
+              checked={chatEnabled}
+              onChange={(e) => setChatEnabled(e.target.checked)}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
+              Connect to Supabase chat when configured
+            </span>
+          </div>
         </div>
 
         <div style={{ marginTop: 8 }}>

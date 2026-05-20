@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '../store/useStore'
-import type { LoopMode } from '../../shared/types'
+import type { LoopMode, SlowZoomStatus } from '../../shared/types'
 import '../styles/controls.css'
 
 const LOOP_CYCLE: LoopMode[] = ['none', 'loop', 'ping-pong']
@@ -17,15 +17,67 @@ export function OverlayControls() {
 
   const [autoFire, setAutoFire] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [slowZoom, setSlowZoom] = useState<SlowZoomStatus>({ wideZoomedIn: false, tightZoomedIn: false })
+  const [zoomBusy, setZoomBusy] = useState<'wide' | 'tight' | null>(null)
+  const [transitionRevert, setTransitionRevert] = useState(false)
+  const gridVisible = overlayState?.gridVisible ?? false
 
-  // Fetch autoFire state on mount
+  // Fetch autoFire + OBS controls state on mount
   useEffect(() => {
     window.api.playlistGetStatus().then((s) => setAutoFire(s.autoFire))
+    window.api.obsSlowZoomStatus?.().then((s: SlowZoomStatus) => setSlowZoom(s)).catch(() => { /* OBS may be disconnected */ })
+    window.api.obsTransitionRevertGet?.().then((r: { enabled: boolean }) => setTransitionRevert(r.enabled)).catch(() => { /* ignore */ })
+
+    // Push-update from main when slow-zoom state drifts (operator changes scene
+    // out from under us, or zoom completes elsewhere).
+    const onZoomUpdate = (status: unknown) => setSlowZoom(status as SlowZoomStatus)
+    window.api.on?.('obs:slow-zoom-status-update', onZoomUpdate)
+    return () => {
+      window.api.removeAllListeners?.('obs:slow-zoom-status-update')
+    }
   }, [])
+
+  async function handleSlowZoomWide() {
+    setZoomBusy('wide')
+    try {
+      const status = await window.api.obsSlowZoomTriggerWide()
+      setSlowZoom(status)
+    } finally {
+      setZoomBusy(null)
+    }
+  }
+
+  async function handleSlowZoomTight() {
+    setZoomBusy('tight')
+    try {
+      const status = await window.api.obsSlowZoomTriggerTight()
+      setSlowZoom(status)
+    } finally {
+      setZoomBusy(null)
+    }
+  }
+
+  async function handleTransitionRevertToggle() {
+    const next = !transitionRevert
+    const result = await window.api.obsTransitionRevertSet(next)
+    setTransitionRevert(result.enabled)
+  }
 
   async function handleAutoFireToggle() {
     const enabled = await window.api.playlistAutoFireToggle()
     setAutoFire(enabled)
+  }
+
+  async function handleUpNext() {
+    await window.api.overlayFireUpNext()
+  }
+
+  async function handleThatWas() {
+    await window.api.overlayFireThatWas()
+  }
+
+  async function handleGridToggle() {
+    await window.api.overlayGridToggle()
   }
 
   async function handleLoopCycle() {
@@ -90,6 +142,11 @@ export function OverlayControls() {
   const upNext = selectedIndex + 1 < triggers.length ? triggers[selectedIndex + 1] : null
   const playedCount = playedIds.length
   const loopActive = loopMode !== 'none'
+  // Up Next / That Was wrap in loop/ping-pong; in 'none' mode they need a real
+  // neighbour, so disable at the ends of the list.
+  const wraps = loopMode !== 'none'
+  const hasNext = total > 0 && (wraps || (selectedIndex >= 0 && selectedIndex < total - 1))
+  const hasPrev = total > 0 && (wraps || selectedIndex > 0)
 
   return (
     <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
@@ -168,6 +225,60 @@ export function OverlayControls() {
             </button>
             <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
               Clear All
+            </button>
+          </div>
+          {/* Graphics — Up Next / That Was + leveling grid */}
+          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+            <button
+              className="btn-bulk"
+              onClick={handleUpNext}
+              disabled={!hasNext}
+              title="Fire the NEXT trigger as a lower-third labelled UP NEXT (does not advance position)"
+            >
+              Up Next
+            </button>
+            <button
+              className="btn-bulk"
+              onClick={handleThatWas}
+              disabled={!hasPrev}
+              title="Fire the PREVIOUS trigger as a lower-third labelled THAT WAS (does not advance position)"
+            >
+              That Was
+            </button>
+            <button
+              className={`btn-sm ${gridVisible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleGridToggle}
+              title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
+              style={{ marginLeft: 'auto' }}
+            >
+              Grid {gridVisible ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {/* OBS camera helpers — slow zoom + transition auto-revert */}
+          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+            <button
+              className={`btn-bulk ${slowZoom.wideZoomedIn ? 'btn-loop-active' : ''}`}
+              onClick={handleSlowZoomWide}
+              disabled={zoomBusy !== null}
+              title="Toggle slow zoom on the Wide camera (Move Transition in OBS)"
+            >
+              {zoomBusy === 'wide' ? 'Wide…' : `Wide Zoom ${slowZoom.wideZoomedIn ? 'OUT' : 'IN'}`}
+            </button>
+            <button
+              className={`btn-bulk ${slowZoom.tightZoomedIn ? 'btn-loop-active' : ''}`}
+              onClick={handleSlowZoomTight}
+              disabled={zoomBusy !== null}
+              title="Toggle slow zoom on the Tight camera (Move Transition in OBS)"
+            >
+              {zoomBusy === 'tight' ? 'Tight…' : `Tight Zoom ${slowZoom.tightZoomedIn ? 'OUT' : 'IN'}`}
+            </button>
+            <button
+              className={`btn-sm ${transitionRevert ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleTransitionRevertToggle}
+              title="Auto-snap OBS back to Cut transition 500ms after any non-Cut transition fires"
+              style={{ marginLeft: 'auto' }}
+            >
+              Revert: {transitionRevert ? 'ON' : 'OFF'}
             </button>
           </div>
           <div className="controls-shortcuts-hint">

@@ -42,10 +42,12 @@ export const DEFAULT_LAYOUT: OverlayLayout = {
   ticker: { x: 0, y: 96.3, width: 100 },
 }
 
+export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+
 export interface OverlayStyling {
   fontFamily: string
   fontSize: number // px
-  fontWeight: number // 400 | 600 | 700 | 800
+  fontWeight: number // 100..900
   textColor: string // hex
   backgroundColor: string // hex
   backgroundStyle: BackgroundStyle
@@ -56,6 +58,17 @@ export interface OverlayStyling {
   animationEasing: EasingType
   autoHideSeconds: number // 0 = manual hide only
   layout?: OverlayLayout
+
+  // ── Richer title/subtitle styling (ported from CompSync StartingSoonEditor) ──
+  titleTextTransform?: TextTransform   // applied to the title line
+  titleLetterSpacing?: number          // px (can be negative)
+  subtitleFontSize?: number            // px — own size, overrides the 0.7x ratio when set
+  subtitleColor?: string               // hex — own color, overrides textColor when set
+  textShadow?: boolean                 // drop shadow on title + subtitle for legibility
+  textGlow?: boolean                   // soft accent-colored glow behind the card text
+  // Lower-third label prefix style (UP NEXT / THAT WAS chip)
+  labelColor?: string                  // hex — label text color
+  labelBackgroundColor?: string        // hex — label chip background
 }
 
 // ── Stream Config ────────────────────────────────────────────────
@@ -101,6 +114,7 @@ export interface OverlayState {
     name: string
     title: string
     subtitle: string
+    label: string // optional prefix chip text (e.g. "UP NEXT" / "THAT WAS"), empty = no chip
     styling: OverlayStyling
   }
   companyLogo: {
@@ -119,6 +133,7 @@ export interface OverlayState {
     textColor: string
   }
   startingSoon: StartingSoonState
+  gridVisible: boolean // operator leveling grid (rule-of-thirds) — off the live stream
 }
 
 // ── Session (saved/loaded as JSON) ───────────────────────────────
@@ -205,6 +220,78 @@ export interface AppSettings {
     bucket: string
   }
   wifiDisplay?: WifiDisplaySettings
+  slowZoom?: SlowZoomSettings
+  obsTransitionRevert?: boolean
+  chatConfig?: ChatConfig
+}
+
+// ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
+// Realtime chat between event operators (control room ↔ booth) with the ability
+// to "pin" a message as an on-screen lower-third broadcast. Dormant until the
+// user supplies a BB-specific Supabase project + flips `enabled`. See the schema
+// comment at the top of src/main/services/chatBridge.ts for the required SQL.
+
+export interface ChatConfig {
+  supabaseUrl: string   // e.g. https://xxxx.supabase.co
+  supabaseAnonKey: string
+  eventId: string       // scopes messages to a single event
+  enabled: boolean      // gate — when false the chat code path never runs
+}
+
+export const DEFAULT_CHAT_CONFIG: ChatConfig = {
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+  eventId: '',
+  enabled: false,
+}
+
+export interface ChatMessage {
+  id: string
+  author: string
+  text: string
+  pinned: boolean
+  createdAt: number // epoch ms
+}
+
+export interface ChatState {
+  connected: boolean
+  enabled: boolean
+  messages: ChatMessage[]
+  pinned: ChatMessage[]
+}
+
+// ── Slow Zoom (OBS Move Transition driver) ──────────────────────
+// Operator pre-creates in OBS:
+//   - A pair of scenes per camera ("Wide" + "Wide Zoomed", "Tight" + "Tight Zoomed")
+//     where the zoomed scene has the same camera source at +~10% scale.
+//   - One Move Transition (e.g. "Slow Zoom") that interpolates between scene
+//     items frame-perfect at OBS render rate. The Move plugin's own duration
+//     setting is overridden per-fire by BB (10s by default).
+// Two UI buttons (Wide + Tight) — each toggles its own scene's zoom state
+// independently. If the named transition or scenes don't exist in OBS the
+// fire fails soft with a warning.
+
+export interface SlowZoomSettings {
+  transitionName: string        // Move Transition name (default "Slow Zoom")
+  wideBaseScene: string         // (default "Wide")
+  wideZoomedScene: string       // (default "Wide Zoomed")
+  tightBaseScene: string        // (default "Tight")
+  tightZoomedScene: string      // (default "Tight Zoomed")
+  durationMs: number            // (default 10000)
+}
+
+export const DEFAULT_SLOW_ZOOM: SlowZoomSettings = {
+  transitionName: 'Slow Zoom',
+  wideBaseScene: 'Wide',
+  wideZoomedScene: 'Wide Zoomed',
+  tightBaseScene: 'Tight',
+  tightZoomedScene: 'Tight Zoomed',
+  durationMs: 10_000,
+}
+
+export interface SlowZoomStatus {
+  wideZoomedIn: boolean
+  tightZoomedIn: boolean
 }
 
 // ── WiFi Display (tablet stream) ─────────────────────────────────
@@ -442,6 +529,32 @@ export const IPC = {
   WIFI_DISPLAY_STATUS: 'wifi-display:status',
   WIFI_DISPLAY_SET_MONITOR: 'wifi-display:set-monitor',
   WIFI_DISPLAY_PING_TABLET: 'wifi-display:ping-tablet',
+
+  // OBS Slow Zoom (Move Transition driver)
+  OBS_SLOW_ZOOM_TRIGGER_WIDE: 'obs:slow-zoom-trigger-wide',
+  OBS_SLOW_ZOOM_TRIGGER_TIGHT: 'obs:slow-zoom-trigger-tight',
+  OBS_SLOW_ZOOM_STATUS: 'obs:slow-zoom-status',
+  OBS_SLOW_ZOOM_STATUS_UPDATE: 'obs:slow-zoom-status-update', // main → renderer push
+
+  // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
+  OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',
+  OBS_TRANSITION_REVERT_SET: 'obs:transition-revert-set',
+
+  // Up Next / That Was (fire neighbouring trigger with a label prefix)
+  OVERLAY_FIRE_UP_NEXT: 'overlay:fire-up-next',
+  OVERLAY_FIRE_THAT_WAS: 'overlay:fire-that-was',
+
+  // Overlay leveling grid (operator-only rule-of-thirds)
+  OVERLAY_GRID_TOGGLE: 'overlay:grid-toggle',
+
+  // Operator chat (Supabase Realtime, config-injected, off by default)
+  CHAT_GET_STATE: 'chat:get-state',
+  CHAT_SEND: 'chat:send',
+  CHAT_PIN: 'chat:pin',
+  CHAT_UNPIN: 'chat:unpin',
+  CHAT_FIRE_MESSAGE: 'chat:fire-message', // broadcast a message as a lower-third
+  CHAT_RECONFIGURE: 'chat:reconfigure',   // renderer asks main to (re)init from saved settings
+  CHAT_STATE_UPDATE: 'chat:state-update', // main → renderer push
 } as const
 
 // ── WebSocket Protocol ───────────────────────────────────────────
@@ -534,6 +647,15 @@ export interface R2Config {
   accessKeyId: string
   secretAccessKey: string
   bucket: string
+  /**
+   * Optional: run uploads through a child process to keep TLS encryption +
+   * file I/O off the main process. Default false (main-process upload via
+   * @aws-sdk/client-s3). Reserved for future hardening; not yet wired —
+   * CompSync's worker assumes a pre-signed PUT URL pattern, but BB uses
+   * bucket-credentialed S3 client, so the implementation needs the SDK to
+   * be available inside the worker.
+   */
+  useChildProcessUpload?: boolean
 }
 
 // ── Defaults ─────────────────────────────────────────────────────
@@ -551,6 +673,14 @@ export const DEFAULT_STYLING: OverlayStyling = {
   animationDuration: 0.5,
   animationEasing: 'ease',
   autoHideSeconds: 8,
+  titleTextTransform: 'none',
+  titleLetterSpacing: 0,
+  subtitleFontSize: 0, // 0 = derive from fontSize * 0.7
+  subtitleColor: '',   // empty = inherit textColor
+  textShadow: false,
+  textGlow: false,
+  labelColor: '#1a1a2e',
+  labelBackgroundColor: '#667eea',
 }
 
 export const DEFAULT_STARTING_SOON: StartingSoonState = {
@@ -572,12 +702,14 @@ export const DEFAULT_OVERLAY_STATE: OverlayState = {
     name: '',
     title: '',
     subtitle: '',
+    label: '',
     styling: { ...DEFAULT_STYLING },
   },
   companyLogo: { visible: false, dataUrl: '' },
   clientLogo: { visible: false, dataUrl: '' },
   ticker: { visible: false, text: '', speed: 60, backgroundColor: '#1a1a2e', textColor: '#ffffff' },
   startingSoon: { ...DEFAULT_STARTING_SOON },
+  gridVisible: false,
 }
 
 export const DEFAULT_STREAM_CONFIG: StreamConfig = {

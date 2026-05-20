@@ -11,6 +11,9 @@ import {
   showTicker,
   hideTicker,
   getPlaylistStatus,
+  toggleGrid,
+  fireUpNext,
+  fireThatWas,
 } from './overlay'
 import { WsStateMessage } from '../../shared/types'
 import { createLogger } from '../logger'
@@ -79,6 +82,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       else showTicker(data?.text as string || 'Live broadcast')
       break
     }
+    case 'toggleGrid':
+      toggleGrid()
+      break
+    case 'upNext':
+      fireUpNext((data?.label as string) || 'UP NEXT')
+      break
+    case 'thatWas':
+      fireThatWas((data?.label as string) || 'THAT WAS')
+      break
     case 'getStatus':
       // No-op — state is broadcast automatically
       break

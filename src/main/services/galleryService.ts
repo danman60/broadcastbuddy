@@ -11,8 +11,29 @@ import {
   IPC,
 } from '../../shared/types'
 import { createLogger } from '../logger'
+import {
+  loadManifest,
+  saveManifest,
+  indexByPath,
+  quickMatch,
+  upsertEntry,
+  manifestSummary,
+  computeSourceHash,
+  type ManifestEntry,
+} from './importManifest'
 
 const logger = createLogger('gallery')
+
+// Clock-offset safety thresholds (ported from CompSync photos.ts hardening):
+// detected magnitudes beyond this cap are almost always aliasing artifacts
+// rather than real drift — warn loudly so the operator verifies.
+const MAX_AUTO_OFFSET_MS = 24 * 60 * 60 * 1000 // 24h
+
+// Reject EXIF timestamps that fall outside a sane camera-era window.
+// Bug-F class: a camera whose battery died forgets its date and stamps
+// 1980-01-01; we must not let those photos pull the matcher off the cliff.
+const MIN_VALID_YEAR = 2000
+const MAX_VALID_YEAR_OFFSET = 1 // current year + 1 (handles year-end timezone slop)
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -101,7 +122,21 @@ async function getPhotoCaptureTime(filePath: string): Promise<Date | null> {
     if (!datePart || !timePart) return null
     const isoString = datePart.replace(/:/g, '-') + 'T' + timePart
     const d = new Date(isoString)
-    return isNaN(d.getTime()) ? null : d
+    if (isNaN(d.getTime())) return null
+
+    // Date-sanity guard (CompSync Bug-F class). A camera with a dead battery
+    // stamps 1980-01-01 or 2001-01-01 on every shot. Letting those photos
+    // through pollutes routine matching with garbage timestamps that can
+    // even drag the auto-detected clock offset off into nonsense values.
+    const year = d.getFullYear()
+    const maxYear = new Date().getFullYear() + MAX_VALID_YEAR_OFFSET
+    if (year < MIN_VALID_YEAR || year > maxYear) {
+      logger.warn(
+        `EXIF date out of sane range: ${path.basename(filePath)} → ${d.toISOString()} (year ${year} not in [${MIN_VALID_YEAR}, ${maxYear}]) — skipping`,
+      )
+      return null
+    }
+    return d
   } catch (err) {
     logger.warn(`EXIF read failed: ${path.basename(filePath)}`, err)
     return null
@@ -120,7 +155,9 @@ function scanPhotos(dir: string): string[] {
   return results
 }
 
-export async function readExifTimestamps(folderPath?: string): Promise<{ path: string; captureTime: Date }[]> {
+export async function readExifTimestamps(
+  folderPath?: string,
+): Promise<{ path: string; captureTime: Date; sourceHash?: string }[]> {
   const folder = folderPath || galleryConfig.photoFolderPath
   if (!folder) throw new Error('No photo folder selected')
 
@@ -128,20 +165,94 @@ export async function readExifTimestamps(folderPath?: string): Promise<{ path: s
   const filePaths = scanPhotos(folder)
   logger.info(`Found ${filePaths.length} photo files in ${folder}`)
 
+  // Re-import dedup (ported from CompSync importManifest pattern). Load the
+  // per-folder manifest, reuse the cached EXIF time for files that match
+  // (path, size, mtime). Falls back to a fresh EXIF read on any mismatch.
+  const manifest = await loadManifest(folder)
+  const byPath = indexByPath(manifest)
+  const startingSummary = manifestSummary(manifest)
+  if (startingSummary.total > 0) {
+    logger.info(
+      `Manifest loaded: ${startingSummary.total} prior entries (${startingSummary.uploaded} already uploaded)`,
+    )
+  }
+
   emitProgress('reading-exif', `Scanning ${filePaths.length} photos...`, 0, filePaths.length)
 
-  const photos: { path: string; captureTime: Date }[] = []
+  const photos: { path: string; captureTime: Date; sourceHash?: string }[] = []
+  let cachedHits = 0
+  let manifestMutated = false
+
   for (let i = 0; i < filePaths.length; i++) {
-    const captureTime = await getPhotoCaptureTime(filePaths[i])
-    if (captureTime) {
-      photos.push({ path: filePaths[i], captureTime })
+    const p = filePaths[i]
+    let captureTime: Date | null = null
+    let sourceHash: string | undefined
+
+    // Quick path: stat-only match against manifest. No file open, no EXIF
+    // re-parse, no hash compute. This is the win for re-mounted SD cards.
+    let stat: fs.Stats | null = null
+    try {
+      stat = fs.statSync(p)
+    } catch {
+      continue
     }
+
+    const cached = byPath.get(path.resolve(p))
+    if (cached && quickMatch(cached, stat) && cached.exifIso) {
+      const cachedDate = new Date(cached.exifIso)
+      if (!isNaN(cachedDate.getTime())) {
+        captureTime = cachedDate
+        sourceHash = cached.sourceHash
+        cachedHits++
+      }
+    }
+
+    if (!captureTime) {
+      captureTime = await getPhotoCaptureTime(p)
+      if (captureTime) {
+        // Compute the content-stable hash so re-copies of the same file map
+        // to the same upload-side dedup key. Best-effort: a hash failure
+        // just leaves sourceHash undefined for this file.
+        try {
+          sourceHash = await computeSourceHash(p)
+        } catch (err) {
+          logger.debug(`computeSourceHash failed for ${path.basename(p)}: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        // Record / refresh the manifest entry. We deliberately preserve
+        // `uploaded` from any prior entry — uploads tracked separately.
+        const priorEntry = cached
+        const entry: ManifestEntry = {
+          sourcePath: p,
+          size: stat.size,
+          mtime: stat.mtime.toISOString(),
+          sourceHash: sourceHash || `path:${path.resolve(p)}`,
+          exifIso: captureTime.toISOString(),
+          uploaded: priorEntry?.uploaded ?? false,
+          r2Key: priorEntry?.r2Key,
+          importedAt: new Date().toISOString(),
+          uploadedAt: priorEntry?.uploadedAt,
+        }
+        upsertEntry(manifest, entry)
+        manifestMutated = true
+      }
+    }
+
+    if (captureTime) {
+      photos.push({ path: p, captureTime, sourceHash })
+    }
+
     if (i % 20 === 0) {
       emitProgress('reading-exif', `Reading EXIF: ${i}/${filePaths.length}`, i, filePaths.length)
     }
   }
 
-  logger.info(`${photos.length}/${filePaths.length} photos have EXIF timestamps`)
+  if (manifestMutated) {
+    await saveManifest(manifest)
+  }
+
+  logger.info(
+    `${photos.length}/${filePaths.length} photos have EXIF timestamps (manifest cache hits: ${cachedHits})`,
+  )
   emitProgress('reading-exif', `Done: ${photos.length} photos with timestamps`, filePaths.length, filePaths.length)
   return photos
 }
@@ -205,6 +316,20 @@ function detectClockOffset(
 
           if (matchPct < 50) {
             logger.warn('Low match rate — offset may be incorrect, user should verify manually')
+          }
+
+          // Magnitude sanity cap (CompSync hardening — MAX_AUTO_OFFSET_MS).
+          // A camera with > 24h auto-detected drift is almost always an
+          // aliasing artifact (wrong day's SD card, dead-battery EXIF year)
+          // rather than real clock drift. Refuse to silently apply it and
+          // let the operator decide via manualOffsetMs.
+          if (Math.abs(offset) > MAX_AUTO_OFFSET_MS) {
+            logger.warn(
+              `Auto offset REJECTED (magnitude cap): detected ${Math.round(offset / 1000)}s ` +
+                `exceeds ±${Math.round(MAX_AUTO_OFFSET_MS / 1000)}s cap. ` +
+                `Returning 0 — operator should set manualOffsetMs if real drift suspected.`,
+            )
+            return 0
           }
 
           return offset
@@ -717,6 +842,14 @@ export async function uploadToCC(
 // ── Manual Offset ───────────────────────────────────────────────
 
 export function setManualOffset(offsetMs: number): void {
+  // Sanity-log very large manual offsets so operators notice typos
+  // (e.g. ms vs seconds confusion). The cap is advisory, not enforcing.
+  if (Math.abs(offsetMs) > MAX_AUTO_OFFSET_MS) {
+    logger.warn(
+      `Manual offset is unusually large: ${Math.round(offsetMs / 1000)}s — ` +
+        `verify this is intentional (cap warn at ${Math.round(MAX_AUTO_OFFSET_MS / 1000)}s).`,
+    )
+  }
   galleryConfig.manualOffsetMs = offsetMs
 }
 

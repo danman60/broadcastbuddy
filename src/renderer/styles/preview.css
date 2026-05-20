@@ -75,6 +75,30 @@
   opacity: 0.85;
   margin-top: 1px;
   white-space: nowrap;
+  color: var(--p-subtitle-color, var(--p-text, #fff));
+}
+
+/* Label chip (UP NEXT / THAT WAS / pinned) */
+.preview-lt-label {
+  display: inline-block;
+  font-size: 4px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 1px 3px;
+  border-radius: 1px;
+  margin-bottom: 2px;
+  color: var(--p-label-color, #1a1a2e);
+  background: var(--p-label-bg, #667eea);
+}
+
+/* Legibility treatments */
+.preview-text-shadow .preview-lt-title,
+.preview-text-shadow .preview-lt-subtitle {
+  text-shadow: 0 1px 1px rgba(0,0,0,0.65);
+}
+.preview-text-glow .preview-lt-title {
+  text-shadow: 0 0 3px var(--p-accent, #667eea), 0 0 1px rgba(0,0,0,0.4);
 }
 
 /* ── Background styles ── */

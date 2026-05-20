@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import { AppSettings, DEFAULT_STYLING, DEFAULT_WIFI_DISPLAY } from '../../shared/types'
+import { AppSettings, DEFAULT_STYLING, DEFAULT_WIFI_DISPLAY, DEFAULT_SLOW_ZOOM, DEFAULT_CHAT_CONFIG } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('settings')
@@ -36,6 +36,9 @@ const store = new Store<AppSettings>({
       bucket: 'streamstage-galleries',
     },
     wifiDisplay: { ...DEFAULT_WIFI_DISPLAY },
+    slowZoom: { ...DEFAULT_SLOW_ZOOM },
+    obsTransitionRevert: false,
+    chatConfig: { ...DEFAULT_CHAT_CONFIG },
   },
 })
 

@@ -64,7 +64,13 @@ export function OverlayPreview() {
   const ticker = overlayState.ticker
 
   const anim = pickAnimation(s.animation)
-  const bgClass = `preview-lt-card preview-bg-${s.backgroundStyle}`
+  const bgClass = [
+    'preview-lt-card',
+    `preview-bg-${s.backgroundStyle}`,
+    s.textShadow ? 'preview-text-shadow' : '',
+    s.textGlow ? 'preview-text-glow' : '',
+    lt.label ? 'has-label' : '',
+  ].filter(Boolean).join(' ')
   const animClass = [
     'preview-lt',
     `preview-anim-${anim}`,
@@ -102,13 +108,29 @@ export function OverlayPreview() {
               '--p-accent': s.accentColor,
               '--p-radius': `${s.borderRadius * 0.15}px`,
               '--p-font': s.fontFamily,
+              '--p-subtitle-color': s.subtitleColor || s.textColor,
+              '--p-label-color': s.labelColor || '#1a1a2e',
+              '--p-label-bg': s.labelBackgroundColor || '#667eea',
             } as React.CSSProperties}
           >
-            <div className="preview-lt-title" style={{ fontWeight: s.fontWeight }}>
+            {lt.label && (
+              <div className="preview-lt-label">{lt.label}</div>
+            )}
+            <div
+              className="preview-lt-title"
+              style={{
+                fontWeight: s.fontWeight,
+                textTransform: (s.titleTextTransform || 'none') as React.CSSProperties['textTransform'],
+                letterSpacing: `${(s.titleLetterSpacing || 0) * 0.15}px`,
+              }}
+            >
               {lt.title || 'Title'}
             </div>
             {(lt.subtitle || !lt.title) && (
-              <div className="preview-lt-subtitle">
+              <div
+                className="preview-lt-subtitle"
+                style={s.subtitleFontSize ? { fontSize: `${s.subtitleFontSize * 0.21}px` } : undefined}
+              >
                 {lt.subtitle || 'Subtitle'}
               </div>
             )}

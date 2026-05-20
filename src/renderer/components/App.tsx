@@ -18,6 +18,7 @@ import { StartingSoonPanel } from './StartingSoonPanel'
 import { BroadcastPackagePanel } from './BroadcastPackagePanel'
 import { RecordingUploadPanel } from './RecordingUploadPanel'
 import { GalleryPanel } from './GalleryPanel'
+import { ChatPanel } from './ChatPanel'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
@@ -56,6 +57,7 @@ export function App() {
           <BroadcastPackagePanel />
           <RecordingUploadPanel />
           <GalleryPanel />
+          <ChatPanel />
         </div>
       </div>
       {showBrandKit && (

@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -87,6 +87,30 @@ interface ElectronAPI {
 
   // Window
   windowResize: (width: number, height: number) => Promise<void>
+
+  // OBS Slow Zoom
+  obsSlowZoomTriggerWide: () => Promise<SlowZoomStatus>
+  obsSlowZoomTriggerTight: () => Promise<SlowZoomStatus>
+  obsSlowZoomStatus: () => Promise<SlowZoomStatus>
+
+  // OBS Transition auto-revert
+  obsTransitionRevertGet: () => Promise<{ enabled: boolean }>
+  obsTransitionRevertSet: (enabled: boolean) => Promise<{ enabled: boolean }>
+
+  // Up Next / That Was
+  overlayFireUpNext: (label?: string) => Promise<{ fired: boolean }>
+  overlayFireThatWas: (label?: string) => Promise<{ fired: boolean }>
+
+  // Overlay leveling grid
+  overlayGridToggle: () => Promise<{ visible: boolean }>
+
+  // Operator chat
+  chatGetState: () => Promise<ChatState>
+  chatReconfigure: () => Promise<ChatState>
+  chatSend: (text: string, author?: string) => Promise<{ ok: boolean }>
+  chatPin: (id: string) => Promise<{ ok: boolean }>
+  chatUnpin: (id: string) => Promise<{ ok: boolean }>
+  chatFireMessage: (id: string) => Promise<{ fired: boolean }>
 
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void

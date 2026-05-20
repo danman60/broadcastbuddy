@@ -10,8 +10,11 @@ import * as brandScraper from './services/brandScraper'
 import * as obsConnection from './services/obsConnection'
 import * as galleryService from './services/galleryService'
 import * as wifiDisplay from './services/wifiDisplay'
+import * as slowZoom from './services/slowZoom'
+import * as chatBridge from './services/chatBridge'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
+import type { ChatConfig } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -808,14 +811,25 @@ export function registerIpcHandlers(): void {
       const client = createR2Client(r2Conf)
       const items = buildUploadItems(folderPath, gallerySlug)
       const win = getMainWindow()
-      const result = await uploadBatch(client, r2Conf.bucket, items, 8, (progress) => {
-        if (win) win.webContents.send(IPC.GALLERY_PROGRESS, {
-          stage: 'uploading-r2',
-          message: `Uploading: ${progress.completed}/${progress.total} — ${progress.currentFile}`,
-          current: progress.completed,
-          total: progress.total,
-        })
-      })
+      const result = await uploadBatch(
+        client,
+        r2Conf.bucket,
+        items,
+        8,
+        (progress) => {
+          if (win) win.webContents.send(IPC.GALLERY_PROGRESS, {
+            stage: 'uploading-r2',
+            message: `Uploading: ${progress.completed}/${progress.total} — ${progress.currentFile}`,
+            current: progress.completed,
+            total: progress.total,
+          })
+        },
+        true,
+        // Enable per-folder manifest dedup so a second invocation of this
+        // handler against the same SD card / project folder skips files
+        // already uploaded on a prior run (ported CompSync importManifest).
+        { useImportManifest: true, manifestFolder: folderPath },
+      )
       return { success: true, completed: result.completed, failed: result.failed.length }
     } catch (err) {
       return { success: false, error: (err as Error).message }
@@ -855,6 +869,109 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.WIFI_DISPLAY_PING_TABLET, () => {
     wifiDisplay.pingTabletForDiscovery()
     return { ok: true }
+  })
+
+  // ── OBS Slow Zoom ─────────────────────────────────────────────
+
+  ipcMain.handle(IPC.OBS_SLOW_ZOOM_TRIGGER_WIDE, async () => {
+    return slowZoom.triggerWide()
+  })
+
+  ipcMain.handle(IPC.OBS_SLOW_ZOOM_TRIGGER_TIGHT, async () => {
+    return slowZoom.triggerTight()
+  })
+
+  ipcMain.handle(IPC.OBS_SLOW_ZOOM_STATUS, () => {
+    return slowZoom.getStatus()
+  })
+
+  // ── OBS Transition auto-revert ────────────────────────────────
+
+  ipcMain.handle(IPC.OBS_TRANSITION_REVERT_GET, () => {
+    return { enabled: obsConnection.isTransitionRevertEnabled() }
+  })
+
+  ipcMain.handle(IPC.OBS_TRANSITION_REVERT_SET, (_e, enabled: boolean) => {
+    obsConnection.setTransitionRevertEnabled(enabled)
+    settings.set('obsTransitionRevert', enabled)
+    return { enabled }
+  })
+
+  // ── Up Next / That Was ────────────────────────────────────────
+
+  ipcMain.handle(IPC.OVERLAY_FIRE_UP_NEXT, (_e, label?: string) => {
+    const fired = overlay.fireUpNext(label || 'UP NEXT')
+    pushState()
+    broadcastState()
+    return { fired }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_FIRE_THAT_WAS, (_e, label?: string) => {
+    const fired = overlay.fireThatWas(label || 'THAT WAS')
+    pushState()
+    broadcastState()
+    return { fired }
+  })
+
+  // ── Overlay leveling grid ─────────────────────────────────────
+
+  ipcMain.handle(IPC.OVERLAY_GRID_TOGGLE, () => {
+    const visible = overlay.toggleGrid()
+    pushState()
+    broadcastState()
+    return { visible }
+  })
+
+  // ── Operator chat (Supabase Realtime, off by default) ─────────
+
+  // Push chat-state changes to the renderer.
+  chatBridge.setOnStateChange(() => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.CHAT_STATE_UPDATE, chatBridge.getState())
+  })
+
+  // Pinning a message fires it as a lower-third broadcast.
+  chatBridge.setOnMessagePinned((msg) => {
+    overlay.fireText(msg.text, msg.author ? `— ${msg.author}` : '', 'PINNED')
+    pushState()
+    broadcastState()
+  })
+
+  // Initialize from saved config at registration time. If chat is unconfigured
+  // or disabled this no-ops and never touches the network.
+  chatBridge.init(settings.get('chatConfig') as ChatConfig | undefined)
+
+  ipcMain.handle(IPC.CHAT_GET_STATE, () => {
+    return chatBridge.getState()
+  })
+
+  ipcMain.handle(IPC.CHAT_RECONFIGURE, () => {
+    chatBridge.init(settings.get('chatConfig') as ChatConfig | undefined)
+    return chatBridge.getState()
+  })
+
+  ipcMain.handle(IPC.CHAT_SEND, async (_e, text: string, author?: string) => {
+    const ok = await chatBridge.sendMessage(text, author)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.CHAT_PIN, async (_e, id: string) => {
+    const ok = await chatBridge.pinMessage(id)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.CHAT_UNPIN, async (_e, id: string) => {
+    const ok = await chatBridge.unpinMessage(id)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.CHAT_FIRE_MESSAGE, (_e, id: string) => {
+    const msg = chatBridge.getMessageById(id)
+    if (!msg) return { fired: false }
+    overlay.fireText(msg.text, msg.author ? `— ${msg.author}` : '', 'PINNED')
+    pushState()
+    broadcastState()
+    return { fired: true }
   })
 
   logger.info('IPC handlers registered')

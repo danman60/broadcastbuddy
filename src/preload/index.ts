@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, SlowZoomStatus } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -149,6 +149,38 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.WIFI_DISPLAY_SET_MONITOR, monitorIndex),
   wifiDisplayPingTablet: () =>
     ipcRenderer.invoke(IPC.WIFI_DISPLAY_PING_TABLET),
+
+  // ── OBS Slow Zoom ─────────────────────────────────────────────
+  obsSlowZoomTriggerWide: (): Promise<SlowZoomStatus> =>
+    ipcRenderer.invoke(IPC.OBS_SLOW_ZOOM_TRIGGER_WIDE),
+  obsSlowZoomTriggerTight: (): Promise<SlowZoomStatus> =>
+    ipcRenderer.invoke(IPC.OBS_SLOW_ZOOM_TRIGGER_TIGHT),
+  obsSlowZoomStatus: (): Promise<SlowZoomStatus> =>
+    ipcRenderer.invoke(IPC.OBS_SLOW_ZOOM_STATUS),
+
+  // ── OBS Transition auto-revert ────────────────────────────────
+  obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
+    ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),
+  obsTransitionRevertSet: (enabled: boolean): Promise<{ enabled: boolean }> =>
+    ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_SET, enabled),
+
+  // ── Up Next / That Was ────────────────────────────────────────
+  overlayFireUpNext: (label?: string): Promise<{ fired: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FIRE_UP_NEXT, label),
+  overlayFireThatWas: (label?: string): Promise<{ fired: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FIRE_THAT_WAS, label),
+
+  // ── Overlay leveling grid ─────────────────────────────────────
+  overlayGridToggle: (): Promise<{ visible: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_GRID_TOGGLE),
+
+  // ── Operator chat ─────────────────────────────────────────────
+  chatGetState: () => ipcRenderer.invoke(IPC.CHAT_GET_STATE),
+  chatReconfigure: () => ipcRenderer.invoke(IPC.CHAT_RECONFIGURE),
+  chatSend: (text: string, author?: string) => ipcRenderer.invoke(IPC.CHAT_SEND, text, author),
+  chatPin: (id: string) => ipcRenderer.invoke(IPC.CHAT_PIN, id),
+  chatUnpin: (id: string) => ipcRenderer.invoke(IPC.CHAT_UNPIN, id),
+  chatFireMessage: (id: string) => ipcRenderer.invoke(IPC.CHAT_FIRE_MESSAGE, id),
 
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
