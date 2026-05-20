@@ -34,6 +34,8 @@ Gallery Builder pipeline upgrade + first event processing for 7Attitudes recital
 CSController repo (`~/projects/CSController`):
 - `app/src/main/java/com/compsync/controller/ui/ConnectionScreen.kt` — `DiscoveredServer` gained `app: String = "CompSync"`. JSON parsed via `obj.optString("app", "CompSync")` so old payloads still work. Three display strings genericized for dual-source.
 
+**CSController NOT committed.** When I went to commit, the working tree had ~8 files with substantial prior uncommitted work from a prior session (VideoCodec enum + selector UI, RemoteLogger.kt extraction, tabletLogPort wiring across MainActivity/DisplayScreen/TouchSender/UdpReceiver/build.gradle.kts/AndroidManifest, plus VideoDecoder.kt enum addition). The dual-source `app` field landed inside ConnectionScreen.kt which already had pending VideoCodec changes. The combined working tree builds clean (APK = 9.6MB, `BUILD SUCCESSFUL in 1m44s`) but committing only my line would break HEAD because it would reference VideoCodec which isn't in HEAD yet. Punted on splitting — user should review `git status` in `~/projects/CSController` and commit the coordinated set themselves (probably as separate commits per logical change, with mine being one line plus three display strings).
+
 ## Previous Session
 - `ac48b61` Gallery pipeline v2 — r2Upload.ts, audioTranscription.ts, density-jump offset, gap matching, R2 settings UI, GalleryPanel transcription flow (10 files)
 - `721a876` Retrospective + runbook updates (4 files)
