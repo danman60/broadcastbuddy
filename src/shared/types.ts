@@ -33,6 +33,8 @@ export interface OverlayLayout {
   companyLogo: ElementPosition
   clientLogo: ElementPosition
   ticker: ElementPosition
+  clock: ElementPosition
+  counter: ElementPosition
 }
 
 export const DEFAULT_LAYOUT: OverlayLayout = {
@@ -40,6 +42,8 @@ export const DEFAULT_LAYOUT: OverlayLayout = {
   companyLogo: { x: 2.1, y: 2.8 },
   clientLogo: { x: 87.9, y: 2.8 },
   ticker: { x: 0, y: 96.3, width: 100 },
+  clock: { x: 2.1, y: 89 },
+  counter: { x: 86, y: 4, width: 13 },
 }
 
 export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
@@ -106,6 +110,44 @@ export interface StartingSoonState {
   accentColor: string
 }
 
+// ── On-air Clock ─────────────────────────────────────────────────
+// Broadcast-chrome wall clock. Browser source reads local time on a 1s
+// interval; format/showSeconds drive the rendered string.
+
+export interface ClockState {
+  visible: boolean
+  format: '12h' | '24h'
+  showSeconds: boolean
+}
+
+// ── Counter ──────────────────────────────────────────────────────
+// Generic numeric badge ("#42" style) with an operator-set label
+// (e.g. "ENTRY" / "SONG" / ""). Pop-in animation fires on value change.
+
+export interface CounterState {
+  visible: boolean
+  value: number
+  label: string
+}
+
+// ── Feature Card ─────────────────────────────────────────────────
+// Full-screen cinematic graphic for UP NEXT / THAT WAS / a featured
+// performer. Separate from the wave-4 lower-third chip — richer treatment
+// the operator can choose instead. firedAt drives the entrance re-trigger
+// in the browser source.
+
+export type FeatureCardAnim = 'slide-up' | 'slide-left' | 'fade' | 'zoom'
+
+export interface FeatureCardState {
+  visible: boolean
+  kicker: string // "UP NEXT" / "THAT WAS" / custom
+  title: string
+  subtitle: string
+  logoDataUrl: string // base64 data URL or empty
+  animateIn: FeatureCardAnim
+  firedAt: number // epoch ms — bump to re-trigger the entrance animation
+}
+
 // ── Overlay State (pushed to browser source) ─────────────────────
 
 export interface OverlayState {
@@ -133,6 +175,9 @@ export interface OverlayState {
     textColor: string
   }
   startingSoon: StartingSoonState
+  clock: ClockState
+  counter: CounterState
+  featureCard: FeatureCardState
   gridVisible: boolean // operator leveling grid (rule-of-thirds) — off the live stream
 }
 
@@ -606,6 +651,21 @@ export const IPC = {
   OVERLAY_FIRE_UP_NEXT: 'overlay:fire-up-next',
   OVERLAY_FIRE_THAT_WAS: 'overlay:fire-that-was',
 
+  // On-air clock (broadcast-chrome wall clock)
+  OVERLAY_CLOCK_TOGGLE: 'overlay:clock-toggle',
+  OVERLAY_CLOCK_UPDATE: 'overlay:clock-update',
+
+  // Counter (numeric badge)
+  OVERLAY_COUNTER_TOGGLE: 'overlay:counter-toggle',
+  OVERLAY_COUNTER_SET: 'overlay:counter-set',   // value + label
+  OVERLAY_COUNTER_BUMP: 'overlay:counter-bump',  // delta
+
+  // Full-screen feature card (UP NEXT / THAT WAS / featured)
+  OVERLAY_FEATURE_SHOW: 'overlay:feature-show',
+  OVERLAY_FEATURE_UP_NEXT: 'overlay:feature-up-next',
+  OVERLAY_FEATURE_THAT_WAS: 'overlay:feature-that-was',
+  OVERLAY_FEATURE_HIDE: 'overlay:feature-hide',
+
   // Overlay leveling grid (operator-only rule-of-thirds)
   OVERLAY_GRID_TOGGLE: 'overlay:grid-toggle',
 
@@ -789,6 +849,9 @@ export const DEFAULT_OVERLAY_STATE: OverlayState = {
   clientLogo: { visible: false, dataUrl: '' },
   ticker: { visible: false, text: '', speed: 60, backgroundColor: '#1a1a2e', textColor: '#ffffff' },
   startingSoon: { ...DEFAULT_STARTING_SOON },
+  clock: { visible: false, format: '12h', showSeconds: true },
+  counter: { visible: false, value: 1, label: '' },
+  featureCard: { visible: false, kicker: 'UP NEXT', title: '', subtitle: '', logoDataUrl: '', animateIn: 'slide-up', firedAt: 0 },
   gridVisible: false,
 }
 

@@ -976,6 +976,71 @@ export function registerIpcHandlers(): void {
     return { visible }
   })
 
+  // ── On-air clock ──────────────────────────────────────────────
+
+  ipcMain.handle(IPC.OVERLAY_CLOCK_TOGGLE, () => {
+    const visible = overlay.toggleClock()
+    pushState()
+    broadcastState()
+    return { visible }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_CLOCK_UPDATE, (_e, updates: Partial<import('../shared/types').ClockState>) => {
+    overlay.updateClock(updates)
+    pushState()
+    broadcastState()
+  })
+
+  // ── Counter ───────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.OVERLAY_COUNTER_TOGGLE, () => {
+    const visible = overlay.toggleCounter()
+    pushState()
+    broadcastState()
+    return { visible }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_COUNTER_SET, (_e, value: number, label?: string) => {
+    overlay.setCounter(value, label)
+    pushState()
+    broadcastState()
+  })
+
+  ipcMain.handle(IPC.OVERLAY_COUNTER_BUMP, (_e, delta: number) => {
+    const value = overlay.bumpCounter(delta)
+    pushState()
+    broadcastState()
+    return { value }
+  })
+
+  // ── Full-screen feature card ──────────────────────────────────
+
+  ipcMain.handle(IPC.OVERLAY_FEATURE_SHOW, (_e, data: Partial<import('../shared/types').FeatureCardState>) => {
+    overlay.showFeatureCard(data)
+    pushState()
+    broadcastState()
+  })
+
+  ipcMain.handle(IPC.OVERLAY_FEATURE_UP_NEXT, (_e, kicker?: string) => {
+    const fired = overlay.fireFeatureUpNext(kicker || 'UP NEXT')
+    pushState()
+    broadcastState()
+    return { fired }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_FEATURE_THAT_WAS, (_e, kicker?: string) => {
+    const fired = overlay.fireFeatureThatWas(kicker || 'THAT WAS')
+    pushState()
+    broadcastState()
+    return { fired }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_FEATURE_HIDE, () => {
+    overlay.hideFeatureCard()
+    pushState()
+    broadcastState()
+  })
+
   // ── Operator chat (Supabase Realtime, off by default) ─────────
 
   // Push chat-state changes to the renderer.

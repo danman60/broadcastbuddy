@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useStore } from '../store/useStore'
 import type { AnimationType } from '../../shared/types'
 import '../styles/preview.css'
@@ -26,6 +26,15 @@ export function OverlayPreview() {
   const overlayState = useStore((s) => s.overlayState)
   const ltRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const [, setClockTick] = useState(0)
+
+  // Tick once a second so the preview clock stays current (only when shown).
+  const clockVisible = overlayState?.clock?.visible ?? false
+  useEffect(() => {
+    if (!clockVisible) return
+    const id = setInterval(() => setClockTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [clockVisible])
 
   const rescale = useCallback(() => {
     const lt = ltRef.current
@@ -62,6 +71,24 @@ export function OverlayPreview() {
   const lt = overlayState.lowerThird
   const s = lt.styling
   const ticker = overlayState.ticker
+  const clock = overlayState.clock
+  const counter = overlayState.counter
+  const featureCard = overlayState.featureCard
+
+  // Render the clock string the same way the browser source does.
+  const clockText = (() => {
+    if (!clock?.visible) return ''
+    const now = new Date()
+    const h = now.getHours()
+    const m = String(now.getMinutes()).padStart(2, '0')
+    const sec = String(now.getSeconds()).padStart(2, '0')
+    if (clock.format === '24h') {
+      return clock.showSeconds ? `${String(h).padStart(2, '0')}:${m}:${sec}` : `${String(h).padStart(2, '0')}:${m}`
+    }
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12 = h % 12 || 12
+    return clock.showSeconds ? `${h12}:${m}:${sec} ${ampm}` : `${h12}:${m} ${ampm}`
+  })()
 
   const anim = pickAnimation(s.animation)
   const bgClass = [
@@ -144,6 +171,35 @@ export function OverlayPreview() {
             style={{ background: ticker.backgroundColor, color: ticker.textColor }}
           >
             <span className="preview-ticker-text">{ticker.text || 'Ticker text'}</span>
+          </div>
+        )}
+
+        {/* On-air clock */}
+        {clock?.visible && (
+          <div className="preview-clock">
+            <span className="preview-clock-time">{clockText}</span>
+          </div>
+        )}
+
+        {/* Counter */}
+        {counter?.visible && (
+          <div className="preview-counter">
+            <span className="preview-counter-number">{counter.value}</span>
+            {counter.label && <span className="preview-counter-label">{counter.label}</span>}
+          </div>
+        )}
+
+        {/* Full-screen feature card */}
+        {featureCard?.visible && (
+          <div className={`preview-feature-card preview-fc-${featureCard.animateIn}`}>
+            {featureCard.logoDataUrl && (
+              <img className="preview-fc-logo" src={featureCard.logoDataUrl} alt="" />
+            )}
+            <div className="preview-fc-kicker">{featureCard.kicker}</div>
+            <div className="preview-fc-title">{featureCard.title}</div>
+            {featureCard.subtitle && (
+              <div className="preview-fc-subtitle">{featureCard.subtitle}</div>
+            )}
           </div>
         )}
       </div>

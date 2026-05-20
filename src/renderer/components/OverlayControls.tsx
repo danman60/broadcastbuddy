@@ -22,6 +22,20 @@ export function OverlayControls() {
   const [transitionRevert, setTransitionRevert] = useState(false)
   const gridVisible = overlayState?.gridVisible ?? false
 
+  // Broadcast-chrome elements (clock / counter / feature card)
+  const clock = overlayState?.clock
+  const counter = overlayState?.counter
+  const featureCard = overlayState?.featureCard
+  const [counterLabel, setCounterLabel] = useState('')
+  const [fcKicker, setFcKicker] = useState('UP NEXT')
+  const [fcTitle, setFcTitle] = useState('')
+  const [fcSubtitle, setFcSubtitle] = useState('')
+
+  // Keep the editable counter-label input in sync with state.
+  useEffect(() => {
+    if (counter) setCounterLabel(counter.label)
+  }, [counter?.label])
+
   // Fetch autoFire + OBS controls state on mount
   useEffect(() => {
     window.api.playlistGetStatus().then((s) => setAutoFire(s.autoFire))
@@ -78,6 +92,50 @@ export function OverlayControls() {
 
   async function handleGridToggle() {
     await window.api.overlayGridToggle()
+  }
+
+  // ── Clock ──
+  async function handleClockToggle() {
+    await window.api.overlayClockToggle()
+  }
+  async function handleClockFormat(format: '12h' | '24h') {
+    await window.api.overlayClockUpdate({ format })
+  }
+  async function handleClockSeconds() {
+    await window.api.overlayClockUpdate({ showSeconds: !(clock?.showSeconds ?? true) })
+  }
+
+  // ── Counter ──
+  async function handleCounterToggle() {
+    await window.api.overlayCounterToggle()
+  }
+  async function handleCounterBump(delta: number) {
+    await window.api.overlayCounterBump(delta)
+  }
+  async function handleCounterSetValue(value: number) {
+    if (Number.isFinite(value)) await window.api.overlayCounterSet(value, counterLabel)
+  }
+  async function handleCounterSetLabel() {
+    await window.api.overlayCounterSet(counter?.value ?? 1, counterLabel)
+  }
+  async function handleCounterSyncTrigger() {
+    // Set counter from the selected trigger's 1-based order index.
+    if (selectedIndex >= 0) await window.api.overlayCounterSet(selectedIndex + 1, counterLabel)
+  }
+
+  // ── Feature card ──
+  async function handleFeatureUpNext() {
+    await window.api.overlayFeatureUpNext()
+  }
+  async function handleFeatureThatWas() {
+    await window.api.overlayFeatureThatWas()
+  }
+  async function handleFeatureShow() {
+    if (!fcTitle.trim()) return
+    await window.api.overlayFeatureShow({ kicker: fcKicker, title: fcTitle, subtitle: fcSubtitle, animateIn: 'slide-up' })
+  }
+  async function handleFeatureHide() {
+    await window.api.overlayFeatureHide()
   }
 
   async function handleLoopCycle() {
@@ -279,6 +337,133 @@ export function OverlayControls() {
               style={{ marginLeft: 'auto' }}
             >
               Revert: {transitionRevert ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {/* Broadcast chrome — on-air clock */}
+          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+            <button
+              className={`btn-sm ${clock?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleClockToggle}
+              title="Show/hide the on-air wall clock"
+            >
+              Clock {clock?.visible ? 'ON' : 'OFF'}
+            </button>
+            <button
+              className="btn-bulk"
+              onClick={() => handleClockFormat(clock?.format === '24h' ? '12h' : '24h')}
+              title="Toggle 12h / 24h time format"
+            >
+              {clock?.format === '24h' ? '24h' : '12h'}
+            </button>
+            <button
+              className={`btn-sm ${clock?.showSeconds ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleClockSeconds}
+              title="Toggle seconds display"
+            >
+              Secs {clock?.showSeconds ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {/* Broadcast chrome — counter badge */}
+          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+            <button
+              className={`btn-sm ${counter?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleCounterToggle}
+              title="Show/hide the numeric counter badge"
+            >
+              Counter {counter?.visible ? 'ON' : 'OFF'}
+            </button>
+            <button className="btn-bulk" onClick={() => handleCounterBump(-1)} title="Decrement counter">
+              −
+            </button>
+            <input
+              type="number"
+              value={counter?.value ?? 1}
+              onChange={(e) => handleCounterSetValue(parseInt(e.target.value, 10))}
+              title="Counter value"
+              style={{ width: 56, textAlign: 'center', padding: '4px 6px', fontSize: 12 }}
+            />
+            <button className="btn-bulk" onClick={() => handleCounterBump(1)} title="Increment counter">
+              +
+            </button>
+            <input
+              type="text"
+              value={counterLabel}
+              onChange={(e) => setCounterLabel(e.target.value)}
+              onBlur={handleCounterSetLabel}
+              placeholder="Label (e.g. ENTRY)"
+              title="Counter label"
+              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
+            />
+            <button
+              className="btn-bulk"
+              onClick={handleCounterSyncTrigger}
+              disabled={selectedIndex < 0}
+              title="Set counter to the selected trigger's order number"
+            >
+              Sync #{selectedIndex >= 0 ? selectedIndex + 1 : '-'}
+            </button>
+          </div>
+          {/* Broadcast chrome — full-screen feature card */}
+          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
+            <button
+              className="btn-bulk"
+              onClick={handleFeatureUpNext}
+              disabled={!hasNext}
+              title="Show the NEXT trigger as a full-screen UP NEXT feature card (does not advance position)"
+            >
+              Feature: Up Next
+            </button>
+            <button
+              className="btn-bulk"
+              onClick={handleFeatureThatWas}
+              disabled={!hasPrev}
+              title="Show the PREVIOUS trigger as a full-screen THAT WAS feature card (does not advance position)"
+            >
+              Feature: That Was
+            </button>
+            <button
+              className={`btn-sm ${featureCard?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
+              onClick={handleFeatureHide}
+              disabled={!featureCard?.visible}
+              title="Hide the full-screen feature card"
+              style={{ marginLeft: 'auto' }}
+            >
+              Hide Card
+            </button>
+          </div>
+          {/* Feature card composer */}
+          <div className="controls-bulk-row" style={{ marginTop: 6, alignItems: 'center', gap: 6 }}>
+            <input
+              type="text"
+              value={fcKicker}
+              onChange={(e) => setFcKicker(e.target.value)}
+              placeholder="Kicker"
+              title="Feature card kicker (UP NEXT / THAT WAS / custom)"
+              style={{ width: 90, padding: '4px 6px', fontSize: 12 }}
+            />
+            <input
+              type="text"
+              value={fcTitle}
+              onChange={(e) => setFcTitle(e.target.value)}
+              placeholder="Title"
+              title="Feature card title"
+              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
+            />
+            <input
+              type="text"
+              value={fcSubtitle}
+              onChange={(e) => setFcSubtitle(e.target.value)}
+              placeholder="Subtitle"
+              title="Feature card subtitle"
+              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
+            />
+            <button
+              className="btn-bulk"
+              onClick={handleFeatureShow}
+              disabled={!fcTitle.trim()}
+              title="Show a custom full-screen feature card"
+            >
+              Show
             </button>
           </div>
           <div className="controls-shortcuts-hint">

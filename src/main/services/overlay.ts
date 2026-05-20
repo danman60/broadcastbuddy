@@ -7,6 +7,10 @@ import {
   Note,
   StreamConfig,
   StartingSoonState,
+  ClockState,
+  CounterState,
+  FeatureCardState,
+  FeatureCardAnim,
   DEFAULT_OVERLAY_STATE,
   DEFAULT_STYLING,
   DEFAULT_STREAM_CONFIG,
@@ -457,6 +461,102 @@ export function updateStartingSoon(updates: Partial<StartingSoonState>): void {
   notifyChange()
 }
 
+// ── On-air Clock ─────────────────────────────────────────────────
+
+export function toggleClock(): boolean {
+  overlayState.clock.visible = !overlayState.clock.visible
+  notifyChange()
+  logger.info(`Clock ${overlayState.clock.visible ? 'shown' : 'hidden'}`)
+  return overlayState.clock.visible
+}
+
+export function updateClock(updates: Partial<ClockState>): void {
+  overlayState.clock = { ...overlayState.clock, ...updates }
+  notifyChange()
+}
+
+// ── Counter ──────────────────────────────────────────────────────
+
+export function toggleCounter(): boolean {
+  overlayState.counter.visible = !overlayState.counter.visible
+  notifyChange()
+  logger.info(`Counter ${overlayState.counter.visible ? 'shown' : 'hidden'}`)
+  return overlayState.counter.visible
+}
+
+export function setCounter(value: number, label?: string): void {
+  overlayState.counter.value = value
+  if (label !== undefined) overlayState.counter.label = label
+  notifyChange()
+}
+
+export function bumpCounter(delta: number): number {
+  overlayState.counter.value = Math.max(0, overlayState.counter.value + delta)
+  notifyChange()
+  return overlayState.counter.value
+}
+
+// ── Feature Card ─────────────────────────────────────────────────
+// Full-screen graphic. firedAt bumps on every show so the browser source
+// restarts the entrance animation even when re-firing while visible.
+
+let featureCardTimer: NodeJS.Timeout | null = null
+
+export function showFeatureCard(data: Partial<Omit<FeatureCardState, 'visible' | 'firedAt'>>): void {
+  overlayState.featureCard = {
+    ...overlayState.featureCard,
+    ...data,
+    visible: true,
+    firedAt: Date.now(),
+  }
+  // Auto-hide reuses the lower-third autoHideSeconds setting (0 = manual only).
+  if (featureCardTimer) clearTimeout(featureCardTimer)
+  const seconds = overlayState.lowerThird.styling.autoHideSeconds
+  if (seconds > 0) {
+    featureCardTimer = setTimeout(() => hideFeatureCard(), seconds * 1000)
+  }
+  notifyChange()
+  logger.info(`Feature card fired: ${data.kicker || overlayState.featureCard.kicker}`)
+  recordEvent('overlay', `Feature card fired: ${overlayState.featureCard.title || overlayState.featureCard.kicker}`)
+}
+
+export function hideFeatureCard(): void {
+  if (featureCardTimer) {
+    clearTimeout(featureCardTimer)
+    featureCardTimer = null
+  }
+  overlayState.featureCard.visible = false
+  overlayState.featureCard.firedAt = Date.now()
+  notifyChange()
+  logger.info('Feature card hidden')
+  recordEvent('overlay', 'Feature card hidden')
+}
+
+// Populate the feature card from the neighbouring trigger (next/prev), then
+// show it — same neighbour logic as the lower-third chip but rendered as the
+// full card. Does NOT advance playlist position. Returns false if no neighbour.
+function showFeatureNeighbour(forward: boolean, kicker: string, anim: FeatureCardAnim): boolean {
+  const idx = neighbourIndex(forward)
+  if (idx < 0) return false
+  const t = triggers[idx]
+  showFeatureCard({
+    kicker,
+    title: t.title || t.name,
+    subtitle: t.subtitle,
+    logoDataUrl: t.logoDataUrl || '',
+    animateIn: anim,
+  })
+  return true
+}
+
+export function fireFeatureUpNext(kicker = 'UP NEXT'): boolean {
+  return showFeatureNeighbour(true, kicker, 'slide-up')
+}
+
+export function fireFeatureThatWas(kicker = 'THAT WAS'): boolean {
+  return showFeatureNeighbour(false, kicker, 'slide-left')
+}
+
 // ── Notes ────────────────────────────────────────────────────────
 
 export function getNotes(): Note[] {
@@ -495,6 +595,10 @@ export function resetState(): void {
   if (autoHideTimer) {
     clearTimeout(autoHideTimer)
     autoHideTimer = null
+  }
+  if (featureCardTimer) {
+    clearTimeout(featureCardTimer)
+    featureCardTimer = null
   }
   notifyChange()
 }
@@ -573,7 +677,9 @@ export function stopServer(): void {
 
 function buildOverlayHTML(): string {
   const styling = overlayState.lowerThird.styling
-  const layout = styling.layout || { lowerThird: { x: 3.1, y: 85 }, companyLogo: { x: 2.1, y: 2.8 }, clientLogo: { x: 87.9, y: 2.8 }, ticker: { x: 0, y: 96.3, width: 100 } }
+  const layout = styling.layout || { lowerThird: { x: 3.1, y: 85 }, companyLogo: { x: 2.1, y: 2.8 }, clientLogo: { x: 87.9, y: 2.8 }, ticker: { x: 0, y: 96.3, width: 100 }, clock: { x: 2.1, y: 89 }, counter: { x: 86, y: 4, width: 13 } }
+  const clockLayout = layout.clock || { x: 2.1, y: 89 }
+  const counterLayout = layout.counter || { x: 86, y: 4, width: 13 }
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -871,6 +977,190 @@ function buildOverlayHTML(): string {
   .bb-grid .cross-v { left: 50%; top: calc(50% - 20px); width: 1px; height: 40px; }
   .bb-grid .cross-h { top: 50%; left: calc(50% - 20px); height: 1px; width: 40px; }
 
+  /* ── On-air clock ── (ported from CompSync overlay clock) */
+  .bb-clock {
+    position: absolute;
+    left: ${clockLayout.x}%;
+    top: ${clockLayout.y}%;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 40;
+  }
+  .bb-clock.visible { opacity: 1; }
+  .bb-clock-box {
+    background: rgba(30, 30, 46, 0.85);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    padding: 8px 16px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    text-align: center;
+    min-width: 120px;
+  }
+  .bb-clock-time {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+  }
+
+  /* ── Counter badge ── (#42 style, pop-in on change) */
+  .bb-counter {
+    position: absolute;
+    left: ${counterLayout.x}%;
+    top: ${counterLayout.y}%;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    z-index: 40;
+  }
+  .bb-counter.visible { opacity: 1; transform: translateY(0); }
+  .bb-counter-box {
+    background: rgba(30, 30, 46, 0.88);
+    border: 1px solid rgba(102, 126, 234, 0.5);
+    border-radius: 10px;
+    padding: 12px 20px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    text-align: center;
+    min-width: 120px;
+  }
+  .bb-counter-number {
+    font-size: 48px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .bb-counter-number::before { content: '#'; opacity: 0.4; font-size: 28px; }
+  .bb-counter-label {
+    font-size: 13px;
+    color: #e8e8f5;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  /* Pop-in fired by JS on value change */
+  .bb-counter.advance .bb-counter-number {
+    animation: bbCounterPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bbCounterPop {
+    0%   { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0 rgba(102,126,234,0)); }
+    35%  { transform: scale(1.32); filter: brightness(1.4) drop-shadow(0 0 22px rgba(102,126,234,0.9)); color: #a4b3ff; }
+    100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0 rgba(102,126,234,0)); }
+  }
+
+  /* ── Full-screen feature card ── (ported from CompSync featureCard) */
+  .bb-feature-card {
+    position: absolute; inset: 0;
+    width: 1920px; height: 1080px;
+    color: #ffffff;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    z-index: 60;
+    --fc-from: translateY(100%);
+  }
+  .bb-feature-card.visible { visibility: visible; opacity: 1; }
+  .bb-feature-card.slide-up   { --fc-from: translateY( 100%); }
+  .bb-feature-card.slide-left { --fc-from: translateX( 100%); }
+  .bb-feature-card.zoom       { --fc-from: scale(0.4); }
+  .bb-feature-card.fade       { --fc-from: translate(0,0); }
+  .bb-feature-card.entering {
+    animation: bbFcEnter 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  .bb-feature-card.exiting {
+    animation: bbFcExit 0.65s cubic-bezier(0.55, 0.05, 0.6, 0.05) forwards;
+  }
+  @keyframes bbFcEnter {
+    0%   { transform: var(--fc-from); filter: blur(14px); opacity: 0; }
+    35%  { filter: blur(8px); opacity: 1; }
+    72%  { transform: translate(0,0) scale(1); filter: blur(2px); }
+    100% { transform: translate(0,0) scale(1); filter: blur(0px); opacity: 1; }
+  }
+  @keyframes bbFcExit {
+    0%   { transform: translate(0,0) scale(1); filter: blur(0px); opacity: 1; }
+    100% { transform: var(--fc-from); filter: blur(14px); opacity: 0; }
+  }
+  .bb-fc-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 18% 22%, rgba(102,126,234,0.42) 0%, transparent 55%),
+      radial-gradient(ellipse at 82% 78%, rgba(156,109,255,0.30) 0%, transparent 60%),
+      linear-gradient(135deg, #0d0f1d 0%, #14172a 45%, #1c1f3a 100%);
+  }
+  .bb-fc-bg::after {
+    content: '';
+    position: absolute; left: 0; top: 0; right: 0; height: 6px;
+    background: linear-gradient(90deg, transparent 0%, var(--fc-accent, #667eea) 50%, transparent 100%);
+    opacity: 0.85;
+    box-shadow: 0 0 24px var(--fc-accent, #667eea);
+  }
+  .bb-fc-sparkles {
+    position: absolute; inset: 0;
+    pointer-events: none; overflow: hidden; z-index: 0;
+  }
+  .bb-fc-sparkle {
+    position: absolute;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='50%25'><stop offset='0%25' stop-color='%23fff' stop-opacity='1'/><stop offset='40%25' stop-color='%23fff' stop-opacity='0.85'/><stop offset='100%25' stop-color='%23fff' stop-opacity='0'/></radialGradient></defs><path d='M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z' fill='url(%23g)'/></svg>");
+    background-size: contain; background-repeat: no-repeat;
+    opacity: 0;
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.85));
+  }
+  .bb-feature-card.visible .bb-fc-sparkle { animation: bbFcSparkle 3s ease-in-out infinite; }
+  .bb-fc-sparkle.sm { width: 10px; height: 10px; }
+  .bb-fc-sparkle.md { width: 18px; height: 18px; }
+  .bb-fc-sparkle.lg { width: 28px; height: 28px; }
+  @keyframes bbFcSparkle {
+    0%, 100% { opacity: 0;    transform: scale(0.4) rotate(0deg); }
+    45%      { opacity: 0.95; transform: scale(1.05) rotate(45deg); }
+    60%      { opacity: 0.95; transform: scale(1.05) rotate(45deg); }
+  }
+  .bb-fc-content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px; text-align: center;
+    z-index: 3; padding: 0 120px;
+  }
+  .bb-fc-logo {
+    max-width: 280px; max-height: 160px; object-fit: contain;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 14px rgba(255,255,255,0.18));
+  }
+  .bb-fc-logo.empty { display: none; }
+  .bb-fc-kicker {
+    font-family: 'Bebas Neue', 'Anton', 'Arial Black', sans-serif;
+    font-size: 56px; letter-spacing: 0.12em; line-height: 1;
+    text-transform: uppercase;
+    color: var(--fc-accent, #667eea);
+    text-shadow: 0 0 28px rgba(0,0,0,0.5), 0 0 18px var(--fc-accent, #667eea);
+  }
+  .bb-feature-card.visible .bb-fc-kicker { animation: bbFcHeaderGlow 3.4s ease-in-out infinite; }
+  @keyframes bbFcHeaderGlow {
+    0%, 100% { text-shadow: 0 0 28px rgba(0,0,0,0.5), 0 0 14px var(--fc-accent, #667eea); }
+    50%      { text-shadow: 0 0 28px rgba(0,0,0,0.5), 0 0 38px var(--fc-accent, #667eea); }
+  }
+  .bb-fc-title {
+    font-family: 'Playfair Display', 'Georgia', serif;
+    font-weight: 700; font-size: 96px; line-height: 1.04;
+    max-width: 1500px;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.55);
+  }
+  .bb-feature-card.visible .bb-fc-title { animation: bbFcTitlePulse 2.4s ease-in-out infinite; }
+  @keyframes bbFcTitlePulse {
+    0%, 100% { text-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 18px transparent; }
+    50%      { text-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 42px var(--fc-accent, #667eea), 0 0 12px rgba(255,255,255,0.18); }
+  }
+  .bb-fc-subtitle {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-weight: 500; font-size: 36px; line-height: 1.35;
+    color: rgba(255,255,255,0.93);
+    max-width: 1400px;
+  }
+  .bb-fc-subtitle.empty { display: none; }
+
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
@@ -942,12 +1232,42 @@ function buildOverlayHTML(): string {
     <div class="ss-countdown" id="ss-countdown"></div>
   </div>
 
+  <div id="bb-clock" class="bb-clock">
+    <div class="bb-clock-box">
+      <div class="bb-clock-time" id="bb-clock-time"></div>
+    </div>
+  </div>
+
+  <div id="bb-counter" class="bb-counter">
+    <div class="bb-counter-box">
+      <div class="bb-counter-number" id="bb-counter-number"></div>
+      <div class="bb-counter-label" id="bb-counter-label" style="display:none"></div>
+    </div>
+  </div>
+
+  <div id="bb-feature-card" class="bb-feature-card">
+    <div class="bb-fc-bg"></div>
+    <div class="bb-fc-sparkles" id="bb-fc-sparkles"></div>
+    <div class="bb-fc-content">
+      <img class="bb-fc-logo empty" id="bb-fc-logo" src="" alt="">
+      <div class="bb-fc-kicker" id="bb-fc-kicker"></div>
+      <div class="bb-fc-title" id="bb-fc-title"></div>
+      <div class="bb-fc-subtitle empty" id="bb-fc-subtitle"></div>
+    </div>
+  </div>
+
   <script>
     const WS_URL = 'ws://127.0.0.1:9877';
     let ws = null;
     let reconnectTimer = null;
     let typewriterTimer = null;
     let countdownInterval = null;
+    let clockFormat = '12h';
+    let clockShowSeconds = true;
+    let lastCounterValue = null;
+    let lastFcFiredAt = 0;
+    let lastFcVisible = false;
+    let fcExitTimer = null;
 
     function connect() {
       ws = new WebSocket(WS_URL);
@@ -1156,6 +1476,140 @@ function buildOverlayHTML(): string {
       // Operator leveling grid
       var gridEl = document.getElementById('bb-grid');
       if (gridEl) gridEl.classList.toggle('visible', !!msg.overlay.gridVisible);
+
+      // Clock
+      if (msg.overlay.clock) applyClock(msg.overlay.clock);
+
+      // Counter
+      if (msg.overlay.counter) applyCounter(msg.overlay.counter);
+
+      // Feature card
+      if (msg.overlay.featureCard) applyFeatureCard(msg.overlay.featureCard);
+    }
+
+    function applyClock(c) {
+      var clockEl = document.getElementById('bb-clock');
+      if (!clockEl) return;
+      clockFormat = c.format || '12h';
+      clockShowSeconds = c.showSeconds !== false;
+      clockEl.classList.toggle('visible', !!c.visible);
+      if (c.visible) updateClock();
+    }
+
+    function updateClock() {
+      var timeEl = document.getElementById('bb-clock-time');
+      if (!timeEl) return;
+      var now = new Date();
+      var h = now.getHours();
+      var m = String(now.getMinutes()).padStart(2, '0');
+      var s = String(now.getSeconds()).padStart(2, '0');
+      var out;
+      if (clockFormat === '24h') {
+        out = String(h).padStart(2, '0') + ':' + m;
+        if (clockShowSeconds) out += ':' + s;
+      } else {
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        var h12 = h % 12 || 12;
+        out = h12 + ':' + m;
+        if (clockShowSeconds) out += ':' + s;
+        out += ' ' + ampm;
+      }
+      timeEl.textContent = out;
+    }
+
+    function applyCounter(c) {
+      var counterEl = document.getElementById('bb-counter');
+      var numEl = document.getElementById('bb-counter-number');
+      var labelEl = document.getElementById('bb-counter-label');
+      if (!counterEl || !numEl) return;
+      if (c.visible) {
+        counterEl.classList.add('visible');
+        // Pop-in on value change
+        if (lastCounterValue !== null && c.value !== lastCounterValue) {
+          counterEl.classList.remove('advance');
+          void counterEl.offsetWidth;
+          counterEl.classList.add('advance');
+        }
+        lastCounterValue = c.value;
+        numEl.textContent = String(c.value);
+        if (labelEl) {
+          if (c.label) {
+            labelEl.textContent = c.label;
+            labelEl.style.display = '';
+          } else {
+            labelEl.style.display = 'none';
+          }
+        }
+      } else {
+        counterEl.classList.remove('visible');
+        lastCounterValue = null;
+      }
+    }
+
+    function applyFeatureCard(fc) {
+      var fcEl = document.getElementById('bb-feature-card');
+      if (!fcEl) return;
+      var anim = fc.animateIn || 'slide-up';
+      var shouldShow = !!fc.visible;
+      var retrigger = (fc.firedAt && fc.firedAt !== lastFcFiredAt);
+
+      // Populate text (idempotent, cheap)
+      var kickerEl = document.getElementById('bb-fc-kicker');
+      if (kickerEl) kickerEl.textContent = fc.kicker || '';
+      var titleEl = document.getElementById('bb-fc-title');
+      if (titleEl) titleEl.textContent = fc.title || '';
+      var subEl = document.getElementById('bb-fc-subtitle');
+      if (subEl) {
+        subEl.textContent = fc.subtitle || '';
+        subEl.classList.toggle('empty', !fc.subtitle);
+      }
+      var logoEl = document.getElementById('bb-fc-logo');
+      if (logoEl) {
+        if (fc.logoDataUrl) {
+          logoEl.src = fc.logoDataUrl;
+          logoEl.classList.remove('empty');
+        } else {
+          logoEl.classList.add('empty');
+        }
+      }
+
+      // Animation direction class — clear all, add chosen
+      ['slide-up','slide-left','zoom','fade'].forEach(function(d){ fcEl.classList.remove(d); });
+      fcEl.classList.add(anim);
+
+      if (shouldShow && (retrigger || !lastFcVisible)) {
+        if (fcExitTimer) { clearTimeout(fcExitTimer); fcExitTimer = null; }
+        fcEl.classList.remove('exiting', 'entering', 'visible');
+        // Re-seed sparkle field
+        var sparkles = document.getElementById('bb-fc-sparkles');
+        if (sparkles) {
+          sparkles.innerHTML = '';
+          var sizes = ['sm','md','lg'];
+          for (var i = 0; i < 7; i++) {
+            var sp = document.createElement('div');
+            sp.className = 'bb-fc-sparkle ' + sizes[i % 3];
+            sp.style.left = (Math.random() * 92 + 4) + '%';
+            sp.style.top = (Math.random() * 92 + 4) + '%';
+            sp.style.animationDelay = (Math.random() * 3).toFixed(2) + 's';
+            sp.style.animationDuration = (2.4 + Math.random() * 1.6).toFixed(2) + 's';
+            sparkles.appendChild(sp);
+          }
+        }
+        void fcEl.offsetWidth;
+        fcEl.classList.add('visible', 'entering');
+        lastFcFiredAt = fc.firedAt;
+        lastFcVisible = true;
+      } else if (!shouldShow && lastFcVisible) {
+        fcEl.classList.remove('entering');
+        fcEl.classList.add('exiting');
+        if (fcExitTimer) clearTimeout(fcExitTimer);
+        fcExitTimer = setTimeout(function() {
+          fcEl.classList.remove('visible', 'exiting');
+          fcExitTimer = null;
+        }, 700);
+        lastFcVisible = false;
+        lastFcFiredAt = fc.firedAt || 0;
+      }
     }
 
     function applyStartingSoon(ss) {
@@ -1219,6 +1673,12 @@ function buildOverlayHTML(): string {
         ssCountEl.textContent = '';
       }
     }
+
+    // Drive the clock once a second (only repaints when visible).
+    setInterval(function() {
+      var clockEl = document.getElementById('bb-clock');
+      if (clockEl && clockEl.classList.contains('visible')) updateClock();
+    }, 1000);
 
     connect();
   </script>

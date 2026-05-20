@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -109,6 +109,21 @@ interface ElectronAPI {
 
   // Overlay leveling grid
   overlayGridToggle: () => Promise<{ visible: boolean }>
+
+  // On-air clock
+  overlayClockToggle: () => Promise<{ visible: boolean }>
+  overlayClockUpdate: (updates: Partial<ClockState>) => Promise<void>
+
+  // Counter
+  overlayCounterToggle: () => Promise<{ visible: boolean }>
+  overlayCounterSet: (value: number, label?: string) => Promise<void>
+  overlayCounterBump: (delta: number) => Promise<{ value: number }>
+
+  // Full-screen feature card
+  overlayFeatureShow: (data: Partial<FeatureCardState>) => Promise<void>
+  overlayFeatureUpNext: (kicker?: string) => Promise<{ fired: boolean }>
+  overlayFeatureThatWas: (kicker?: string) => Promise<{ fired: boolean }>
+  overlayFeatureHide: () => Promise<void>
 
   // Operator chat
   chatGetState: () => Promise<ChatState>

@@ -292,3 +292,96 @@
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
+
+/* ── On-air clock ── */
+.preview-clock {
+  position: absolute;
+  left: 3%;
+  bottom: 11%;
+  background: rgba(30, 30, 46, 0.85);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.preview-clock-time {
+  font-size: 6px;
+  font-weight: 600;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Counter badge ── */
+.preview-counter {
+  position: absolute;
+  right: 3%;
+  top: 4%;
+  background: rgba(30, 30, 46, 0.88);
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  border-radius: 4px;
+  padding: 3px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.preview-counter-number {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.preview-counter-number::before { content: '#'; opacity: 0.4; font-size: 8px; }
+.preview-counter-label {
+  font-size: 4px;
+  color: #e8e8f5;
+  margin-top: 1px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ── Full-screen feature card ── */
+.preview-feature-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+  padding: 0 8%;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 18% 22%, rgba(102,126,234,0.42) 0%, transparent 55%),
+    radial-gradient(ellipse at 82% 78%, rgba(156,109,255,0.30) 0%, transparent 60%),
+    linear-gradient(135deg, #0d0f1d 0%, #14172a 45%, #1c1f3a 100%);
+  border-top: 1px solid var(--p-accent, #667eea);
+  animation: preview-fc-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.preview-fc-logo {
+  max-width: 30%;
+  max-height: 20%;
+  object-fit: contain;
+  margin-bottom: 2px;
+}
+.preview-fc-kicker {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--p-accent, #667eea);
+}
+.preview-fc-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.preview-fc-subtitle {
+  font-size: 6px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+@keyframes preview-fc-in {
+  0% { opacity: 0; transform: translateY(8px); filter: blur(3px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}

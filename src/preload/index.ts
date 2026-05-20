@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, SlowZoomStatus } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, SlowZoomStatus, ClockState, FeatureCardState } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -179,6 +179,30 @@ contextBridge.exposeInMainWorld('api', {
   // ── Overlay leveling grid ─────────────────────────────────────
   overlayGridToggle: (): Promise<{ visible: boolean }> =>
     ipcRenderer.invoke(IPC.OVERLAY_GRID_TOGGLE),
+
+  // ── On-air clock ──────────────────────────────────────────────
+  overlayClockToggle: (): Promise<{ visible: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_CLOCK_TOGGLE),
+  overlayClockUpdate: (updates: Partial<ClockState>): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_CLOCK_UPDATE, updates),
+
+  // ── Counter ───────────────────────────────────────────────────
+  overlayCounterToggle: (): Promise<{ visible: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_COUNTER_TOGGLE),
+  overlayCounterSet: (value: number, label?: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_COUNTER_SET, value, label),
+  overlayCounterBump: (delta: number): Promise<{ value: number }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_COUNTER_BUMP, delta),
+
+  // ── Full-screen feature card ──────────────────────────────────
+  overlayFeatureShow: (data: Partial<FeatureCardState>): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FEATURE_SHOW, data),
+  overlayFeatureUpNext: (kicker?: string): Promise<{ fired: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FEATURE_UP_NEXT, kicker),
+  overlayFeatureThatWas: (kicker?: string): Promise<{ fired: boolean }> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FEATURE_THAT_WAS, kicker),
+  overlayFeatureHide: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_FEATURE_HIDE),
 
   // ── Operator chat ─────────────────────────────────────────────
   chatGetState: () => ipcRenderer.invoke(IPC.CHAT_GET_STATE),
