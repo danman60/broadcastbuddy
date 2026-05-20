@@ -12,9 +12,13 @@ import * as galleryService from './services/galleryService'
 import * as wifiDisplay from './services/wifiDisplay'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
+import * as events from './services/events'
+import * as crashRecovery from './services/crashRecovery'
+import * as backup from './services/backup'
+import { getLastStartupReport } from './services/startup'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
-import type { ChatConfig } from '../shared/types'
+import type { ChatConfig, EventLogKind } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -856,6 +860,7 @@ export function registerIpcHandlers(): void {
       const { createR2Client, uploadBatch, buildUploadItems } = await import('./services/r2Upload')
       const client = createR2Client(r2Conf)
       const items = buildUploadItems(folderPath, gallerySlug)
+      events.recordEvent('gallery', `R2 upload started: ${items.length} files`, { gallerySlug })
       const win = getMainWindow()
       const result = await uploadBatch(
         client,
@@ -876,8 +881,10 @@ export function registerIpcHandlers(): void {
         // already uploaded on a prior run (ported CompSync importManifest).
         { useImportManifest: true, manifestFolder: folderPath },
       )
+      events.recordEvent('gallery', `R2 upload complete: ${result.completed} uploaded, ${result.failed.length} failed`, { gallerySlug })
       return { success: true, completed: result.completed, failed: result.failed.length }
     } catch (err) {
+      events.recordEvent('error', `Gallery R2 upload failed: ${(err as Error).message}`)
       return { success: false, error: (err as Error).message }
     }
   })
@@ -899,6 +906,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.WIFI_DISPLAY_STOP, async () => {
     await wifiDisplay.stop()
+    events.recordEvent('wifi', 'Wifi display stopped (operator)')
     return wifiDisplay.getStatus()
   })
 
@@ -1018,6 +1026,85 @@ export function registerIpcHandlers(): void {
     pushState()
     broadcastState()
     return { fired: true }
+  })
+
+  // ── Operator event log / telemetry ────────────────────────────
+
+  ipcMain.handle(IPC.EVENTS_GET_RECENT, (_e, limit?: number, kind?: EventLogKind) => {
+    return events.getRecent(limit ?? 500, kind)
+  })
+
+  // ── Crash recovery ────────────────────────────────────────────
+
+  ipcMain.handle(IPC.RECOVERY_CHECK, () => {
+    // Re-derive status from the pending snapshot (checkAndRecover already ran
+    // at startup; this just exposes it on demand without re-arming the marker).
+    const snap = crashRecovery.getPendingSnapshot()
+    if (!snap) return { available: false, triggerCount: 0, sessionName: null, lastActive: null }
+    return {
+      available: true,
+      triggerCount: snap.triggers?.length || 0,
+      sessionName: snap.currentSessionName,
+      lastActive: snap.savedAt,
+    }
+  })
+
+  ipcMain.handle(IPC.RECOVERY_RESTORE, () => {
+    const snap = crashRecovery.getPendingSnapshot()
+    if (!snap) return { restored: false }
+    // Prefer reloading the saved session file (authoritative) if it still
+    // exists; fall back to the in-snapshot triggers/state otherwise.
+    let restored = false
+    if (snap.currentSessionId) {
+      const s = session.loadSession(snap.currentSessionId)
+      if (s) {
+        overlay.loadSessionState(
+          s.triggers, s.styling, s.companyLogoDataUrl, s.clientLogoDataUrl,
+          s.selectedIndex, s.playedIds, s.loopMode, s.notes, s.streamConfig,
+        )
+        restored = true
+      }
+    }
+    if (!restored && snap.triggers?.length) {
+      const st = snap.overlayState.lowerThird.styling
+      overlay.loadSessionState(
+        snap.triggers, st,
+        snap.overlayState.companyLogo.dataUrl, snap.overlayState.clientLogo.dataUrl,
+      )
+      restored = true
+    }
+    if (restored) {
+      events.recordEvent('system', 'Previous session restored after unclean shutdown')
+      pushState()
+      broadcastState()
+    }
+    crashRecovery.discardSnapshot()
+    return { restored }
+  })
+
+  ipcMain.handle(IPC.RECOVERY_DISMISS, () => {
+    crashRecovery.discardSnapshot()
+    return { ok: true }
+  })
+
+  // ── Startup checks ────────────────────────────────────────────
+
+  ipcMain.handle(IPC.STARTUP_GET_REPORT, () => {
+    return getLastStartupReport()
+  })
+
+  // ── Settings backup ───────────────────────────────────────────
+
+  ipcMain.handle(IPC.BACKUP_NOW, () => {
+    return backup.backupSettings()
+  })
+
+  ipcMain.handle(IPC.BACKUP_LIST, () => {
+    return backup.listBackups()
+  })
+
+  ipcMain.handle(IPC.BACKUP_RESTORE, (_e, file: string) => {
+    return backup.restoreBackup(file)
   })
 
   logger.info('IPC handlers registered')

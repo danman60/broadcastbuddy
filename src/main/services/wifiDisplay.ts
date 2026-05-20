@@ -7,6 +7,7 @@ import { app, screen } from 'electron'
 import { WifiDisplayState, MonitorInfo } from '../../shared/types'
 import { createLogger } from '../logger'
 import { getSettings, setSettings } from './settings'
+import { recordEvent } from './events'
 
 const logger = createLogger('wifi-display')
 
@@ -415,6 +416,7 @@ export async function start(): Promise<void> {
     captureRestartInFlight = false
     driftAdoptedThisSession = false
     logger.info(`Wifi display started (PID ${childProc.pid}, monitor index ${effectiveIndex})`)
+    recordEvent('wifi', 'Wifi display started', { monitorIndex: effectiveIndex })
     // Operator hierarchy: OBS HIGH > Wifi-display ABOVENORMAL > app NORMAL >
     // ffmpeg BELOWNORMAL. Tablet lag is preferable to OBS data loss.
     if (process.platform === 'win32') {
@@ -452,6 +454,7 @@ export async function start(): Promise<void> {
           logger.warn(
             `[wifi-display] capture-error burst: ${CAPTURE_ERR_THRESHOLD}+ in ${CAPTURE_ERR_WINDOW_MS}ms — auto-restart attempt ${captureRestartAttempts}/${MAX_CAPTURE_RESTART_ATTEMPTS}`,
           )
+          recordEvent('wifi', `Wifi display auto-restart (capture-error burst) attempt ${captureRestartAttempts}/${MAX_CAPTURE_RESTART_ATTEMPTS}`)
           ;(async () => {
             try {
               await stop()

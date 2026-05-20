@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -117,6 +117,22 @@ interface ElectronAPI {
   chatPin: (id: string) => Promise<{ ok: boolean }>
   chatUnpin: (id: string) => Promise<{ ok: boolean }>
   chatFireMessage: (id: string) => Promise<{ fired: boolean }>
+
+  // Operator event log / telemetry
+  eventsGetRecent: (limit?: number, kind?: EventLogKind) => Promise<EventLogRecord[]>
+
+  // Crash recovery
+  recoveryCheck: () => Promise<RecoveryStatus>
+  recoveryRestore: () => Promise<{ restored: boolean }>
+  recoveryDismiss: () => Promise<{ ok: boolean }>
+
+  // Startup checks
+  startupGetReport: () => Promise<StartupReport | null>
+
+  // Settings backup
+  backupNow: () => Promise<{ ok: boolean; file?: string; error?: string }>
+  backupList: () => Promise<BackupInfo[]>
+  backupRestore: (file: string) => Promise<{ ok: boolean; error?: string }>
 
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void

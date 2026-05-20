@@ -37,6 +37,7 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import { ChatConfig, ChatMessage, ChatState } from '../../shared/types'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 
 const logger = createLogger('chatBridge')
 
@@ -171,6 +172,7 @@ function connectChannel(): void {
         connected = true
         consecutiveFailures = 0
         reconnectDelayMs = 2000
+        recordEvent('chat', 'Operator chat connected')
         void backfill()
         notify()
       } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {

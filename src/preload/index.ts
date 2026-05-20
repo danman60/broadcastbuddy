@@ -188,6 +188,23 @@ contextBridge.exposeInMainWorld('api', {
   chatUnpin: (id: string) => ipcRenderer.invoke(IPC.CHAT_UNPIN, id),
   chatFireMessage: (id: string) => ipcRenderer.invoke(IPC.CHAT_FIRE_MESSAGE, id),
 
+  // ── Operator event log / telemetry ────────────────────────────
+  eventsGetRecent: (limit?: number, kind?: string) =>
+    ipcRenderer.invoke(IPC.EVENTS_GET_RECENT, limit, kind),
+
+  // ── Crash recovery ────────────────────────────────────────────
+  recoveryCheck: () => ipcRenderer.invoke(IPC.RECOVERY_CHECK),
+  recoveryRestore: () => ipcRenderer.invoke(IPC.RECOVERY_RESTORE),
+  recoveryDismiss: () => ipcRenderer.invoke(IPC.RECOVERY_DISMISS),
+
+  // ── Startup checks ────────────────────────────────────────────
+  startupGetReport: () => ipcRenderer.invoke(IPC.STARTUP_GET_REPORT),
+
+  // ── Settings backup ───────────────────────────────────────────
+  backupNow: () => ipcRenderer.invoke(IPC.BACKUP_NOW),
+  backupList: () => ipcRenderer.invoke(IPC.BACKUP_LIST),
+  backupRestore: (file: string) => ipcRenderer.invoke(IPC.BACKUP_RESTORE, file),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))

@@ -1,6 +1,7 @@
 import WebSocket from 'ws'
 import { createHash } from 'crypto'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 
 const logger = createLogger('obs')
 
@@ -128,6 +129,7 @@ export function connect(host: string, port: number, password?: string): Promise<
             refreshTransitionList().catch((err) =>
               logger.warn(`Initial transition list refresh failed: ${err instanceof Error ? err.message : err}`),
             )
+            recordEvent('obs', 'OBS connected')
             for (const cb of connectedCallbacks) {
               try { cb() } catch (err) {
                 logger.warn(`onConnected callback threw: ${err instanceof Error ? err.message : err}`)
@@ -171,6 +173,7 @@ export function connect(host: string, port: number, password?: string): Promise<
         pendingRequests.delete(id)
       }
       transitionKindByName.clear()
+      recordEvent('obs', 'OBS disconnected')
       for (const cb of disconnectedCallbacks) {
         try { cb() } catch (err) {
           logger.warn(`onDisconnected callback threw: ${err instanceof Error ? err.message : err}`)
@@ -246,6 +249,7 @@ function handleEvent(eventType: string | undefined, eventData: Record<string, un
         timecode: '',
       }
       logger.info(`RecordStateChanged: ${outputState} active=${active}`)
+      recordEvent('obs', active ? 'Recording started' : 'Recording stopped')
       for (const cb of recordStateCallbacks) {
         try { cb(state) } catch (err) {
           logger.warn(`onRecordStateChanged callback threw: ${err instanceof Error ? err.message : err}`)

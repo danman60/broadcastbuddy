@@ -15,6 +15,7 @@ import {
 } from '../../shared/types'
 import { buildGoogleFontsUrl } from '../../shared/fonts'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 
 const logger = createLogger('overlay')
 
@@ -361,6 +362,8 @@ export function fireLowerThird(): void {
 
   notifyChange()
   logger.info('Lower third fired')
+  const fired = selectedIndex >= 0 && selectedIndex < triggers.length ? triggers[selectedIndex] : null
+  recordEvent('overlay', `Lower third fired${fired ? `: ${fired.name}` : ''}`, fired ? { triggerId: fired.id } : undefined)
 }
 
 export function hideLowerThird(): void {
@@ -371,6 +374,7 @@ export function hideLowerThird(): void {
   }
   notifyChange()
   logger.info('Lower third hidden')
+  recordEvent('overlay', 'Lower third hidden')
 }
 
 // Fire arbitrary text as a lower-third (used by the chat "pin to screen" path).

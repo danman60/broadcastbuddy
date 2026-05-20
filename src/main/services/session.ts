@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { Session, Trigger, OverlayStyling, DEFAULT_STYLING, LoopMode, Note, StreamConfig } from '../../shared/types'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 
 const logger = createLogger('session')
 
@@ -69,6 +70,7 @@ export function saveSession(
   const filePath = path.join(getSessionsDir(), `${currentSession.id}.json`)
   fs.writeFileSync(filePath, JSON.stringify(currentSession, null, 2), 'utf-8')
   logger.info(`Session saved: ${currentSession.name} → ${filePath}`)
+  recordEvent('session', `Session saved: ${currentSession.name}`, { sessionId: currentSession.id, triggers: triggers.length })
   return currentSession
 }
 
@@ -83,6 +85,7 @@ export function loadSession(id: string): Session | null {
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
     currentSession = data as Session
     logger.info(`Session loaded: ${currentSession.name}`)
+    recordEvent('session', `Session loaded: ${currentSession.name}`, { sessionId: currentSession.id, triggers: currentSession.triggers?.length || 0 })
     return currentSession
   } catch (err) {
     logger.error('Failed to load session:', err)

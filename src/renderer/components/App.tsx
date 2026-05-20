@@ -20,6 +20,9 @@ import { RecordingUploadPanel } from './RecordingUploadPanel'
 import { GalleryPanel } from './GalleryPanel'
 import { ChatPanel } from './ChatPanel'
 import { AudioMeters } from './AudioMeters'
+import { EventLogPanel } from './EventLogPanel'
+import { RecoveryBanner } from './RecoveryBanner'
+import { StartupToast } from './StartupToast'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import '../styles/app.css'
@@ -60,8 +63,11 @@ export function App() {
           <AudioMeters />
           <GalleryPanel />
           <ChatPanel />
+          <EventLogPanel />
         </div>
       </div>
+      <RecoveryBanner />
+      <StartupToast />
       {showBrandKit && (
         <div className="settings-overlay">
           <div className="settings-header">

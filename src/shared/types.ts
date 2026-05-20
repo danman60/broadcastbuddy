@@ -415,6 +415,43 @@ export interface AudioInputLevel {
   levels: number[]
 }
 
+// ── Operator Resilience (event log / crash recovery / startup / backup) ──────
+
+export type EventLogKind = 'session' | 'overlay' | 'obs' | 'wifi' | 'gallery' | 'chat' | 'system' | 'error'
+
+export interface EventLogRecord {
+  t: string // ISO timestamp
+  kind: EventLogKind
+  message: string
+  meta?: Record<string, unknown>
+}
+
+export interface RecoveryStatus {
+  available: boolean
+  triggerCount: number
+  sessionName: string | null
+  lastActive: string | null // ISO
+}
+
+export type StartupCheckStatus = 'ok' | 'warn' | 'fail'
+
+export interface StartupCheck {
+  name: string
+  status: StartupCheckStatus
+  detail: string
+}
+
+export interface StartupReport {
+  ranAt: string // ISO
+  checks: StartupCheck[]
+}
+
+export interface BackupInfo {
+  file: string // basename
+  createdAt: string // ISO
+  size: number
+}
+
 // ── IPC Channels ─────────────────────────────────────────────────
 
 export const IPC = {
@@ -580,6 +617,24 @@ export const IPC = {
   CHAT_FIRE_MESSAGE: 'chat:fire-message', // broadcast a message as a lower-third
   CHAT_RECONFIGURE: 'chat:reconfigure',   // renderer asks main to (re)init from saved settings
   CHAT_STATE_UPDATE: 'chat:state-update', // main → renderer push
+
+  // Operator event log / telemetry
+  EVENTS_GET_RECENT: 'events:get-recent',
+  EVENTS_NEW: 'events:new', // main → renderer push
+
+  // Crash recovery
+  RECOVERY_CHECK: 'recovery:check',
+  RECOVERY_RESTORE: 'recovery:restore',
+  RECOVERY_DISMISS: 'recovery:dismiss',
+
+  // Startup checks
+  STARTUP_REPORT: 'startup:report', // main → renderer push (+ fetchable)
+  STARTUP_GET_REPORT: 'startup:get-report',
+
+  // Settings backup
+  BACKUP_NOW: 'backup:now',
+  BACKUP_LIST: 'backup:list',
+  BACKUP_RESTORE: 'backup:restore',
 } as const
 
 // ── WebSocket Protocol ───────────────────────────────────────────

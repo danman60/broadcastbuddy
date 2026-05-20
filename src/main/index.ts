@@ -7,6 +7,11 @@ import * as wifiDisplay from './services/wifiDisplay'
 import * as obsConnection from './services/obsConnection'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
+import * as session from './services/session'
+import * as events from './services/events'
+import * as crashRecovery from './services/crashRecovery'
+import * as backup from './services/backup'
+import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers } from './ipc'
 import { createLogger } from './logger'
@@ -111,6 +116,40 @@ app.whenReady().then(() => {
   const revertPref = settings.get('obsTransitionRevert')
   if (revertPref) obsConnection.setTransitionRevertEnabled(true)
 
+  // 12. Operator event log → renderer live fanout.
+  events.setOnEvent((record) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send(IPC.EVENTS_NEW, record)
+  })
+  events.recordEvent('system', 'BroadcastBuddy started')
+
+  // 13. Crash recovery — snapshot provider + dirty-marker check + periodic snapshots.
+  crashRecovery.setSnapshotProvider(() => {
+    const cur = session.getCurrentSession()
+    return {
+      savedAt: new Date().toISOString(),
+      currentSessionId: cur?.id ?? null,
+      currentSessionName: cur?.name ?? null,
+      triggers: overlay.getTriggers(),
+      overlayState: overlay.getOverlayState(),
+    }
+  })
+  const recovery = crashRecovery.checkAndRecover() // (re)arms the dirty marker for this run
+  crashRecovery.startSnapshots()
+  if (recovery.available) {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send(IPC.RECOVERY_CHECK, recovery)
+  }
+
+  // 14. Settings backup — once now + hourly.
+  backup.startBackupSchedule()
+
+  // 15. Startup sanity checks (non-blocking) → renderer.
+  runStartupChecks().then((report) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) win.webContents.send(IPC.STARTUP_REPORT, report)
+  }).catch((err) => logger.warn(`Startup checks failed: ${err instanceof Error ? err.message : err}`))
+
   logger.info('All services started')
 })
 
@@ -122,6 +161,14 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   logger.info('Shutting down...')
+  events.recordEvent('system', 'BroadcastBuddy shutting down')
+  crashRecovery.stopSnapshots()
+  backup.stopBackupSchedule()
+  // Final settings backup, then mark a clean shutdown so next launch doesn't
+  // offer recovery.
+  backup.backupSettings()
+  crashRecovery.clearDirty()
+  crashRecovery.discardSnapshot()
   wifiDisplay.cleanup()
   stopTabletLogServer()
   chatBridge.disconnect()

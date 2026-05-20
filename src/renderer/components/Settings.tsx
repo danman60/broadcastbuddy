@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { AppSettings, MonitorInfo, WifiDisplaySettings } from '../../shared/types'
+import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo } from '../../shared/types'
 import { DEFAULT_WIFI_DISPLAY } from '../../shared/types'
 import '../styles/settings.css'
 
@@ -37,6 +37,10 @@ export function Settings() {
   const [chatEventId, setChatEventId] = useState('')
   const [chatEnabled, setChatEnabled] = useState(false)
 
+  // Settings backups
+  const [backups, setBackups] = useState<BackupInfo[]>([])
+  const [backupMsg, setBackupMsg] = useState('')
+
   useEffect(() => {
     if (settings) {
       setHttpPort(settings.server.httpPort)
@@ -67,7 +71,35 @@ export function Settings() {
     checkObsStatus()
     refreshMonitors()
     refreshWifiStatus()
+    refreshBackups()
   }, [settings])
+
+  async function refreshBackups() {
+    try {
+      const list = await window.api.backupList()
+      setBackups(list as BackupInfo[])
+    } catch { /* ignore */ }
+  }
+
+  async function handleBackupNow() {
+    const res = await window.api.backupNow()
+    setBackupMsg(res?.ok ? `Backed up → ${res.file}` : `Backup failed: ${res?.error ?? 'unknown'}`)
+    refreshBackups()
+  }
+
+  async function handleBackupRestore(file: string) {
+    const res = await window.api.backupRestore(file)
+    setBackupMsg(res?.ok ? `Restored ${file} — restart BroadcastBuddy to apply` : `Restore failed: ${res?.error ?? 'unknown'}`)
+    refreshBackups()
+  }
+
+  function fmtBackupTime(iso: string): string {
+    try {
+      return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+    } catch {
+      return iso
+    }
+  }
 
   async function refreshMonitors() {
     try {
@@ -461,6 +493,32 @@ export function Settings() {
             <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
               Connect to Supabase chat when configured
             </span>
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Settings Backups</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Timestamped copies of your settings (trigger lists, overlay presets,
+            CC / R2 config). Taken automatically on startup and hourly; the last 10
+            are kept. Restoring overwrites current settings — restart to apply.
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={handleBackupNow}>Backup Now</button>
+            <button className="btn btn-ghost btn-sm" onClick={refreshBackups}>Refresh</button>
+            {backupMsg && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{backupMsg}</span>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 180, overflowY: 'auto' }}>
+            {backups.length === 0 ? (
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>No backups yet.</span>
+            ) : (
+              backups.map((b) => (
+                <div key={b.file} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                  <span>{fmtBackupTime(b.createdAt)} <span style={{ color: 'var(--text-dim)' }}>({(b.size / 1024).toFixed(1)} KB)</span></span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleBackupRestore(b.file)}>Restore</button>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
