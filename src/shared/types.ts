@@ -268,6 +268,7 @@ export interface AppSettings {
   slowZoom?: SlowZoomSettings
   obsTransitionRevert?: boolean
   chatConfig?: ChatConfig
+  dayChecklistLastShown?: string // YYYY-MM-DD the start-of-day modal last auto-shown
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -281,6 +282,7 @@ export interface ChatConfig {
   supabaseAnonKey: string
   eventId: string       // scopes messages to a single event
   enabled: boolean      // gate — when false the chat code path never runs
+  bannedAuthors?: string[] // moderation: authors whose messages are filtered out
 }
 
 export const DEFAULT_CHAT_CONFIG: ChatConfig = {
@@ -288,13 +290,16 @@ export const DEFAULT_CHAT_CONFIG: ChatConfig = {
   supabaseAnonKey: '',
   eventId: '',
   enabled: false,
+  bannedAuthors: [],
 }
 
 export interface ChatMessage {
   id: string
   author: string
   text: string
-  pinned: boolean
+  pinned: boolean       // operator-only pin
+  hidden?: boolean      // moderation: dropped from the rendered list
+  livestreamPinned?: boolean // flagged for the PUBLIC livestream overlay
   createdAt: number // epoch ms
 }
 
@@ -302,7 +307,44 @@ export interface ChatState {
   connected: boolean
   enabled: boolean
   messages: ChatMessage[]
-  pinned: ChatMessage[]
+  pinned: ChatMessage[]            // operator pins
+  livestreamPinned: ChatMessage[]  // public-overlay pins (max 3)
+  bannedAuthors: string[]
+}
+
+// ── Operator Day Checklist (start-of-day / end-of-day) ──────────────────────
+// The operator's OWN pre-show setup / post-show teardown list — distinct from
+// the CC-pushed broadcast-package checklist. Item definitions are static in
+// src/main/services/dayChecklistItems.ts; per-day check/skip/na state persists
+// to userData/broadcastbuddy-day-checklist.json.
+
+export type DayChecklistKind = 'start' | 'end'
+
+export type DayChecklistItemState = 'open' | 'checked' | 'skipped' | 'na'
+
+export interface DayChecklistItem {
+  id: string
+  label: string
+  detail?: string
+}
+
+export interface DayChecklistDayState {
+  date: string // YYYY-MM-DD (operator-local)
+  items: Record<string, DayChecklistItemState>
+  dismissed: boolean
+  lastUpdatedAt: number // epoch ms
+}
+
+export interface DayChecklistPersistedState {
+  days: Record<string, DayChecklistDayState> // keyed by "<date>|<kind>"
+}
+
+// Payload returned to the renderer when it asks for / opens a checklist.
+export interface DayChecklistView {
+  kind: DayChecklistKind
+  date: string
+  items: DayChecklistItem[]
+  state: DayChecklistDayState
 }
 
 // ── Slow Zoom (OBS Move Transition driver) ──────────────────────
@@ -677,6 +719,19 @@ export const IPC = {
   CHAT_FIRE_MESSAGE: 'chat:fire-message', // broadcast a message as a lower-third
   CHAT_RECONFIGURE: 'chat:reconfigure',   // renderer asks main to (re)init from saved settings
   CHAT_STATE_UPDATE: 'chat:state-update', // main → renderer push
+  // Chat moderation
+  CHAT_HIDE: 'chat:hide',                   // hide a message from the rendered list
+  CHAT_BAN_AUTHOR: 'chat:ban-author',       // ban an author (filtered + existing hidden)
+  CHAT_UNBAN_AUTHOR: 'chat:unban-author',   // lift a ban
+  CHAT_LIVESTREAM_PIN: 'chat:livestream-pin',     // pin for the PUBLIC livestream overlay
+  CHAT_LIVESTREAM_UNPIN: 'chat:livestream-unpin',
+
+  // Operator day checklist (start-of-day / end-of-day)
+  DAY_CHECKLIST_GET: 'day-checklist:get',          // (date, kind) → DayChecklistView
+  DAY_CHECKLIST_SET_ITEM: 'day-checklist:set-item', // (date, kind, itemId, value)
+  DAY_CHECKLIST_DISMISS: 'day-checklist:dismiss',   // (date, kind)
+  DAY_CHECKLIST_REOPEN: 'day-checklist:reopen',     // (kind) → DayChecklistView for today
+  DAY_CHECKLIST_SHOULD_SHOW: 'day-checklist:should-show', // → boolean (first launch of new day)
 
   // Operator event log / telemetry
   EVENTS_GET_RECENT: 'events:get-recent',

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { OverlayState, Trigger, AppSettings, Session, MappingPreset } from '../../shared/types'
+import type { OverlayState, Trigger, AppSettings, Session, MappingPreset, DayChecklistKind } from '../../shared/types'
 
 interface AppStore {
   // State
@@ -17,6 +17,7 @@ interface AppStore {
   mappingPresets: MappingPreset[]
   compactMode: boolean
   showVisualEditor: boolean
+  showDayChecklist: DayChecklistKind | null
 
   // Setters
   setOverlayState: (s: OverlayState) => void
@@ -31,6 +32,7 @@ interface AppStore {
   addMappingPreset: (preset: MappingPreset) => void
   setCompactMode: (compact: boolean) => void
   setShowVisualEditor: (show: boolean) => void
+  setShowDayChecklist: (kind: DayChecklistKind | null) => void
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -48,6 +50,7 @@ export const useStore = create<AppStore>((set) => ({
   mappingPresets: [],
   compactMode: false,
   showVisualEditor: false,
+  showDayChecklist: null,
 
   setOverlayState: (s) => set({ overlayState: s }),
   setTriggers: (t, selectedIndex, playedIds, loopMode) => set((state) => ({
@@ -76,6 +79,7 @@ export const useStore = create<AppStore>((set) => ({
     }
   },
   setShowVisualEditor: (show) => set({ showVisualEditor: show }),
+  setShowDayChecklist: (kind) => set({ showDayChecklist: kind }),
 }))
 
 // Initialize IPC listeners

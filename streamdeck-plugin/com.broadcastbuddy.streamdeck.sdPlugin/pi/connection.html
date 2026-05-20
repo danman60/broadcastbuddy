@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>BroadcastBuddy Connection</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: #d8d8d8; background: #2d2d2d; margin: 0; padding: 12px; }
+    .row { display: flex; align-items: center; margin-bottom: 10px; }
+    label { width: 80px; flex-shrink: 0; color: #9a9a9a; }
+    input { flex: 1; padding: 5px 8px; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #fff; }
+    .hint { color: #7a7a7a; font-size: 11px; margin-top: 4px; line-height: 1.4; }
+    .status { margin-top: 10px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <label for="host">BB Host</label>
+    <input id="host" type="text" placeholder="localhost" />
+  </div>
+  <div class="row">
+    <label for="port">WS Port</label>
+    <input id="port" type="number" placeholder="19081" />
+  </div>
+  <div class="hint">
+    Host + port of the machine running BroadcastBuddy. Default
+    <code>localhost:19081</code> (BB's WebSocket hub). Use the LAN IP of the BB
+    box if the Stream Deck is on another computer. These settings apply to all
+    BroadcastBuddy keys.
+  </div>
+  <div class="status" id="status"></div>
+
+  <script>
+    let websocket = null
+    let uuid = null
+    let globalSettings = {}
+
+    const hostEl = document.getElementById('host')
+    const portEl = document.getElementById('port')
+    const statusEl = document.getElementById('status')
+
+    // Stream Deck calls this global function when the PI loads.
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, _inInfo) {
+      uuid = inUUID
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort)
+
+      websocket.onopen = function () {
+        websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }))
+        // Ask for the current global settings to prefill the form.
+        websocket.send(JSON.stringify({ event: 'getGlobalSettings', context: inUUID }))
+      }
+
+      websocket.onmessage = function (evt) {
+        const data = JSON.parse(evt.data)
+        if (data.event === 'didReceiveGlobalSettings') {
+          globalSettings = (data.payload && data.payload.settings) || {}
+          hostEl.value = globalSettings.bbHost || ''
+          portEl.value = globalSettings.bbPort || ''
+        }
+      }
+    }
+
+    function save() {
+      if (!websocket || websocket.readyState !== 1) return
+      const bbHost = hostEl.value.trim() || 'localhost'
+      const bbPort = parseInt(portEl.value, 10) || 19081
+      globalSettings = { bbHost, bbPort }
+      websocket.send(JSON.stringify({
+        event: 'setGlobalSettings',
+        context: uuid,
+        payload: globalSettings,
+      }))
+      statusEl.textContent = 'Saved: ws://' + bbHost + ':' + bbPort
+    }
+
+    hostEl.addEventListener('change', save)
+    portEl.addEventListener('change', save)
+  </script>
+</body>
+</html>

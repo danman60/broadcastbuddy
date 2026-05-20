@@ -14,14 +14,20 @@
  * config, so RLS must permit anon insert/select scoped by event_id:
  *
  *   create table public.chat_messages (
- *     id          uuid primary key default gen_random_uuid(),
- *     event_id    text not null,
- *     author      text not null default 'operator',
- *     text        text not null,
- *     pinned      boolean not null default false,
- *     created_at  timestamptz not null default now()
+ *     id                uuid primary key default gen_random_uuid(),
+ *     event_id          text not null,
+ *     author            text not null default 'operator',
+ *     text              text not null,
+ *     pinned            boolean not null default false,  -- operator-only pin
+ *     hidden            boolean not null default false,  -- moderation: dropped from list
+ *     livestream_pinned boolean not null default false,  -- pinned for PUBLIC overlay
+ *     created_at        timestamptz not null default now()
  *   );
  *   create index chat_messages_event_idx on public.chat_messages (event_id, created_at);
+ *
+ *   -- Existing deployments: add the moderation columns
+ *   --   alter table public.chat_messages add column if not exists hidden boolean not null default false;
+ *   --   alter table public.chat_messages add column if not exists livestream_pinned boolean not null default false;
  *
  *   alter table public.chat_messages enable row level security;
  *
@@ -43,12 +49,17 @@ const logger = createLogger('chatBridge')
 
 const MAX_MESSAGES = 50
 const MAX_PINNED = 10
+const MAX_LIVESTREAM_PINNED = 3
 
 let config: ChatConfig | null = null
 let supabase: SupabaseClient | null = null
 let channel: RealtimeChannel | null = null
 let messages: ChatMessage[] = []
 let pinned: ChatMessage[] = []
+let livestreamPinned: ChatMessage[] = []
+// Moderation: authors whose messages are filtered out. Persisted via the
+// `onBannedAuthorsChange` callback (ipc.ts writes them to chatConfig.bannedAuthors).
+let bannedAuthors = new Set<string>()
 let connected = false
 let reconnectTimer: NodeJS.Timeout | null = null
 let reconnectDelayMs = 2000
@@ -58,6 +69,8 @@ let started = false // user enabled chat — auto-reconnect on failures
 let onStateChange: (() => void) | null = null
 // Fired when a message is pinned — wired by ipc.ts to broadcast as a lower-third.
 let onMessagePinned: ((msg: ChatMessage) => void) | null = null
+// Fired when the banned-authors set changes — wired by ipc.ts to persist it.
+let onBannedAuthorsChange: ((authors: string[]) => void) | null = null
 
 export function setOnStateChange(cb: () => void): void {
   onStateChange = cb
@@ -65,6 +78,10 @@ export function setOnStateChange(cb: () => void): void {
 
 export function setOnMessagePinned(cb: (msg: ChatMessage) => void): void {
   onMessagePinned = cb
+}
+
+export function setOnBannedAuthorsChange(cb: (authors: string[]) => void): void {
+  onBannedAuthorsChange = cb
 }
 
 function notify(): void {
@@ -81,6 +98,8 @@ function rowToMessage(row: Record<string, unknown>): ChatMessage {
     author: String(row.author ?? 'operator'),
     text: String(row.text ?? ''),
     pinned: !!row.pinned,
+    hidden: !!row.hidden,
+    livestreamPinned: !!row.livestream_pinned,
     createdAt: row.created_at ? new Date(String(row.created_at)).getTime() : Date.now(),
   }
 }
@@ -100,7 +119,15 @@ function mergeMessage(msg: ChatMessage): boolean {
 }
 
 function rebuildPinned(): void {
-  pinned = messages.filter((m) => m.pinned).slice(-MAX_PINNED)
+  // Hidden + banned messages never surface in any derived list.
+  const visible = messages.filter((m) => !m.hidden && !bannedAuthors.has(m.author))
+  pinned = visible.filter((m) => m.pinned).slice(-MAX_PINNED)
+  livestreamPinned = visible.filter((m) => m.livestreamPinned).slice(-MAX_LIVESTREAM_PINNED)
+}
+
+/** Messages the renderer should show — hidden + banned-author messages dropped. */
+function visibleMessages(): ChatMessage[] {
+  return messages.filter((m) => !m.hidden && !bannedAuthors.has(m.author))
 }
 
 function scheduleReconnect(): void {
@@ -196,6 +223,8 @@ export function init(cfg: ChatConfig | undefined): void {
     notify()
     return
   }
+  // Seed the banned-author set from persisted config.
+  bannedAuthors = new Set((cfg?.bannedAuthors ?? []).map((a) => a.trim()).filter(Boolean))
   started = true
   consecutiveFailures = 0
   reconnectDelayMs = 2000
@@ -212,6 +241,7 @@ export function disconnect(): void {
   supabase = null
   messages = []
   pinned = []
+  livestreamPinned = []
   connected = false
   notify()
 }
@@ -220,8 +250,10 @@ export function getState(): ChatState {
   return {
     connected,
     enabled: !!(config && config.enabled),
-    messages: messages.slice(),
+    messages: visibleMessages(),
     pinned: pinned.slice(),
+    livestreamPinned: livestreamPinned.slice(),
+    bannedAuthors: Array.from(bannedAuthors),
   }
 }
 
@@ -273,4 +305,88 @@ export function unpinMessage(id: string): Promise<boolean> {
 
 export function getMessageById(id: string): ChatMessage | undefined {
   return messages.find((m) => m.id === id)
+}
+
+// ── Moderation ──────────────────────────────────────────────────────────────
+
+/** Boolean-column moderation flags we can update via setFlag. */
+type ChatBoolFlag = 'hidden' | 'livestreamPinned'
+
+/** Generic Supabase boolean-column update with optimistic local reconcile. */
+async function setFlag(id: string, column: string, value: boolean, localKey: ChatBoolFlag): Promise<boolean> {
+  if (!isReady() || !supabase || !config) return false
+  const { error } = await supabase
+    .from('chat_messages')
+    .update({ [column]: value })
+    .eq('id', id)
+    .eq('event_id', config.eventId)
+  if (error) {
+    logger.warn(`${column} update failed: ${error.message}`)
+    return false
+  }
+  const local = messages.find((m) => m.id === id)
+  if (local) {
+    local[localKey] = value
+    rebuildPinned()
+    notify()
+  }
+  return true
+}
+
+/** Hide a message from the rendered list (moderation). */
+export function hideMessage(id: string): Promise<boolean> {
+  recordEvent('chat', 'Operator hid a chat message', { id })
+  return setFlag(id, 'hidden', true, 'hidden')
+}
+
+/**
+ * Ban an author: add to the banned set (persisted to chatConfig.bannedAuthors)
+ * and hide their existing messages going forward.
+ */
+export function banAuthor(author: string): boolean {
+  const a = (author ?? '').trim()
+  if (!a) return false
+  if (bannedAuthors.has(a)) return true
+  bannedAuthors.add(a)
+  rebuildPinned()
+  recordEvent('chat', `Operator banned chat author: ${a}`)
+  try { onBannedAuthorsChange?.(Array.from(bannedAuthors)) } catch { /* ignore */ }
+  notify()
+  return true
+}
+
+export function unbanAuthor(author: string): boolean {
+  const a = (author ?? '').trim()
+  if (!a || !bannedAuthors.has(a)) return false
+  bannedAuthors.delete(a)
+  rebuildPinned()
+  recordEvent('chat', `Operator unbanned chat author: ${a}`)
+  try { onBannedAuthorsChange?.(Array.from(bannedAuthors)) } catch { /* ignore */ }
+  notify()
+  return true
+}
+
+export function getBannedAuthors(): string[] {
+  return Array.from(bannedAuthors)
+}
+
+/**
+ * Pin a message for the PUBLIC livestream overlay (separate from the operator
+ * pin). Capped at MAX_LIVESTREAM_PINNED — refuses to add a 4th.
+ */
+export async function livestreamPin(id: string): Promise<boolean> {
+  if (livestreamPinned.length >= MAX_LIVESTREAM_PINNED && !livestreamPinned.some((m) => m.id === id)) {
+    logger.warn(`livestreamPin refused — already at max ${MAX_LIVESTREAM_PINNED}`)
+    return false
+  }
+  recordEvent('chat', 'Operator pinned a message to the livestream overlay', { id })
+  return setFlag(id, 'livestream_pinned', true, 'livestreamPinned')
+}
+
+export function livestreamUnpin(id: string): Promise<boolean> {
+  return setFlag(id, 'livestream_pinned', false, 'livestreamPinned')
+}
+
+export function getLivestreamPinned(): ChatMessage[] {
+  return livestreamPinned.slice()
 }

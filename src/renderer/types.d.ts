@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -132,6 +132,20 @@ interface ElectronAPI {
   chatPin: (id: string) => Promise<{ ok: boolean }>
   chatUnpin: (id: string) => Promise<{ ok: boolean }>
   chatFireMessage: (id: string) => Promise<{ fired: boolean }>
+
+  // Operator chat moderation
+  chatHide: (id: string) => Promise<{ ok: boolean }>
+  chatBanAuthor: (author: string) => Promise<{ ok: boolean; bannedAuthors: string[] }>
+  chatUnbanAuthor: (author: string) => Promise<{ ok: boolean; bannedAuthors: string[] }>
+  chatLivestreamPin: (id: string) => Promise<{ ok: boolean }>
+  chatLivestreamUnpin: (id: string) => Promise<{ ok: boolean }>
+
+  // Operator day checklist (start-of-day / end-of-day)
+  dayChecklistGet: (date: string, kind: DayChecklistKind) => Promise<DayChecklistView>
+  dayChecklistSetItem: (date: string, kind: DayChecklistKind, itemId: string, value: DayChecklistItemState) => Promise<DayChecklistView>
+  dayChecklistDismiss: (date: string, kind: DayChecklistKind) => Promise<DayChecklistView>
+  dayChecklistReopen: (kind: DayChecklistKind) => Promise<DayChecklistView>
+  dayChecklistShouldShow: () => Promise<{ should: boolean; date: string }>
 
   // Operator event log / telemetry
   eventsGetRecent: (limit?: number, kind?: EventLogKind) => Promise<EventLogRecord[]>

@@ -15,10 +15,12 @@ import * as chatBridge from './services/chatBridge'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
+import * as dayChecklist from './services/dayChecklist'
+import { getItemsForKind } from './services/dayChecklistItems'
 import { getLastStartupReport } from './services/startup'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
-import type { ChatConfig, EventLogKind } from '../shared/types'
+import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -1091,6 +1093,84 @@ export function registerIpcHandlers(): void {
     pushState()
     broadcastState()
     return { fired: true }
+  })
+
+  // ── Operator chat moderation ──────────────────────────────────
+  // Persist banned-author changes back into chatConfig so they survive a
+  // reconnect / app restart. chatBridge fires this on every ban/unban.
+  chatBridge.setOnBannedAuthorsChange((authors) => {
+    const cfg = (settings.get('chatConfig') as ChatConfig | undefined) ?? { supabaseUrl: '', supabaseAnonKey: '', eventId: '', enabled: false }
+    settings.set('chatConfig', { ...cfg, bannedAuthors: authors })
+  })
+
+  ipcMain.handle(IPC.CHAT_HIDE, async (_e, id: string) => {
+    const ok = await chatBridge.hideMessage(id)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.CHAT_BAN_AUTHOR, (_e, author: string) => {
+    const ok = chatBridge.banAuthor(author)
+    return { ok, bannedAuthors: chatBridge.getBannedAuthors() }
+  })
+
+  ipcMain.handle(IPC.CHAT_UNBAN_AUTHOR, (_e, author: string) => {
+    const ok = chatBridge.unbanAuthor(author)
+    return { ok, bannedAuthors: chatBridge.getBannedAuthors() }
+  })
+
+  ipcMain.handle(IPC.CHAT_LIVESTREAM_PIN, async (_e, id: string) => {
+    const ok = await chatBridge.livestreamPin(id)
+    return { ok }
+  })
+
+  ipcMain.handle(IPC.CHAT_LIVESTREAM_UNPIN, async (_e, id: string) => {
+    const ok = await chatBridge.livestreamUnpin(id)
+    return { ok }
+  })
+
+  // ── Operator day checklist (start-of-day / end-of-day) ────────
+
+  function buildDayView(date: string, kind: DayChecklistKind): DayChecklistView {
+    return {
+      kind,
+      date,
+      items: getItemsForKind(kind),
+      state: dayChecklist.getDayState(date, kind),
+    }
+  }
+
+  ipcMain.handle(IPC.DAY_CHECKLIST_GET, (_e, date: string, kind: DayChecklistKind) => {
+    const d = date || dayChecklist.todayKey()
+    return buildDayView(d, kind)
+  })
+
+  ipcMain.handle(IPC.DAY_CHECKLIST_SET_ITEM, (_e, date: string, kind: DayChecklistKind, itemId: string, value: DayChecklistItemState) => {
+    const d = date || dayChecklist.todayKey()
+    dayChecklist.setItemState(d, kind, itemId, value)
+    return buildDayView(d, kind)
+  })
+
+  ipcMain.handle(IPC.DAY_CHECKLIST_DISMISS, (_e, date: string, kind: DayChecklistKind) => {
+    const d = date || dayChecklist.todayKey()
+    dayChecklist.markDismissed(d, kind)
+    events.recordEvent('system', `Operator dismissed ${kind}-of-day checklist`, { date: d })
+    return buildDayView(d, kind)
+  })
+
+  ipcMain.handle(IPC.DAY_CHECKLIST_REOPEN, (_e, kind: DayChecklistKind) => {
+    const d = dayChecklist.todayKey()
+    return buildDayView(d, kind)
+  })
+
+  // First launch of a new calendar day → renderer auto-shows start-of-day.
+  // We stamp dayChecklistLastShown here so it only auto-shows once per day.
+  ipcMain.handle(IPC.DAY_CHECKLIST_SHOULD_SHOW, () => {
+    const today = dayChecklist.todayKey()
+    const last = settings.get('dayChecklistLastShown') as string | undefined
+    const already = dayChecklist.getDayState(today, 'start').dismissed
+    const should = last !== today && !already
+    if (should) settings.set('dayChecklistLastShown', today)
+    return { should, date: today }
   })
 
   // ── Operator event log / telemetry ────────────────────────────

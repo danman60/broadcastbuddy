@@ -25,6 +25,7 @@ import { RecoveryBanner } from './RecoveryBanner'
 import { StartupToast } from './StartupToast'
 import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
+import { DayChecklist } from './DayChecklist'
 import '../styles/app.css'
 
 export function App() {
@@ -37,6 +38,11 @@ export function App() {
   useEffect(() => {
     initStoreListeners()
     loadInitialState()
+    // Auto-show the start-of-day checklist on the first launch of a new
+    // calendar day. The main process stamps "last shown" so this fires once.
+    window.api.dayChecklistShouldShow().then((r) => {
+      if (r?.should) useStore.getState().setShowDayChecklist('start')
+    }).catch(() => { /* ignore */ })
   }, [])
 
   return (
@@ -94,6 +100,7 @@ export function App() {
       {showVisualEditor && (
         <VisualEditor onClose={() => useStore.getState().setShowVisualEditor(false)} />
       )}
+      <DayChecklist />
     </div>
   )
 }

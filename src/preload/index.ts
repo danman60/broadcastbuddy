@@ -212,6 +212,21 @@ contextBridge.exposeInMainWorld('api', {
   chatUnpin: (id: string) => ipcRenderer.invoke(IPC.CHAT_UNPIN, id),
   chatFireMessage: (id: string) => ipcRenderer.invoke(IPC.CHAT_FIRE_MESSAGE, id),
 
+  // ── Operator chat moderation ──────────────────────────────────
+  chatHide: (id: string) => ipcRenderer.invoke(IPC.CHAT_HIDE, id),
+  chatBanAuthor: (author: string) => ipcRenderer.invoke(IPC.CHAT_BAN_AUTHOR, author),
+  chatUnbanAuthor: (author: string) => ipcRenderer.invoke(IPC.CHAT_UNBAN_AUTHOR, author),
+  chatLivestreamPin: (id: string) => ipcRenderer.invoke(IPC.CHAT_LIVESTREAM_PIN, id),
+  chatLivestreamUnpin: (id: string) => ipcRenderer.invoke(IPC.CHAT_LIVESTREAM_UNPIN, id),
+
+  // ── Operator day checklist (start-of-day / end-of-day) ────────
+  dayChecklistGet: (date: string, kind: 'start' | 'end') => ipcRenderer.invoke(IPC.DAY_CHECKLIST_GET, date, kind),
+  dayChecklistSetItem: (date: string, kind: 'start' | 'end', itemId: string, value: string) =>
+    ipcRenderer.invoke(IPC.DAY_CHECKLIST_SET_ITEM, date, kind, itemId, value),
+  dayChecklistDismiss: (date: string, kind: 'start' | 'end') => ipcRenderer.invoke(IPC.DAY_CHECKLIST_DISMISS, date, kind),
+  dayChecklistReopen: (kind: 'start' | 'end') => ipcRenderer.invoke(IPC.DAY_CHECKLIST_REOPEN, kind),
+  dayChecklistShouldShow: () => ipcRenderer.invoke(IPC.DAY_CHECKLIST_SHOULD_SHOW),
+
   // ── Operator event log / telemetry ────────────────────────────
   eventsGetRecent: (limit?: number, kind?: string) =>
     ipcRenderer.invoke(IPC.EVENTS_GET_RECENT, limit, kind),

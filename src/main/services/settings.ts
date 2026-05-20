@@ -39,6 +39,7 @@ const store = new Store<AppSettings>({
     slowZoom: { ...DEFAULT_SLOW_ZOOM },
     obsTransitionRevert: false,
     chatConfig: { ...DEFAULT_CHAT_CONFIG },
+    dayChecklistLastShown: '',
   },
 })
 

@@ -82,6 +82,62 @@
         { "Image": "imgs/actions/ticker", "Title": "TICK" },
         { "Image": "imgs/actions/ticker-active", "Title": "TICK" }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.up-next",
+      "Name": "Up Next",
+      "Tooltip": "Fire the UP NEXT lower third",
+      "Icon": "imgs/actions/up-next",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/up-next", "Title": "UP NEXT" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.that-was",
+      "Name": "That Was",
+      "Tooltip": "Fire the THAT WAS lower third",
+      "Icon": "imgs/actions/that-was",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/that-was", "Title": "THAT WAS" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.toggle-grid",
+      "Name": "Toggle Grid",
+      "Tooltip": "Toggle the operator leveling grid (rule-of-thirds, never on the live feed)",
+      "Icon": "imgs/actions/grid",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/grid", "Title": "GRID" },
+        { "Image": "imgs/actions/grid-active", "Title": "GRID" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.slow-zoom-wide",
+      "Name": "Slow Zoom (Wide)",
+      "Tooltip": "Trigger the OBS Move-Transition slow zoom on the Wide scene",
+      "Icon": "imgs/actions/slow-zoom",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/slow-zoom", "Title": "ZOOM W" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.slow-zoom-tight",
+      "Name": "Slow Zoom (Tight)",
+      "Tooltip": "Trigger the OBS Move-Transition slow zoom on the Tight scene",
+      "Icon": "imgs/actions/slow-zoom",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/slow-zoom", "Title": "ZOOM T" }
+      ]
     }
   ]
 }

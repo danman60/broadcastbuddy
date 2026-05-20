@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
 import type { ChatState } from '../../shared/types'
 
-const EMPTY_STATE: ChatState = { connected: false, enabled: false, messages: [], pinned: [] }
+const EMPTY_STATE: ChatState = { connected: false, enabled: false, messages: [], pinned: [], livestreamPinned: [], bannedAuthors: [] }
 
 export function ChatPanel() {
   const compactMode = useStore((s) => s.compactMode)
@@ -80,36 +80,61 @@ export function ChatPanel() {
                 {state.messages.length === 0 ? (
                   <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>No messages yet.</p>
                 ) : (
-                  state.messages.map((m) => (
-                    <div
-                      key={m.id}
-                      style={{
-                        fontSize: 12,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 6,
-                        background: m.pinned ? 'rgba(102,126,234,0.12)' : 'transparent',
-                        borderRadius: 4,
-                        padding: '2px 4px',
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontWeight: 600 }}>{m.author}</span>
-                        <span style={{ color: 'var(--text-dim)', fontSize: 10, marginLeft: 6 }}>
-                          {fmtTime(m.createdAt)}
-                        </span>
-                        <div style={{ wordBreak: 'break-word' }}>{m.text}</div>
-                      </div>
-                      <button
-                        className="btn-sm btn-loop-off"
-                        title={m.pinned ? 'Unpin (remove on-screen)' : 'Pin to screen as a lower-third'}
-                        onClick={() => (m.pinned ? window.api.chatUnpin(m.id) : window.api.chatPin(m.id))}
-                        style={{ flexShrink: 0 }}
+                  state.messages.map((m) => {
+                    const lsPinned = !!m.livestreamPinned
+                    return (
+                      <div
+                        key={m.id}
+                        style={{
+                          fontSize: 12,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 6,
+                          background: m.pinned ? 'rgba(102,126,234,0.12)' : lsPinned ? 'rgba(34,197,94,0.12)' : 'transparent',
+                          borderRadius: 4,
+                          padding: '2px 4px',
+                        }}
                       >
-                        {m.pinned ? 'Unpin' : 'Pin'}
-                      </button>
-                    </div>
-                  ))
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600 }}>{m.author}</span>
+                          <span style={{ color: 'var(--text-dim)', fontSize: 10, marginLeft: 6 }}>
+                            {fmtTime(m.createdAt)}
+                          </span>
+                          <div style={{ wordBreak: 'break-word' }}>{m.text}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexShrink: 0, gap: 3, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn-sm btn-loop-off"
+                            title={m.pinned ? 'Unpin operator overlay' : 'Pin to screen as a lower-third (operator)'}
+                            onClick={() => (m.pinned ? window.api.chatUnpin(m.id) : window.api.chatPin(m.id))}
+                          >
+                            {m.pinned ? 'Unpin' : 'Pin'}
+                          </button>
+                          <button
+                            className={lsPinned ? 'btn-sm btn-loop-active' : 'btn-sm btn-loop-off'}
+                            title={lsPinned ? 'Remove from public livestream overlay' : 'Pin for the PUBLIC livestream overlay (max 3)'}
+                            onClick={() => (lsPinned ? window.api.chatLivestreamUnpin(m.id) : window.api.chatLivestreamPin(m.id))}
+                          >
+                            {lsPinned ? 'LS✓' : 'LS'}
+                          </button>
+                          <button
+                            className="btn-sm btn-loop-off"
+                            title="Hide this message"
+                            onClick={() => window.api.chatHide(m.id)}
+                          >
+                            Hide
+                          </button>
+                          <button
+                            className="btn-sm btn-loop-off"
+                            title={`Ban ${m.author} (hides all their messages)`}
+                            onClick={() => window.api.chatBanAuthor(m.author)}
+                          >
+                            Ban
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
                 )}
               </div>
 
@@ -125,6 +150,41 @@ export function ChatPanel() {
                 />
                 <button className="btn-sm btn-loop-active" onClick={handleSend}>Send</button>
               </div>
+
+              {/* Banned authors managed list */}
+              {state.bannedAuthors.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }}>
+                    Banned authors
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {state.bannedAuthors.map((a) => (
+                      <span
+                        key={a}
+                        style={{
+                          fontSize: 11,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          background: 'rgba(239,68,68,0.15)',
+                          borderRadius: 4,
+                          padding: '2px 6px',
+                        }}
+                      >
+                        {a}
+                        <button
+                          className="btn-sm btn-loop-off"
+                          title={`Unban ${a}`}
+                          onClick={() => window.api.chatUnbanAuthor(a)}
+                          style={{ padding: '0 4px', lineHeight: 1.4 }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

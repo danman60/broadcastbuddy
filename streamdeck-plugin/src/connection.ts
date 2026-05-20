@@ -12,6 +12,7 @@ export interface AppState {
     companyLogo: { visible: boolean }
     clientLogo: { visible: boolean }
     ticker: { visible: boolean; text: string }
+    gridVisible?: boolean // operator leveling grid
   }
   playlist?: {
     current: number
@@ -23,7 +24,18 @@ export interface AppState {
 
 type StateCallback = (state: AppState) => void
 
-const WS_URL = 'ws://localhost:9877'
+// BroadcastBuddy's WebSocket hub listens on 19081 by default (see
+// src/main/services/settings.ts → server.wsPort). Host/port are overridable
+// from the Stream Deck property inspector via setHostPort().
+const DEFAULT_HOST = 'localhost'
+const DEFAULT_PORT = 19081
+let host = DEFAULT_HOST
+let port = DEFAULT_PORT
+
+function wsUrl(): string {
+  return `ws://${host}:${port}`
+}
+
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectDelay = 1000
@@ -34,6 +46,22 @@ let connected = false
 export function onState(cb: StateCallback): void {
   stateCallbacks.push(cb)
   if (currentState) cb(currentState)
+}
+
+/**
+ * Update the BB host/port (from the property inspector global settings) and
+ * reconnect if it actually changed. Empty / invalid values fall back to the
+ * defaults so a blank field never bricks the connection.
+ */
+export function setHostPort(nextHost?: string, nextPort?: number): void {
+  const h = (nextHost && nextHost.trim()) || DEFAULT_HOST
+  const p = nextPort && Number.isFinite(nextPort) && nextPort > 0 ? nextPort : DEFAULT_PORT
+  if (h === host && p === port) return
+  host = h
+  port = p
+  // Bounce the socket onto the new endpoint.
+  disconnect()
+  connect()
 }
 
 export function isConnected(): boolean {
@@ -54,7 +82,7 @@ export function sendCommand(action: string, data?: Record<string, unknown>): voi
 export function connect(): void {
   if (ws) return
   try {
-    ws = new WebSocket(WS_URL)
+    ws = new WebSocket(wsUrl())
   } catch {
     scheduleReconnect()
     return

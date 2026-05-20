@@ -15,6 +15,7 @@ import {
   fireUpNext,
   fireThatWas,
 } from './overlay'
+import * as slowZoom from './slowZoom'
 import { WsStateMessage } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -90,6 +91,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       break
     case 'thatWas':
       fireThatWas((data?.label as string) || 'THAT WAS')
+      break
+    case 'slowZoomWide':
+      // OBS Move-Transition slow zoom on the Wide scene. Fails soft (logged in
+      // slowZoom) when OBS is disconnected or the named scenes/transition are
+      // missing — the WS command never throws back to the client.
+      void slowZoom.triggerWide().catch((err) => logger.warn(`slowZoomWide failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'slowZoomTight':
+      void slowZoom.triggerTight().catch((err) => logger.warn(`slowZoomTight failed: ${err instanceof Error ? err.message : err}`))
       break
     case 'getStatus':
       // No-op — state is broadcast automatically

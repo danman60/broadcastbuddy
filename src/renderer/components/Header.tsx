@@ -5,7 +5,7 @@ import { IPC } from '../../shared/types'
 import '../styles/header.css'
 
 export function Header() {
-  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings, setShowBrandKit, setShowImport, compactMode, setCompactMode } = useStore()
+  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings, setShowBrandKit, setShowImport, compactMode, setCompactMode, setShowDayChecklist } = useStore()
   const [showLoadMenu, setShowLoadMenu] = useState(false)
   const [showToolsMenu, setShowToolsMenu] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -406,6 +406,26 @@ export function Header() {
                 }}
               >
                 Import
+              </button>
+              <button
+                onClick={() => { setShowDayChecklist('start'); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Start-of-Day Checklist
+              </button>
+              <button
+                onClick={() => { setShowDayChecklist('end'); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                End-of-Day Checklist
               </button>
               <button
                 onClick={() => { setCompactMode(!compactMode); setShowToolsMenu(false) }}
