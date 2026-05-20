@@ -74,6 +74,8 @@ export function OverlayPreview() {
   const clock = overlayState.clock
   const counter = overlayState.counter
   const featureCard = overlayState.featureCard
+  const ss = overlayState.startingSoon
+  const ssMedia = ss?.media
 
   // Render the clock string the same way the browser source does.
   const clockText = (() => {
@@ -186,6 +188,29 @@ export function OverlayPreview() {
           <div className="preview-counter">
             <span className="preview-counter-number">{counter.value}</span>
             {counter.label && <span className="preview-counter-label">{counter.label}</span>}
+          </div>
+        )}
+
+        {/* Starting-soon pre-show media (welcome / social / sponsor indicator) */}
+        {ss?.visible && ssMedia && (
+          <div className="preview-ss-media">
+            {ssMedia.showWelcome && (ssMedia.welcomeLine || ssMedia.venueName) && (
+              <div className="preview-ss-welcome" style={{ color: ss.textColor }}>
+                {ssMedia.welcomeLine}
+                {ssMedia.venueName && <span className="preview-ss-venue">{ssMedia.venueName}</span>}
+              </div>
+            )}
+            {ssMedia.showSponsors && ssMedia.sponsorLogos.length > 0 && (
+              <div className="preview-ss-sponsors">
+                <img src={ssMedia.sponsorLogos[0]} alt="" />
+                {ssMedia.sponsorLogos.length > 1 && (
+                  <span className="preview-ss-sponsor-count">1/{ssMedia.sponsorLogos.length}</span>
+                )}
+              </div>
+            )}
+            {ssMedia.showSocialBar && ssMedia.socialBar && (
+              <div className="preview-ss-social" style={{ color: ss.textColor }}>{ssMedia.socialBar}</div>
+            )}
           </div>
         )}
 

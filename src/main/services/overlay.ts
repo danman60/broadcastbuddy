@@ -14,6 +14,7 @@ import {
   DEFAULT_OVERLAY_STATE,
   DEFAULT_STYLING,
   DEFAULT_STREAM_CONFIG,
+  DEFAULT_STARTING_SOON_MEDIA,
   AnimationType,
   LoopMode,
 } from '../../shared/types'
@@ -448,6 +449,11 @@ export function showStartingSoon(): void {
   overlayState.startingSoon.visible = true
   notifyChange()
   logger.info('Starting soon shown')
+  const m = overlayState.startingSoon.media
+  const active = m
+    ? [m.showWelcome && 'welcome', m.showSponsors && 'sponsors', m.showSlideshow && 'slideshow', m.showSocialBar && 'social'].filter(Boolean)
+    : []
+  recordEvent('overlay', 'Starting soon shown', active.length ? { media: active } : undefined)
 }
 
 export function hideStartingSoon(): void {
@@ -457,7 +463,10 @@ export function hideStartingSoon(): void {
 }
 
 export function updateStartingSoon(updates: Partial<StartingSoonState>): void {
-  overlayState.startingSoon = { ...overlayState.startingSoon, ...updates }
+  const nextMedia = updates.media
+    ? { ...(overlayState.startingSoon.media ?? DEFAULT_STARTING_SOON_MEDIA), ...updates.media }
+    : overlayState.startingSoon.media
+  overlayState.startingSoon = { ...overlayState.startingSoon, ...updates, media: nextMedia }
   notifyChange()
 }
 
@@ -941,6 +950,77 @@ function buildOverlayHTML(): string {
     100% { transform: scale(1); opacity: 1; }
   }
 
+  /* ── Starting Soon — pre-show media stack ──
+     Layered ambient elements driven entirely by pushed state. Each fades in
+     only when its sub-element is enabled and the scene is visible. */
+  .ss-welcome {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 28px;
+    opacity: 0.95;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .ss-welcome .ss-venue {
+    display: block;
+    font-size: 22px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-top: 6px;
+  }
+  .ss-sponsors {
+    position: absolute;
+    left: 50%;
+    bottom: 120px;
+    transform: translateX(-50%);
+    width: 36%;
+    height: 110px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .ss-sponsors.visible { display: flex; }
+  .ss-sponsors img {
+    position: absolute;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .ss-sponsors img.active { opacity: 1; }
+  .ss-slideshow {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: none;
+    z-index: -1; /* behind the countdown / welcome text */
+    overflow: hidden;
+  }
+  .ss-slideshow.visible { display: block; }
+  .ss-slideshow img {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  .ss-slideshow img.active { opacity: 0.45; }
+  .ss-social {
+    position: absolute;
+    left: 0; right: 0; bottom: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    text-align: center;
+    padding: 0 40px;
+  }
+  .ss-social.visible { display: flex; }
+
   /* ── Operator leveling grid (rule-of-thirds) ── */
   /* Operator-only — toggled OFF before going live. Lines use a white core with
      a 1px black drop-shadow so they stay visible over light or dark footage. */
@@ -1226,10 +1306,17 @@ function buildOverlayHTML(): string {
   </div>
 
   <div id="starting-soon" class="starting-soon">
+    <div class="ss-slideshow" id="ss-slideshow">
+      <img class="ss-slide-front" />
+      <img class="ss-slide-back" />
+    </div>
+    <div class="ss-welcome" id="ss-welcome" style="display:none"></div>
     <div class="ss-title" id="ss-title"></div>
     <div class="ss-accent-line" id="ss-accent"></div>
     <div class="ss-subtitle" id="ss-subtitle"></div>
     <div class="ss-countdown" id="ss-countdown"></div>
+    <div class="ss-sponsors" id="ss-sponsors"></div>
+    <div class="ss-social" id="ss-social"></div>
   </div>
 
   <div id="bb-clock" class="bb-clock">
@@ -1672,6 +1759,132 @@ function buildOverlayHTML(): string {
         ssCountEl.classList.remove('active');
         ssCountEl.textContent = '';
       }
+
+      // ── Pre-show media stack (sponsor carousel / slideshow / social / welcome) ──
+      applyStartingSoonMedia(ss);
+    }
+
+    // Drives the optional ambient media layered on the starting-soon scene.
+    // Stateless: reads the pushed arrays/flags, rebuilds rotation intervals only
+    // when the relevant config changes (hash-guarded), and tears everything down
+    // when the scene hides or a sub-element is turned off.
+    function applyStartingSoonMedia(ss) {
+      var media = (ss && ss.media) || null;
+      var on = !!(ss && ss.visible);
+      var welcomeEl = document.getElementById('ss-welcome');
+      var sponsorsEl = document.getElementById('ss-sponsors');
+      var slideEl = document.getElementById('ss-slideshow');
+      var socialEl = document.getElementById('ss-social');
+
+      // Welcome / venue line ------------------------------------------------
+      if (welcomeEl) {
+        if (on && media && media.showWelcome && (media.welcomeLine || media.venueName)) {
+          var wHtml = '';
+          if (media.welcomeLine) wHtml += escapeHtml(media.welcomeLine);
+          if (media.venueName) wHtml += '<span class="ss-venue">' + escapeHtml(media.venueName) + '</span>';
+          welcomeEl.innerHTML = wHtml;
+          welcomeEl.style.color = ss.textColor || '#ffffff';
+          welcomeEl.style.display = 'block';
+        } else {
+          welcomeEl.style.display = 'none';
+          welcomeEl.innerHTML = '';
+        }
+      }
+
+      // Social bar ----------------------------------------------------------
+      if (socialEl) {
+        if (on && media && media.showSocialBar && media.socialBar) {
+          socialEl.textContent = media.socialBar;
+          socialEl.style.color = ss.textColor || '#ffffff';
+          socialEl.classList.add('visible');
+        } else {
+          socialEl.classList.remove('visible');
+          socialEl.textContent = '';
+        }
+      }
+
+      // Sponsor logo carousel ----------------------------------------------
+      if (sponsorsEl) {
+        var sponsorLogos = (media && media.sponsorLogos) || [];
+        var sponsorActive = !!(on && media && media.showSponsors && sponsorLogos.length > 0);
+        if (sponsorActive) {
+          var sponsorHash = JSON.stringify(sponsorLogos) + '|' + (media.sponsorIntervalSec || 6);
+          if (window._ssSponsorHash !== sponsorHash) {
+            window._ssSponsorHash = sponsorHash;
+            if (window._ssSponsorInterval) { clearInterval(window._ssSponsorInterval); window._ssSponsorInterval = null; }
+            sponsorsEl.innerHTML = '';
+            window._ssSponsorIdx = 0;
+            sponsorLogos.forEach(function(src, i) {
+              var img = document.createElement('img');
+              img.src = src;
+              if (i === 0) img.classList.add('active');
+              sponsorsEl.appendChild(img);
+            });
+            if (sponsorLogos.length > 1) {
+              var sIntervalMs = Math.max(1, (media.sponsorIntervalSec || 6)) * 1000;
+              window._ssSponsorInterval = setInterval(function() {
+                var imgs = sponsorsEl.querySelectorAll('img');
+                if (imgs.length <= 1) return;
+                imgs[window._ssSponsorIdx].classList.remove('active');
+                window._ssSponsorIdx = (window._ssSponsorIdx + 1) % imgs.length;
+                imgs[window._ssSponsorIdx].classList.add('active');
+              }, sIntervalMs);
+            }
+          }
+          sponsorsEl.classList.add('visible');
+        } else {
+          sponsorsEl.classList.remove('visible');
+          if (window._ssSponsorInterval) { clearInterval(window._ssSponsorInterval); window._ssSponsorInterval = null; }
+          window._ssSponsorHash = null;
+        }
+      }
+
+      // Photo slideshow (cross-fade) ---------------------------------------
+      if (slideEl) {
+        var photos = (media && media.slideshowPhotos) || [];
+        var slideActive = !!(on && media && media.showSlideshow && photos.length > 0);
+        var frontImg = slideEl.querySelector('.ss-slide-front');
+        var backImg = slideEl.querySelector('.ss-slide-back');
+        if (slideActive) {
+          var slideHash = JSON.stringify(photos) + '|' + (media.slideshowIntervalSec || 6);
+          if (window._ssSlideHash !== slideHash) {
+            window._ssSlideHash = slideHash;
+            if (window._ssSlideInterval) { clearInterval(window._ssSlideInterval); window._ssSlideInterval = null; }
+            window._ssSlideIdx = 0;
+            window._ssSlideFront = true;
+            if (frontImg) { frontImg.src = photos[0]; frontImg.classList.add('active'); }
+            if (backImg) { backImg.classList.remove('active'); }
+            if (photos.length > 1) {
+              var pIntervalMs = Math.max(1, (media.slideshowIntervalSec || 6)) * 1000;
+              window._ssSlideInterval = setInterval(function() {
+                window._ssSlideIdx = (window._ssSlideIdx + 1) % photos.length;
+                var nextSrc = photos[window._ssSlideIdx];
+                if (window._ssSlideFront) {
+                  if (backImg) { backImg.src = nextSrc; backImg.classList.add('active'); }
+                  if (frontImg) { frontImg.classList.remove('active'); }
+                } else {
+                  if (frontImg) { frontImg.src = nextSrc; frontImg.classList.add('active'); }
+                  if (backImg) { backImg.classList.remove('active'); }
+                }
+                window._ssSlideFront = !window._ssSlideFront;
+              }, pIntervalMs);
+            }
+          }
+          slideEl.classList.add('visible');
+        } else {
+          slideEl.classList.remove('visible');
+          if (window._ssSlideInterval) { clearInterval(window._ssSlideInterval); window._ssSlideInterval = null; }
+          window._ssSlideHash = null;
+          if (frontImg) { frontImg.classList.remove('active'); frontImg.src = ''; }
+          if (backImg) { backImg.classList.remove('active'); backImg.src = ''; }
+        }
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
     // Drive the clock once a second (only repaints when visible).

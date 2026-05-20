@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -51,6 +51,11 @@ interface ElectronAPI {
 
   // Logo
   logoBrowse: () => Promise<string | null>
+
+  // Starting Soon
+  startingSoonShow: () => Promise<void>
+  startingSoonHide: () => Promise<void>
+  startingSoonUpdate: (updates: Partial<StartingSoonState>) => Promise<void>
 
   // Ticker
   tickerShow: (text: string, speed?: number, bgColor?: string, textColor?: string) => Promise<void>

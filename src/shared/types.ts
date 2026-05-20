@@ -97,6 +97,25 @@ export interface Note {
 
 // ── Starting Soon ────────────────────────────────────────────────
 
+// Pre-show ambient media stack layered on top of the simple countdown scene.
+// Genericized from CompSync's competition pre-show (folder-served media) to a
+// data-URL pushed-state model so it follows BB's stateless browser-source
+// pattern. All elements default OFF / empty — the simple countdown is unaffected
+// unless the operator turns a sub-element on.
+export interface StartingSoonMedia {
+  sponsorLogos: string[]      // base64 data URLs, rotated on a timer
+  sponsorIntervalSec: number  // rotation period (seconds)
+  slideshowPhotos: string[]   // base64 data URLs, cross-faded on a timer
+  slideshowIntervalSec: number
+  socialBar: string           // operator text strip, e.g. "@studio • #recital2026 • site.com"
+  welcomeLine: string         // e.g. "Welcome to the Spring Recital" — shown above the countdown
+  venueName: string           // e.g. "Roy Thomson Hall" — shown with the welcome line
+  showSponsors: boolean
+  showSlideshow: boolean
+  showSocialBar: boolean
+  showWelcome: boolean
+}
+
 export interface StartingSoonState {
   visible: boolean
   title: string
@@ -108,6 +127,7 @@ export interface StartingSoonState {
   backgroundColor: string
   textColor: string
   accentColor: string
+  media?: StartingSoonMedia // optional pre-show ambient media stack (all off by default)
 }
 
 // ── On-air Clock ─────────────────────────────────────────────────
@@ -878,6 +898,20 @@ export const DEFAULT_STYLING: OverlayStyling = {
   labelBackgroundColor: '#667eea',
 }
 
+export const DEFAULT_STARTING_SOON_MEDIA: StartingSoonMedia = {
+  sponsorLogos: [],
+  sponsorIntervalSec: 6,
+  slideshowPhotos: [],
+  slideshowIntervalSec: 6,
+  socialBar: '',
+  welcomeLine: '',
+  venueName: '',
+  showSponsors: false,
+  showSlideshow: false,
+  showSocialBar: false,
+  showWelcome: false,
+}
+
 export const DEFAULT_STARTING_SOON: StartingSoonState = {
   visible: false,
   title: 'Starting Soon',
@@ -889,6 +923,7 @@ export const DEFAULT_STARTING_SOON: StartingSoonState = {
   backgroundColor: '#1a1a2e',
   textColor: '#ffffff',
   accentColor: '#667eea',
+  media: { ...DEFAULT_STARTING_SOON_MEDIA },
 }
 
 export const DEFAULT_OVERLAY_STATE: OverlayState = {
