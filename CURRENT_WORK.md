@@ -17,8 +17,22 @@ Bonus (same session): Up Next / That Was buttons (fire neighbour trigger with la
 
 Still deferred (domain-divergent, need Programme/Trigger abstraction): routine-aware cut/next, routine-window photo sync (the deep CompSync versions). Up-next/that-was shipped in the lightweight trigger-neighbour form.
 
-## Build / test status (post-waves)
-electron-vite build clean (EXIT 0): main 160KB, preload 14.8KB, renderer 435KB. NOT runtime-tested — all features need a Windows machine + OBS + a tablet to exercise. WiFi display + slow zoom require OBS connected. Chat requires a Supabase project. No QA agent run yet.
+## Parity ports waves 5-8 (DONE 2026-05-20, committed aa1d549/6ff87e0/e329c79/524b885)
+After a full feature-parity scan vs CompSyncElectronApp, ported ALL generic-value gaps (skipped competition-only items like ffmpeg track-splitting, media reconciler, take state machine, tethered/WPD ingest, comp-state drift — those are dead code in BB's recital/corporate domain).
+
+- **Wave 5** OBS record control (start/stop/toggle/status + RecordStateChanged push; REC button in Header with live timecode) + audio meters (InputVolumeMeters subscription, bitmask 65613, AudioMeters component, dBFS bars + peak hold).
+- **Wave 6** Operator resilience: events.ts (durable JSONL event stream + EventLogPanel), crashRecovery.ts (dirty-marker + 30s snapshot + RecoveryBanner), startup.ts (runStartupChecks + StartupToast), backup.ts (hourly settings backups + Settings restore UI).
+- **Wave 7** Overlay elements: on-air clock, counter badge (pop-in, optional sync to trigger order), full-screen feature card (kicker/title/subtitle/logo, slide/fade/zoom + sparkle; up-next/that-was populate from neighbour trigger). Existing wave-4 chip left intact.
+- **Wave 8** Day checklist (per-day operator start/end-of-day, auto-shows start-of-day on new calendar day), chat moderation (hide/ban-author/livestream-pin), Stream Deck plugin (port fixed to 19081, up-next/that-was/grid/slow-zoom actions + property inspector + README; wsHub gained slowZoomWide/Tight commands).
+
+## Still NOT done / deferred
+- **Don't-port (competition-only):** ffmpeg multi-judge track-split, media reconciler, take/re-rec state machine, tethered camera + WPD/MTP, live drive-monitor folder watch, comp-state drift, control-room bridge, EXIF/matcher worker pools. Correctly absent from BB.
+- **Open judgment calls (user to decide):** starting-soon media stack (sponsor carousel/social bar/visualizer — corporate MIGHT want); whether the feature card replaces or coexists with the chip (currently coexist).
+- **Stream Deck plugin** static action PNGs are placeholders (buttons render via SVG setImage at runtime; cosmetic only). Plugin not added to electron-builder extraResources (optional, noted in its README).
+- **child-process upload** still a reserved flag, not wired (needs v4 signer).
+
+## Build / test status
+electron-vite build clean (EXIT 0) after every wave. Latest: main ~? KB, renderer 475KB. NOTHING runtime-tested — needs a Windows machine + OBS + tablet + a Supabase project (chat) + an SD import (photo). No QA-agent run. BB has no Windows installer built yet. Next session: Windows installer + QA-agent pass to actually exercise OBS record control, audio meters, slow zoom, and the new overlay elements against live OBS.
 
 ## Last Session Before This (Gallery v2)
 Gallery Builder pipeline upgrade + first event processing for 7Attitudes recital. Replaced broken Gemini/CC-API pipeline with transcription + direct R2 upload. Processed 7,214 photos into 53 routines, fixed OCR and matching bugs, generated thumbnails, coordinated with CC and Remotion sessions.
