@@ -1,7 +1,26 @@
 # Current Work - BroadcastBuddy
 
-## Last Session Summary (2026-05-20)
-**Wave 1 port from CompSyncElectronApp → BroadcastBuddy: WiFi display + tablet pack.** Goal is to bring BB to parity with the field-hardened features in CompSyncElectronApp (the user calls it "CS Controller" colloquially, but the source-of-truth Electron repo is `~/projects/CompSyncElectronApp`; the `~/projects/CSController` repo is the Android tablet receiver). Strategy: port features directly into BB now, extract shared packages once 2–3 features have landed (workspace decision deferred until shape is obvious from real usage).
+## Last Session Summary (2026-05-20 → 05-22)
+**Full CompSyncElectronApp → BroadcastBuddy parity port — DONE.** Brought BB to parity with the field-hardened features in CompSyncElectronApp (user calls it "CS Controller" colloquially; source-of-truth Electron repo is `~/projects/CompSyncElectronApp`; `~/projects/CSController` is the Android tablet receiver). Strategy: ported features directly into BB (extract shared packages later). Shipped 8 waves + starting-soon media, all committed and pushed to `main` (`d07d711` → `3ccc21c`, then `bb83367`). Built a Windows NSIS installer on Linux+wine (96MB, bundles wifi-display-server.exe + DLLs), staged to `/mnt/firmament/BroadcastBuddy-Setup-2026-05-20.exe` AND uploaded to Google Drive (file id `1zXq94exV3aP8RmDLbICMigBlb1KL-Av1`, currently PRIVATE — sharing scope not yet chosen). CSController dual-source committed + pushed (`2f7798e`, master).
+
+**HARD CAVEAT: nothing is runtime-tested.** Every wave passes `electron-vite build` and the installer packages cleanly, but no feature has run against live OBS / a tablet / a Supabase project / an SD card. Build correctness ≠ feature correctness.
+
+### Next Steps (priority order)
+1. **Windows runtime test** — install the FIRMAMENT/Drive exe on Windows, connect OBS, walk through: record start/stop, audio meters, slow zoom + transition revert, lower-third/clock/counter/feature-card/grid, starting-soon media, WiFi display to a tablet. This is the gap between "compiles" and "works." Use `/test-electron` or QA agent.
+2. **Choose Drive sharing scope** for the installer (currently private, file id `1zXq94exV3aP8RmDLbICMigBlb1KL-Av1`): link-shareable / specific emails / move to a folder.
+3. **Chat enablement** (only if wanted) — create a BB Supabase project + `chat_messages` table (schema in `src/main/services/chatBridge.ts` header), then fill chatConfig in Settings.
+4. **Separate BB-branded APK** — future task (user said "eventually"). Fork CSController → new package id/name/icon. Not now.
+5. **Two open product calls:** keep feature-card AND chip (currently coexist) or pick one; whether corporate wants the heavier starting-soon media (sponsor carousel etc., already built but off by default).
+
+### Gotchas for Next Session
+- **Nothing runtime-tested** — don't report any ported feature as "working", only "builds".
+- BB has no GitNexus index (`.gitnexus/` absent) — graph tools won't answer for this repo until `npx gitnexus analyze` is run.
+- `tsc --noEmit` shows ~30+ PRE-EXISTING errors (incomplete `types.d.ts`, `downlevelIteration` Map/Set loops, `presets.ts`) — the project gates on `electron-vite`/esbuild, NOT tsc. Don't chase those as new breakage.
+- Installer was built with `npx electron-builder --win nsis` on **native Ubuntu via wine** — it works, no Windows box needed for packaging.
+- CSController commit `2f7798e` bundled prior-session work (VideoCodec, RemoteLogger, tabletLogPort) with my dual-source change — they were entangled in the same files; APK builds clean combined.
+- `INBOX.md` in BB has a pre-existing uncommitted modification NOT from this session — left untouched.
+
+**Original wave-1 detail (kept for reference):**
 
 Ported wifiDisplay.ts (~500 LOC) + tabletLogServer.ts (~160 LOC) from CompSync. Wired into BB main/preload/ipc/renderer. Added Tablet button to Header (one-tap stop→start→ping recovery). Added full WiFi display section to Settings (monitor select, bitrate, fps, encoder, ports, client IP, autostart, Ping Tablet button). Copied wifi-display-server.exe + 3 mingw DLLs into BB resources/ and added extraResources to electron-builder. TypeScript build clean (656K out, no errors).
 
