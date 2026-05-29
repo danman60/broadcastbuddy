@@ -1,5 +1,42 @@
 # Current Work - BroadcastBuddy
 
+## Session 2026-05-28 (overnight harden + test) — tsc clean, real overlay bug fixed, test suite added
+
+Mission: harden + test the 8-wave parity port (prior session shipped it but NOTHING was runtime-tested). Progress:
+
+### Done
+- **graphify index built** (`graphify update .`) — graph tools now answer for this repo (`graphify-out/`, untracked).
+- **tsc 87 → 0 errors** (commit `fb999b4`). Root fixes: `target: ES2022` in both tsconfigs (killed ~13 downlevelIteration); completed `src/renderer/types.d.ts` ElectronAPI (~40 missing methods — cc/gallery/wifi/obs/notes/stream); added `animationDuration`/`animationEasing` to all 10 presets; typed `res.json()` bodies in ipc.ts; coalesced optional error/url in GalleryPanel. **electron-vite build stays EXIT 0.** NOTE: tsc is composite — clear `out/**/*.tsbuildinfo` if stale errors reappear.
+- **REAL RUNTIME BUG found + fixed** (commit `9fc2a07`): the OBS browser source HTML hardcoded `ws://127.0.0.1:9877`, but the WS hub runs on `server.wsPort` (**default 19081**). The overlay could NEVER connect in the default config — non-functional despite building cleanly. This is exactly the "builds ≠ works" gap. Fix injects the real wsPort + uses `location.hostname` (also unblocks a remote OBS machine, not just 127.0.0.1). Caught by the new headless test.
+- **Headless test suite added** (57 passing, `xvfb-run npx playwright test --workers=1`):
+  - `tests/overlay-statemachine.spec.ts` — renders `/overlay` in real Chromium, drives state via IPC + raw WS commands, asserts the browser-source DOM reflects pushed state (lower third / ticker / grid / clock / counter / feature card / starting-soon + Stream Deck WS command path). This is a genuine end-to-end test of the passive browser source without OBS.
+  - `tests/waves.spec.ts` — wave 5-8 IPC surface; OBS-dependent calls (record, slow zoom) verified to FAIL SOFT (structured error, no throw) when OBS is down.
+  - `tests/app.spec.ts` — pre-existing, still passing.
+  - Run: `cd ~/projects/BroadcastBuddy && xvfb-run -a npx playwright test --workers=1`. **Must use `--workers=1`** — fixed ports 19080/19081 collide if spec files run in parallel.
+
+### Real bugs found (latent, NOT yet fixed — need decisions)
+- **PDF import is broken at runtime.** `documentParser.ts` calls `page.getTextContent()` — that's a pdfjs API; pdf-lib has NO text extraction and will throw on any PDF. Flagged in-code with a comment; behavior unchanged (still throws). DOCX/TXT import paths are fine. To fix: add `pdfjs-dist` and rewrite `parsePDF`. (tsc satisfied via `(page as any)` cast — not a real fix.)
+- **`importDocument` returns no `triggers`/`fileName`** — the IPC handler returns `ExtractionResult` only; the renderer reads `result.triggers` defensively (always `[]` on the legacy path). Field-mapping path is the real one. Typed as optional; verify behaviour if the legacy import path is ever used.
+
+### Parity gap re-scan vs CompSyncElectronApp (~v2.8.0) — 5 GENERIC GAPS found (product calls, NOT built)
+Prior session claimed "ALL generic gaps ported" — re-scan found these still missing (competition-only items correctly remain excluded). These are net-new features that can't be runtime-verified headless tonight (OBS / global desktop / redesign), so left for user greenlight:
+1. **Global hotkeys** (`hotkeys.ts`, S) — OS-level fire/hide/next/record shortcuts that work when app unfocused. Highest operator value.
+2. **OBS stream-control + replay-buffer save** (`obs.ts` startStream/stopStream/saveReplay, S) — BB only has Start/Stop *Record*.
+3. **System monitor + disk-space alerts** (`systemMonitor.ts`, M) — CPU/RAM/disk-free + low-disk/drive-lost warnings mid-record.
+4. **Stream Deck in-app installer** (`streamDeckPlugin.ts`, S) — one-click copy of the bundled `.sdPlugin` (BB ships the folder, manual install only).
+5. **Overlay Mode floating panels** (`overlayPanels.ts`, M-L) — always-on-top mini-panels over OBS; generic in concept but CompSync's panel set is routine-coupled — needs redesign, not a straight port.
+
+### Still USER-PENDING (hardware — cannot do headless here)
+- Live OBS walkthrough on FIRMAMENT: record control, audio meters, slow zoom + transition revert, overlay elements, starting-soon media.
+- Windows installer install + run; tablet WiFi display.
+- Chat needs a BB Supabase project + `chat_messages` table before enabling.
+- Drive sharing scope for the installer (file id `1zXq94exV3aP8RmDLbICMigBlb1KL-Av1`, still private).
+
+### Build / test status
+electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright 57 passed / 0 failed (xvfb, workers=1).
+
+---
+
 ## Last Session Summary (2026-05-20 → 05-22)
 **Full CompSyncElectronApp → BroadcastBuddy parity port — DONE.** Brought BB to parity with the field-hardened features in CompSyncElectronApp (user calls it "CS Controller" colloquially; source-of-truth Electron repo is `~/projects/CompSyncElectronApp`; `~/projects/CSController` is the Android tablet receiver). Strategy: ported features directly into BB (extract shared packages later). Shipped 8 waves + starting-soon media, all committed and pushed to `main` (`d07d711` → `3ccc21c`, then `bb83367`). Built a Windows NSIS installer on Linux+wine (96MB, bundles wifi-display-server.exe + DLLs), staged to `/mnt/firmament/BroadcastBuddy-Setup-2026-05-20.exe` AND uploaded to Google Drive (file id `1zXq94exV3aP8RmDLbICMigBlb1KL-Av1`, currently PRIVATE — sharing scope not yet chosen). CSController dual-source committed + pushed (`2f7798e`, master).
 
