@@ -2,6 +2,13 @@
 
 Extracted from **CompSyncElectronApp**. Use this as a blueprint for any Electron app that controls OBS browser source overlays.
 
+> ⚠️ **Ports below (9876 / 9877) are the generic blueprint's example values.**
+> BroadcastBuddy's ACTUAL defaults are **HTTP 19080 / WS 19081** — see
+> `src/main/services/settings.ts` (`server.httpPort` / `server.wsPort`). The OBS
+> browser source connects to `ws://<host>:19081`. (A stale `9877` hardcoded in the
+> served overlay HTML was the root cause of an overlay-can't-connect bug, fixed
+> 2026-05-29 — the served page now injects the configured `wsPort`.)
+
 ---
 
 ## Core Concept
