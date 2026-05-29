@@ -138,6 +138,83 @@
       "States": [
         { "Image": "imgs/actions/slow-zoom", "Title": "ZOOM T" }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.record",
+      "Name": "Record",
+      "Tooltip": "Toggle OBS recording",
+      "Icon": "imgs/actions/fire",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/fire", "Title": "REC" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.stream",
+      "Name": "Stream",
+      "Tooltip": "Toggle OBS streaming (start/stop live)",
+      "Icon": "imgs/actions/fire",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/fire", "Title": "STREAM" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.save-replay",
+      "Name": "Save Replay",
+      "Tooltip": "Save the OBS replay-buffer clip",
+      "Icon": "imgs/actions/slow-zoom",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/slow-zoom", "Title": "REPLAY" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.clock",
+      "Name": "On-Air Clock",
+      "Tooltip": "Toggle the on-air clock overlay",
+      "Icon": "imgs/actions/ticker",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/ticker", "Title": "CLK" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.counter",
+      "Name": "Counter",
+      "Tooltip": "Toggle the counter overlay",
+      "Icon": "imgs/actions/ticker",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/ticker", "Title": "CTR" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.feature-up-next",
+      "Name": "Feature Up Next",
+      "Tooltip": "Fire the full-screen UP NEXT feature card",
+      "Icon": "imgs/actions/up-next",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/up-next", "Title": "UP NEXT" }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.feature-that-was",
+      "Name": "Feature That Was",
+      "Tooltip": "Fire the full-screen THAT WAS feature card",
+      "Icon": "imgs/actions/that-was",
+      "PropertyInspectorPath": "pi/connection.html",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/actions/that-was", "Title": "THAT WAS" }
+      ]
     }
   ]
 }

@@ -12,6 +12,12 @@ import { UpNextAction } from './actions/up-next'
 import { ThatWasAction } from './actions/that-was'
 import { ToggleGridAction } from './actions/toggle-grid'
 import { SlowZoomWideAction, SlowZoomTightAction } from './actions/slow-zoom'
+import { RecordAction } from './actions/record'
+import { StreamAction } from './actions/stream'
+import { SaveReplayAction } from './actions/save-replay'
+import { ClockAction } from './actions/clock'
+import { CounterAction } from './actions/counter'
+import { FeatureUpNextAction, FeatureThatWasAction } from './actions/feature-card'
 
 streamDeck.actions.registerAction(new FireAction())
 streamDeck.actions.registerAction(new HideAction())
@@ -25,6 +31,13 @@ streamDeck.actions.registerAction(new ThatWasAction())
 streamDeck.actions.registerAction(new ToggleGridAction())
 streamDeck.actions.registerAction(new SlowZoomWideAction())
 streamDeck.actions.registerAction(new SlowZoomTightAction())
+streamDeck.actions.registerAction(new RecordAction())
+streamDeck.actions.registerAction(new StreamAction())
+streamDeck.actions.registerAction(new SaveReplayAction())
+streamDeck.actions.registerAction(new ClockAction())
+streamDeck.actions.registerAction(new CounterAction())
+streamDeck.actions.registerAction(new FeatureUpNextAction())
+streamDeck.actions.registerAction(new FeatureThatWasAction())
 
 // Property inspector saves the BB host/port as global settings. Apply them on
 // boot and whenever they change so the operator can point the plugin at a

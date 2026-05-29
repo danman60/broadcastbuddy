@@ -1,2 +1,2 @@
 node_modules/
-com.broadcastbuddy.streamdeck.sdPlugin/bin/
+com.broadcastbuddy.streamdeck.sdPlugin/bin/*.map

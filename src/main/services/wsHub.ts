@@ -14,8 +14,13 @@ import {
   toggleGrid,
   fireUpNext,
   fireThatWas,
+  toggleClock,
+  toggleCounter,
+  fireFeatureUpNext,
+  fireFeatureThatWas,
 } from './overlay'
 import * as slowZoom from './slowZoom'
+import * as obs from './obsConnection'
 import { WsStateMessage } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -100,6 +105,32 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       break
     case 'slowZoomTight':
       void slowZoom.triggerTight().catch((err) => logger.warn(`slowZoomTight failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'toggleClock':
+      toggleClock()
+      break
+    case 'toggleCounter':
+      toggleCounter()
+      break
+    case 'featureUpNext':
+      fireFeatureUpNext((data?.kicker as string) || 'UP NEXT')
+      break
+    case 'featureThatWas':
+      fireFeatureThatWas((data?.kicker as string) || 'THAT WAS')
+      break
+    case 'toggleRecord':
+      // OBS recording toggle. Fails soft when OBS is disconnected — never
+      // throws back to the WS client.
+      void obs.toggleRecording().catch((err) => logger.warn(`toggleRecord failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'saveReplay':
+      void obs.saveReplayBuffer().catch((err) => logger.warn(`saveReplay failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'toggleStream':
+      // Read current stream status, then start/stop. Fails soft.
+      void obs.getStreamStatus()
+        .then((status) => (status.streaming ? obs.stopStreaming() : obs.startStreaming()))
+        .catch((err) => logger.warn(`toggleStream failed: ${err instanceof Error ? err.message : err}`))
       break
     case 'getStatus':
       // No-op — state is broadcast automatically
