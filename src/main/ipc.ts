@@ -460,7 +460,7 @@ export function registerIpcHandlers(): void {
         headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-      const body = await res.json()
+      const body = await res.json() as any
       // CC wraps in { success, data }
       return { success: true, package: body.data || body }
     } catch (err) {
@@ -616,7 +616,7 @@ export function registerIpcHandlers(): void {
       })
 
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-      const body = await res.json()
+      const body = await res.json() as any
       return { success: true, ...body }
     } catch (err) {
       return { success: false, error: (err as Error).message }
@@ -632,7 +632,7 @@ export function registerIpcHandlers(): void {
         headers: { 'X-API-Key': apiKey, 'X-Tenant-Id': tenantId },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-      const body = await res.json()
+      const body = await res.json() as any
       return { success: true, checklist: body.data || [] }
     } catch (err) {
       return { success: false, error: (err as Error).message, checklist: [] }
@@ -652,7 +652,7 @@ export function registerIpcHandlers(): void {
         body: JSON.stringify({ items }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-      const body = await res.json()
+      const body = await res.json() as any
       return { success: true, updated: body.updated }
     } catch (err) {
       return { success: false, error: (err as Error).message }

@@ -39,7 +39,12 @@ async function parsePDF(filePath: string, fileName: string): Promise<ParsedDocum
   const textParts: string[] = []
 
   for (const page of pages) {
-    const textContent = await page.getTextContent()
+    // NOTE: pdf-lib has NO text-extraction API — getTextContent() is a pdfjs
+    // method and does NOT exist on pdf-lib's PDFPage. This throws at runtime.
+    // PDF import is therefore BROKEN until pdfjs-dist is added. Cast keeps the
+    // type checker honest about the real shape; behavior is unchanged (it still
+    // throws on a PDF). DOCX/TXT import paths are unaffected. See CURRENT_WORK.
+    const textContent = await (page as any).getTextContent()
     const pageText = textContent.items
       .map((item: any) => item.str || '')
       .join(' ')

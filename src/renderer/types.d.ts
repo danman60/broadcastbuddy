@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -70,9 +70,12 @@ interface ElectronAPI {
     textPreview: string
     textLength: number
   }>
-  importDocument: (filePath?: string) => Promise<{
-    triggers: Trigger[]
-    fileName: string
+  // Runtime returns ExtractionResult (rawFields/sampleData/suggestedMappings).
+  // triggers/fileName are read defensively by the renderer but are NOT produced
+  // by the current main handler — hence optional.
+  importDocument: (filePath?: string) => Promise<ExtractionResult & {
+    triggers?: Trigger[]
+    fileName?: string
   }>
 
   // Brand scraper
@@ -81,6 +84,7 @@ interface ElectronAPI {
     fonts: string[]
     logoUrl: string | null
     siteName: string
+    aiSuggestion?: string
   }>
   brandScrapeAI: (url: string) => Promise<{
     colors: string[]
@@ -167,6 +171,54 @@ interface ElectronAPI {
   backupNow: () => Promise<{ ok: boolean; file?: string; error?: string }>
   backupList: () => Promise<BackupInfo[]>
   backupRestore: (file: string) => Promise<{ ok: boolean; error?: string }>
+
+  // Stream config
+  streamConfigGet: () => Promise<StreamConfig | null>
+  streamConfigSet: (config: StreamConfig) => Promise<void>
+
+  // Notes
+  notesList: () => Promise<Note[]>
+  notesAdd: (text: string) => Promise<Note>
+  notesDelete: (id: string) => Promise<void>
+
+  // OBS connection
+  obsConnect: (host: string, port: number, password?: string) => Promise<{ connected: boolean; error?: string }>
+  obsDisconnect: () => Promise<void>
+  obsStatus: () => Promise<{ connected: boolean }>
+  obsGetTimecode: () => Promise<string>
+  obsPushStreamKey: (rtmpUrl: string, streamKey: string) => Promise<{ success: boolean; error?: string }>
+  obsGetLastRecording: () => Promise<{ success: boolean; path?: string; error?: string }>
+  recordingBrowse: () => Promise<string | null>
+
+  // Command Center broadcast package
+  ccFetchEvents: (baseUrl: string, apiKey: string, tenantId: string) => Promise<{ success: boolean; events: CCEvent[]; error?: string }>
+  ccFetchPackage: (baseUrl: string, apiKey: string, tenantId: string, eventId: string) => Promise<{ success: boolean; package?: BroadcastPackage; error?: string }>
+  ccApplyPackage: (pkg: BroadcastPackage, eventId?: string) => Promise<{ success: boolean; triggerCount?: number; error?: string }>
+  ccUploadRecording: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, filePath: string, fileName?: string) => Promise<{ success: boolean; file?: { webViewLink?: string } & Record<string, unknown>; error?: string }>
+  ccFetchChecklist: (baseUrl: string, apiKey: string, tenantId: string, eventId: string) => Promise<{ success: boolean; checklist: CCChecklistItem[]; error?: string }>
+  ccSyncChecklist: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, items: Array<{ id: string; checked: boolean }>) => Promise<{ success: boolean; updated?: number; error?: string }>
+  ccSaveOverlayConfig: (baseUrl: string, apiKey: string, tenantId: string, eventId: string, config: object) => Promise<{ success: boolean; error?: string }>
+
+  // Gallery / Photo sorting
+  galleryBrowseVideo: () => Promise<string | null>
+  galleryBrowseVideos: () => Promise<string[] | null>
+  galleryBrowsePhotos: () => Promise<string | null>
+  galleryAnalyzeVideo: (videoPath: string, geminiApiKey: string) => Promise<{ success: boolean; boundaries: RoutineBoundary[]; error?: string }>
+  galleryTranscribe: (videoPaths: string[]) => Promise<{ success: boolean; boundaries: RoutineBoundary[]; error?: string }>
+  galleryReadExif: (folderPath?: string) => Promise<{ success: boolean; count?: number; error?: string }>
+  galleryMatchPhotos: (manualOffsetMs?: number) => Promise<{ success: boolean; matches: PhotoMatch[]; error?: string }>
+  gallerySetOffset: (offsetMs: number) => Promise<void>
+  galleryGetConfig: () => Promise<GalleryConfig>
+  galleryUploadToCC: (title: string) => Promise<{ success: boolean; galleryUrl?: string; error?: string }>
+  galleryUploadR2: (folderPath: string, gallerySlug: string) => Promise<{ success: boolean; error?: string }>
+
+  // WiFi display (tablet stream)
+  wifiDisplayGetMonitors: () => Promise<MonitorInfo[]>
+  wifiDisplayStart: () => Promise<WifiDisplayState & { error?: string }>
+  wifiDisplayStop: () => Promise<WifiDisplayState>
+  wifiDisplayStatus: () => Promise<WifiDisplayState>
+  wifiDisplaySetMonitor: (monitorIndex: number | null) => Promise<WifiDisplayState>
+  wifiDisplayPingTablet: () => Promise<{ ok: boolean }>
 
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void

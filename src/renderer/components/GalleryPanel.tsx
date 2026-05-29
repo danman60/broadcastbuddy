@@ -87,7 +87,7 @@ export function GalleryPanel() {
       setBoundaries(result.boundaries)
       setStep('photos')
     } else {
-      setError(result.error)
+      setError(result.error || 'Failed')
       setStep('idle')
     }
   }
@@ -113,7 +113,7 @@ export function GalleryPanel() {
       setBoundaries(result.boundaries)
       setStep('photos')
     } else {
-      setError(result.error)
+      setError(result.error || 'Failed')
       setStep('idle')
     }
   }
@@ -126,7 +126,7 @@ export function GalleryPanel() {
     // Read EXIF first
     const exifResult = await window.api.galleryReadExif(photoFolder)
     if (!exifResult.success) {
-      setError(exifResult.error)
+      setError(exifResult.error || 'Failed to read EXIF')
       setStep('photos')
       return
     }
@@ -138,7 +138,7 @@ export function GalleryPanel() {
       setMatches(matchResult.matches)
       setStep('review')
     } else {
-      setError(matchResult.error)
+      setError(matchResult.error || 'Match failed')
       setStep('photos')
     }
   }
@@ -150,7 +150,7 @@ export function GalleryPanel() {
     if (result.success) {
       setMatches(result.matches)
     } else {
-      setError(result.error)
+      setError(result.error || 'Failed')
     }
   }, [manualOffsetMin])
 
@@ -163,10 +163,10 @@ export function GalleryPanel() {
     setStep('upload')
     const result = await window.api.galleryUploadToCC(galleryTitle)
     if (result.success) {
-      setGalleryUrl(result.galleryUrl)
+      setGalleryUrl(result.galleryUrl || '')
       setStep('done')
     } else {
-      setError(result.error)
+      setError(result.error || 'Failed')
       setStep('review')
     }
   }
