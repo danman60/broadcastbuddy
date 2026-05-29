@@ -11,8 +11,12 @@ export function writeFileAtomic(filePath: string, data: string): void {
   try {
     fs.writeFileSync(fd, data, 'utf-8')
     fs.fsyncSync(fd)
-  } finally {
+  } catch (err) {
+    // Don't leave a half-written temp file behind on failure.
     fs.closeSync(fd)
+    try { fs.rmSync(tmp, { force: true }) } catch { /* best-effort */ }
+    throw err
   }
+  fs.closeSync(fd)
   fs.renameSync(tmp, filePath)
 }

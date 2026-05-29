@@ -131,22 +131,24 @@ async function uploadFileMultipart(
   const fd = fs.openSync(filePath, 'r')
   try {
     const total = fs.statSync(filePath).size
-    const buf = Buffer.allocUnsafe(MULTIPART_PART_SIZE)
+    if (total === 0) throw new Error('Cannot multipart-upload a 0-byte file')
     let offset = 0
     let partNumber = 1
     while (offset < total) {
       const len = Math.min(MULTIPART_PART_SIZE, total - offset)
-      const bytesRead = fs.readSync(fd, buf, 0, len, offset)
+      // Fresh buffer per part — never reuse across iterations, so there's no
+      // chance the SDK reads a half-overwritten body.
+      const chunk = Buffer.allocUnsafe(len)
+      const bytesRead = fs.readSync(fd, chunk, 0, len, offset)
       if (bytesRead <= 0) break
-      // subarray is a view of the reused buffer; safe because the send is
-      // awaited (the buffer isn't touched again until the part completes).
+      const body = bytesRead === len ? chunk : chunk.subarray(0, bytesRead)
       const res = await client.send(
         new UploadPartCommand({
           Bucket: bucket,
           Key: key,
           UploadId: uploadId,
           PartNumber: partNumber,
-          Body: buf.subarray(0, bytesRead),
+          Body: body,
           ContentLength: bytesRead,
         }),
       )
