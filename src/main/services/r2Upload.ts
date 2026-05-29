@@ -3,6 +3,10 @@ import {
   PutObjectCommand,
   ListObjectsV2Command,
   HeadObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3'
 import fs from 'fs'
 import path from 'path'
@@ -103,6 +107,75 @@ function contentTypeFor(filePath: string): string {
   }
 }
 
+// S3/R2 single-PUT caps at 5GB; recital videos run 10-15GB (CC inbox request).
+// Engage multipart above 100MB — also more resilient for medium videos.
+const MULTIPART_THRESHOLD = 100 * 1024 * 1024
+const MULTIPART_PART_SIZE = 100 * 1024 * 1024 // 100MB parts → 15GB = 150 parts (well under the 10000 limit)
+
+// NOTE: builds + type-checks, but NOT runtime-verified against live R2 (no >5GB
+// upload exercised). Validate with a real large-file upload before relying on it.
+async function uploadFileMultipart(
+  client: S3Client,
+  bucket: string,
+  key: string,
+  filePath: string,
+  contentType: string,
+): Promise<void> {
+  const created = await client.send(
+    new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
+  )
+  const uploadId = created.UploadId
+  if (!uploadId) throw new Error('R2 CreateMultipartUpload returned no UploadId')
+
+  const parts: { ETag: string; PartNumber: number }[] = []
+  const fd = fs.openSync(filePath, 'r')
+  try {
+    const total = fs.statSync(filePath).size
+    const buf = Buffer.allocUnsafe(MULTIPART_PART_SIZE)
+    let offset = 0
+    let partNumber = 1
+    while (offset < total) {
+      const len = Math.min(MULTIPART_PART_SIZE, total - offset)
+      const bytesRead = fs.readSync(fd, buf, 0, len, offset)
+      if (bytesRead <= 0) break
+      // subarray is a view of the reused buffer; safe because the send is
+      // awaited (the buffer isn't touched again until the part completes).
+      const res = await client.send(
+        new UploadPartCommand({
+          Bucket: bucket,
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: partNumber,
+          Body: buf.subarray(0, bytesRead),
+          ContentLength: bytesRead,
+        }),
+      )
+      if (!res.ETag) throw new Error(`R2 UploadPart ${partNumber} returned no ETag`)
+      parts.push({ ETag: res.ETag, PartNumber: partNumber })
+      offset += bytesRead
+      partNumber++
+    }
+  } catch (err) {
+    // Abort so R2 doesn't retain orphaned parts (billable).
+    try {
+      await client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }))
+    } catch { /* best-effort */ }
+    fs.closeSync(fd)
+    throw err
+  }
+  fs.closeSync(fd)
+
+  await client.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts },
+    }),
+  )
+  logger.info(`Multipart upload complete: ${key} (${parts.length} parts)`)
+}
+
 export async function uploadFile(
   client: S3Client,
   bucket: string,
@@ -124,17 +197,23 @@ export async function uploadFile(
   }
 
   try {
-    const stream = fs.createReadStream(uploadPath)
     const stat = fs.statSync(uploadPath)
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: stream,
-        ContentType: contentTypeFor(filePath),
-        ContentLength: stat.size,
-      }),
-    )
+    if (stat.size > MULTIPART_THRESHOLD) {
+      // Large files (esp. >5GB recital videos) must use multipart — a single
+      // PutObject would be rejected by R2.
+      await uploadFileMultipart(client, bucket, key, uploadPath, contentTypeFor(filePath))
+    } else {
+      const stream = fs.createReadStream(uploadPath)
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: stream,
+          ContentType: contentTypeFor(filePath),
+          ContentLength: stat.size,
+        }),
+      )
+    }
   } finally {
     if (isTempFaststart) {
       try { fs.unlinkSync(uploadPath) } catch { /* best-effort */ }
