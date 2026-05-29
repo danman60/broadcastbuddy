@@ -46,6 +46,18 @@ User said "do all". Built everything that can be done without hardware:
 - **Stream Deck plugin caveat:** the bundled `.sdPlugin` is manifest+PI only (no built `bin/plugin.js`). The installer works (copies the folder) but the plugin itself may need a full SDK build to be fully functional — follow-up.
 - **Installer rebuilt + staged** with ALL of tonight's fixes (overlay WS-port fix + PDF + 4 features): `/mnt/firmament/BroadcastBuddy-Setup-2026-05-28.exe` (112MB, NSIS via wine on native Ubuntu). **INSTALL THIS ONE.** ⚠️ The old `/mnt/firmament/BroadcastBuddy-Setup-2026-05-20.exe` (96MB) is STALE — it has the broken overlay WS port (won't connect to OBS). Delete or ignore it. Local copy: `release/BroadcastBuddy Setup 1.0.0.exe`.
 
+### CC↔BB integration verified airtight (2026-05-28, collab with CommandCentered-2)
+Cross-checked BB's 7 CC calls against CC's LIVE code (not docs). Result: aligned, BB needs ZERO code changes.
+- All endpoints under `/api/v1/broadcast-package` (headers `X-API-Key` + `X-Tenant-Id`):
+  1. `GET /broadcast-package` → events ARRAY (top-level, NOT wrapped). NO `/events` route — package root IS the list. CC filters to status CONFIRMED/SCHEDULED/IN_PROGRESS/BOOKED AND loadInTime≥now.
+  2. `GET /broadcast-package/:eventId` → `{success,data:<pkg>}` (BB unwraps `data||body`). All BB fields emitted. `streaming.livestreamUrl/embedCode` can be NULL (BB coalesces). CC upgrade `1e09783`: streaming.streamKey/rtmpUrl now prefer linked StreamEvent CF keys — transparent to BB.
+  3. `POST /broadcast-package/upload` (multipart file+eventId+fileName?) → `{success,file:{webViewLink}}`. Needs a Drive folder + SA on CC; missing → 400/500 (BB surfaces error).
+  4. `GET /:eventId/checklist` → `{success,data:CCChecklistItem[]}`.
+  5. `PUT /:eventId/checklist` body `{items:[{id,checked}]}` → `{success,updated:<count-sent>}`.
+  6. `PUT /:eventId/overlay-config` body = RAW overlay object (NO `{config}` wrapper). BB already does this (ipc.ts:726 PUT + raw `state.lowerThird.styling`). Round-trips raw both ways.
+  7. WS push CC→BB: `{type:'broadcast_package', data:<pkg>}` on `ws://<host>:19081`. CC fixed its dead-9877 default → 19081 in commit **`3c2d0cd`** (pushed). Same-LAN/co-located only; pull (#1/#2) is the cross-host path.
+- Auth: single shared `BROADCAST_BUDDY_API_KEY`, client-supplied tenant (no key↔tenant binding). Fine for now.
+
 ### Build / test status
 electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright 62 passed / 0 failed (xvfb, workers=1).
 
