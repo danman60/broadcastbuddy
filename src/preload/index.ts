@@ -83,6 +83,19 @@ contextBridge.exposeInMainWorld('api', {
   obsToggleRecord: () => ipcRenderer.invoke(IPC.OBS_TOGGLE_RECORD),
   obsRecordStatus: () => ipcRenderer.invoke(IPC.OBS_RECORD_STATUS),
 
+  // ── OBS stream control + replay buffer ────────────────────────
+  obsStartStream: () => ipcRenderer.invoke(IPC.OBS_START_STREAM),
+  obsStopStream: () => ipcRenderer.invoke(IPC.OBS_STOP_STREAM),
+  obsSaveReplay: () => ipcRenderer.invoke(IPC.OBS_SAVE_REPLAY),
+  obsStreamStatus: () => ipcRenderer.invoke(IPC.OBS_STREAM_STATUS),
+
+  // ── System monitor ────────────────────────────────────────────
+  systemGetStats: () => ipcRenderer.invoke(IPC.SYSTEM_GET_STATS),
+
+  // ── Stream Deck plugin installer ──────────────────────────────
+  streamdeckGetStatus: () => ipcRenderer.invoke(IPC.STREAMDECK_GET_STATUS),
+  streamdeckInstallPlugin: () => ipcRenderer.invoke(IPC.STREAMDECK_INSTALL_PLUGIN),
+
   // ── Starting Soon ─────────────────────────────────────────────
   startingSoonShow: () => ipcRenderer.invoke(IPC.STARTING_SOON_SHOW),
   startingSoonHide: () => ipcRenderer.invoke(IPC.STARTING_SOON_HIDE),

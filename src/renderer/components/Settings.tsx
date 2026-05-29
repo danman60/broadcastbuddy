@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo } from '../../shared/types'
-import { DEFAULT_WIFI_DISPLAY } from '../../shared/types'
+import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyConfig } from '../../shared/types'
+import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
+import { StreamDeckPluginSection } from './StreamDeckPluginSection'
 import '../styles/settings.css'
 
 export function Settings() {
@@ -41,6 +42,9 @@ export function Settings() {
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backupMsg, setBackupMsg] = useState('')
 
+  // Global hotkeys
+  const [hotkeys, setHotkeys] = useState<HotkeyConfig>(DEFAULT_HOTKEYS)
+
   useEffect(() => {
     if (settings) {
       setHttpPort(settings.server.httpPort)
@@ -67,6 +71,7 @@ export function Settings() {
         setChatEventId(settings.chatConfig.eventId || '')
         setChatEnabled(!!settings.chatConfig.enabled)
       }
+      if (settings.hotkeys) setHotkeys({ ...DEFAULT_HOTKEYS, ...settings.hotkeys })
     }
     checkObsStatus()
     refreshMonitors()
@@ -176,6 +181,7 @@ export function Settings() {
     await window.api.settingsSet('geminiApiKey', geminiKey)
     await window.api.settingsSet('r2Config', { endpoint: r2Endpoint, accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey, bucket: r2Bucket })
     await window.api.settingsSet('wifiDisplay', wifi)
+    await window.api.settingsSet('hotkeys', hotkeys)
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -495,6 +501,38 @@ export function Settings() {
             </span>
           </div>
         </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Global Hotkeys</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            OS-level shortcuts that fire even when BroadcastBuddy is not focused.
+            Use Electron accelerator strings (e.g. <code>F9</code>, <code>CommandOrControl+1</code>).
+            Leave blank to unbind. Saved on "Save Settings".
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {([
+              ['fireLowerThird', 'Fire lower third'],
+              ['hideLowerThird', 'Hide lower third'],
+              ['nextTrigger', 'Next trigger'],
+              ['prevTrigger', 'Previous trigger'],
+              ['toggleRecording', 'Toggle recording (OBS)'],
+              ['saveReplay', 'Save replay (OBS)'],
+            ] as Array<[keyof HotkeyConfig, string]>).map(([key, label]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ flex: 1, fontSize: 12 }}>{label}</label>
+                <input
+                  type="text"
+                  style={{ width: 160 }}
+                  value={hotkeys[key]}
+                  placeholder="unbound"
+                  onChange={(e) => setHotkeys({ ...hotkeys, [key]: e.target.value.trim() })}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <StreamDeckPluginSection />
 
         <div className="settings-group">
           <div className="settings-group-title">Settings Backups</div>

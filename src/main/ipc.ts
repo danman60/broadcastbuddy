@@ -18,6 +18,9 @@ import * as backup from './services/backup'
 import * as dayChecklist from './services/dayChecklist'
 import { getItemsForKind } from './services/dayChecklistItems'
 import { getLastStartupReport } from './services/startup'
+import * as hotkeys from './services/hotkeys'
+import * as systemMonitor from './services/systemMonitor'
+import * as streamDeckPlugin from './services/streamDeckPlugin'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
@@ -245,6 +248,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.SETTINGS_SET, (_e, key: string, value: unknown) => {
     settings.set(key as keyof import('../shared/types').AppSettings, value as never)
+    // Re-register global hotkeys immediately when the operator edits them.
+    if (key === 'hotkeys') hotkeys.register()
     return settings.getAll()
   })
 
@@ -357,6 +362,43 @@ export function registerIpcHandlers(): void {
     return obsConnection.getRecordTimecode()
   })
 
+  // ── OBS stream control + replay buffer (fail soft when disconnected) ──────
+  ipcMain.handle(IPC.OBS_START_STREAM, async () => {
+    if (!obsConnection.isConnected()) return { success: false, error: 'OBS not connected' }
+    try { await obsConnection.startStreaming(); return { success: true } }
+    catch (err) { return { success: false, error: (err as Error).message } }
+  })
+
+  ipcMain.handle(IPC.OBS_STOP_STREAM, async () => {
+    if (!obsConnection.isConnected()) return { success: false, error: 'OBS not connected' }
+    try { await obsConnection.stopStreaming(); return { success: true } }
+    catch (err) { return { success: false, error: (err as Error).message } }
+  })
+
+  ipcMain.handle(IPC.OBS_SAVE_REPLAY, async () => {
+    if (!obsConnection.isConnected()) return { success: false, error: 'OBS not connected' }
+    try { await obsConnection.saveReplayBuffer(); return { success: true } }
+    catch (err) { return { success: false, error: (err as Error).message } }
+  })
+
+  ipcMain.handle(IPC.OBS_STREAM_STATUS, async () => {
+    return obsConnection.getStreamStatus()
+  })
+
+  // ── System monitor ───────────────────────────────────────────────────────
+  ipcMain.handle(IPC.SYSTEM_GET_STATS, () => {
+    return systemMonitor.getStats()
+  })
+
+  // ── Stream Deck plugin installer ──────────────────────────────────────────
+  ipcMain.handle(IPC.STREAMDECK_GET_STATUS, () => {
+    return streamDeckPlugin.getStatus()
+  })
+
+  ipcMain.handle(IPC.STREAMDECK_INSTALL_PLUGIN, async () => {
+    return streamDeckPlugin.installPlugin()
+  })
+
   ipcMain.handle(IPC.OBS_PUSH_STREAM_KEY, async (_e, rtmpUrl: string, streamKey: string) => {
     try {
       await obsConnection.sendRequest('SetStreamServiceSettings', {
@@ -385,6 +427,28 @@ export function registerIpcHandlers(): void {
   obsConnection.setOnAudioLevels((levels) => {
     const win = getMainWindow()
     if (win) win.webContents.send(IPC.OBS_AUDIO_LEVELS, levels)
+  })
+
+  // Push live stream state + replay-saved notices to the renderer.
+  obsConnection.setOnStreamStateChanged((state) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.OBS_STREAM_STATE_UPDATE, state)
+  })
+
+  obsConnection.setOnReplaySaved((replayPath) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.OBS_REPLAY_SAVED, { path: replayPath })
+  })
+
+  // System monitor → renderer (stats ~5s + disk alerts).
+  systemMonitor.setOnStats((stats) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.SYSTEM_STATS, stats)
+  })
+
+  systemMonitor.setOnDiskAlert((alert) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.SYSTEM_DISK_ALERT, alert)
   })
 
   ipcMain.handle(IPC.OBS_START_RECORD, async () => {

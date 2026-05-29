@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import { PDFDocument } from 'pdf-lib'
 import mammoth from 'mammoth'
 import { createLogger } from '../logger'
 
@@ -31,27 +30,30 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 
 async function parsePDF(filePath: string, fileName: string): Promise<ParsedDocument> {
   const buffer = fs.readFileSync(filePath)
-  const pdfDoc = await PDFDocument.load(buffer)
-  const pageCount = pdfDoc.getPageCount()
-
-  // Extract text from all pages
-  const pages = pdfDoc.getPages()
+  // pdf-lib has NO text-extraction API. Use pdfjs-dist's legacy build, which
+  // runs the parse on the main thread (fake worker) under Node/Electron — no
+  // separate worker file needed.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    useSystemFonts: true,
+    isEvalSupported: false,
+  })
+  const pdf = await loadingTask.promise
+  const pageCount = pdf.numPages
   const textParts: string[] = []
 
-  for (const page of pages) {
-    // NOTE: pdf-lib has NO text-extraction API — getTextContent() is a pdfjs
-    // method and does NOT exist on pdf-lib's PDFPage. This throws at runtime.
-    // PDF import is therefore BROKEN until pdfjs-dist is added. Cast keeps the
-    // type checker honest about the real shape; behavior is unchanged (it still
-    // throws on a PDF). DOCX/TXT import paths are unaffected. See CURRENT_WORK.
-    const textContent = await (page as any).getTextContent()
-    const pageText = textContent.items
-      .map((item: any) => item.str || '')
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    const pageText = (content.items as Array<{ str?: string }>)
+      .map((it) => it.str || '')
       .join(' ')
     textParts.push(pageText)
   }
 
   const text = textParts.join('\n')
+  await pdf.cleanup()
   logger.info(`PDF parsed: ${pageCount} pages, ${text.length} chars`)
 
   return {

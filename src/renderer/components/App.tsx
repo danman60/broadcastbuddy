@@ -20,6 +20,7 @@ import { RecordingUploadPanel } from './RecordingUploadPanel'
 import { GalleryPanel } from './GalleryPanel'
 import { ChatPanel } from './ChatPanel'
 import { AudioMeters } from './AudioMeters'
+import { SystemStats } from './SystemStats'
 import { EventLogPanel } from './EventLogPanel'
 import { RecoveryBanner } from './RecoveryBanner'
 import { StartupToast } from './StartupToast'
@@ -67,6 +68,7 @@ export function App() {
           <BroadcastPackagePanel />
           <RecordingUploadPanel />
           <AudioMeters />
+          <SystemStats />
           <GalleryPanel />
           <ChatPanel />
           <EventLogPanel />

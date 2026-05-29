@@ -11,6 +11,8 @@ import * as session from './services/session'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
+import * as hotkeys from './services/hotkeys'
+import * as systemMonitor from './services/systemMonitor'
 import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers } from './ipc'
@@ -150,6 +152,12 @@ app.whenReady().then(() => {
     if (win) win.webContents.send(IPC.STARTUP_REPORT, report)
   }).catch((err) => logger.warn(`Startup checks failed: ${err instanceof Error ? err.message : err}`))
 
+  // 16. Global hotkeys (fire/hide/next/prev/record/replay — work unfocused).
+  hotkeys.register()
+
+  // 17. System monitor — CPU/RAM/disk stats + low-disk alerts to the renderer.
+  systemMonitor.startMonitoring()
+
   logger.info('All services started')
 })
 
@@ -164,6 +172,8 @@ app.on('before-quit', () => {
   events.recordEvent('system', 'BroadcastBuddy shutting down')
   crashRecovery.stopSnapshots()
   backup.stopBackupSchedule()
+  hotkeys.unregister()
+  systemMonitor.stopMonitoring()
   // Final settings backup, then mark a clean shutdown so next launch doesn't
   // offer recovery.
   backup.backupSettings()

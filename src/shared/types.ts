@@ -289,6 +289,7 @@ export interface AppSettings {
   obsTransitionRevert?: boolean
   chatConfig?: ChatConfig
   dayChecklistLastShown?: string // YYYY-MM-DD the start-of-day modal last auto-shown
+  hotkeys?: HotkeyConfig
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -515,6 +516,61 @@ export interface RecordState {
   timecode: string // HH:MM:SS.mmm from OBS, or empty
 }
 
+// Live OBS stream + replay-buffer state (pushed on StreamStateChanged).
+export interface StreamState {
+  streaming: boolean
+  replayBufferActive: boolean
+}
+
+// ── System monitor (CPU/RAM/disk) ────────────────────────────────────────────
+// Pure os/fs polling (no npm deps). Pushed to the renderer ~every 5s so the
+// operator sees machine health during a long recording/stream.
+export interface SystemStats {
+  cpuPercent: number
+  memPercent: number
+  diskFreeGB: number
+  diskTotalGB: number
+  driveLost: boolean // watched output drive missing / unreadable
+  timestamp: number // epoch ms
+}
+
+export type DiskAlertLevel = 'ok' | 'warning' | 'high' | 'critical' | 'drive-lost'
+
+export interface DiskAlert {
+  level: DiskAlertLevel
+  diskFreeGB: number
+  message: string
+}
+
+// ── Global hotkeys (Electron globalShortcut accelerators) ─────────────────────
+// Empty string = unbound. Work even when the app is unfocused.
+export interface HotkeyConfig {
+  fireLowerThird: string
+  hideLowerThird: string
+  nextTrigger: string
+  prevTrigger: string
+  toggleRecording: string
+  saveReplay: string
+}
+
+export const DEFAULT_HOTKEYS: HotkeyConfig = {
+  fireLowerThird: 'F9',
+  hideLowerThird: 'F10',
+  nextTrigger: 'F6',
+  prevTrigger: 'F5',
+  toggleRecording: 'F7',
+  saveReplay: 'F8',
+}
+
+// ── Stream Deck plugin installer status ──────────────────────────────────────
+export interface StreamDeckStatus {
+  streamDeckInstalled: boolean // Elgato plugins dir exists
+  pluginsDir: string | null
+  pluginInstalled: boolean
+  bundledAvailable: boolean
+  supported: boolean // false on non-Windows (installer is Windows-only)
+}
+
 // One OBS audio input's post-fader peak per channel, as a 0..1 multiplier
 // (OBS magnitude). Renderer converts to dBFS for display.
 export interface AudioInputLevel {
@@ -641,6 +697,23 @@ export const IPC = {
   OBS_STATUS: 'obs:status',
   OBS_GET_TIMECODE: 'obs:get-timecode',
   OBS_PUSH_STREAM_KEY: 'obs:push-stream-key',
+
+  // OBS stream control + replay buffer (ported from CompSync)
+  OBS_START_STREAM: 'obs:start-stream',
+  OBS_STOP_STREAM: 'obs:stop-stream',
+  OBS_SAVE_REPLAY: 'obs:save-replay',
+  OBS_STREAM_STATUS: 'obs:stream-status',
+  OBS_STREAM_STATE_UPDATE: 'obs:stream-state-update', // main → renderer push
+  OBS_REPLAY_SAVED: 'obs:replay-saved', // main → renderer push
+
+  // System monitor (CPU/RAM/disk) + alerts
+  SYSTEM_GET_STATS: 'system:get-stats',
+  SYSTEM_STATS: 'system:stats', // main → renderer push (~5s)
+  SYSTEM_DISK_ALERT: 'system:disk-alert', // main → renderer push
+
+  // Stream Deck plugin in-app installer
+  STREAMDECK_GET_STATUS: 'streamdeck:get-status',
+  STREAMDECK_INSTALL_PLUGIN: 'streamdeck:install-plugin',
 
   // OBS recording control (start/stop/toggle + live state push)
   OBS_START_RECORD: 'obs:start-record',

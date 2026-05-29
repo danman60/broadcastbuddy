@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { StreamConfig } from '../../shared/types'
+import type { StreamConfig, StreamState } from '../../shared/types'
+import { IPC } from '../../shared/types'
 import '../styles/streamInfo.css'
 
 export function StreamInfoPanel() {
@@ -15,12 +16,42 @@ export function StreamInfoPanel() {
   const [copied, setCopied] = useState('')
   const [obsStatus, setObsStatus] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
   const [obsError, setObsError] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const [streamBusy, setStreamBusy] = useState(false)
+  const [streamErr, setStreamErr] = useState('')
+  const [replayMsg, setReplayMsg] = useState('')
 
   useEffect(() => {
     window.api.streamConfigGet().then((c: StreamConfig | null) => {
       if (c) setConfig(c)
     })
+    window.api.obsStreamStatus().then((s) => setStreaming(!!s?.streaming)).catch(() => {})
+    const onStreamState = (p: unknown) => setStreaming(!!(p as StreamState)?.streaming)
+    const onReplaySaved = () => {
+      setReplayMsg('Replay saved')
+      setTimeout(() => setReplayMsg(''), 2500)
+    }
+    window.api.on(IPC.OBS_STREAM_STATE_UPDATE, onStreamState)
+    window.api.on(IPC.OBS_REPLAY_SAVED, onReplaySaved)
+    return () => {
+      window.api.removeAllListeners(IPC.OBS_STREAM_STATE_UPDATE)
+      window.api.removeAllListeners(IPC.OBS_REPLAY_SAVED)
+    }
   }, [])
+
+  async function toggleStream() {
+    setStreamBusy(true)
+    setStreamErr('')
+    const r = streaming ? await window.api.obsStopStream() : await window.api.obsStartStream()
+    if (!r?.success) setStreamErr(r?.error || 'Stream command failed')
+    setStreamBusy(false)
+  }
+
+  async function saveReplay() {
+    setStreamErr('')
+    const r = await window.api.obsSaveReplay()
+    if (!r?.success) setStreamErr(r?.error || 'Save replay failed')
+  }
 
   function handleChange(field: keyof StreamConfig, value: string) {
     const updated = { ...config, [field]: value }
@@ -83,6 +114,24 @@ export function StreamInfoPanel() {
                 {showKey ? 'Hide' : 'Show'}
               </button>
             </div>
+          </div>
+
+          {/* OBS stream control + replay buffer */}
+          <div className="stream-obs-push">
+            <button
+              className={`btn btn-sm ${streaming ? 'btn-danger' : 'btn-primary'}`}
+              onClick={toggleStream}
+              disabled={streamBusy}
+            >
+              {streamBusy ? '…' : streaming ? 'Stop Stream' : 'Start Stream'}
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={saveReplay} disabled={streamBusy}>
+              Save Replay
+            </button>
+            {streaming && <span className="stream-obs-hint" style={{ color: '#ef4444' }}>● LIVE</span>}
+            {replayMsg && <span className="stream-obs-hint" style={{ color: '#22c55e' }}>{replayMsg}</span>}
+            {streamErr && <span className="stream-obs-error">{streamErr}</span>}
+            <span className="stream-obs-hint">Requires OBS connected (replay needs the buffer enabled)</span>
           </div>
 
           {/* Push to OBS */}

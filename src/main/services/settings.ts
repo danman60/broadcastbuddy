@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import { AppSettings, DEFAULT_STYLING, DEFAULT_WIFI_DISPLAY, DEFAULT_SLOW_ZOOM, DEFAULT_CHAT_CONFIG } from '../../shared/types'
+import { AppSettings, DEFAULT_STYLING, DEFAULT_WIFI_DISPLAY, DEFAULT_SLOW_ZOOM, DEFAULT_CHAT_CONFIG, DEFAULT_HOTKEYS } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('settings')
@@ -40,6 +40,7 @@ const store = new Store<AppSettings>({
     obsTransitionRevert: false,
     chatConfig: { ...DEFAULT_CHAT_CONFIG },
     dayChecklistLastShown: '',
+    hotkeys: { ...DEFAULT_HOTKEYS },
   },
 })
 

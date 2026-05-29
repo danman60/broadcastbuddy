@@ -12,6 +12,9 @@
 
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test'
 import path from 'path'
+import fs from 'fs'
+import os from 'os'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 
 let app: ElectronApplication
 let win: Page
@@ -48,6 +51,77 @@ test('record start/stop/toggle fail soft when OBS is disconnected', async () => 
   expect(stop.success).toBe(false)
   const toggle = await win.evaluate(() => window.api.obsToggleRecord())
   expect(toggle.success).toBe(false)
+})
+
+// ── PDF import fix (pdfjs text extraction — was a real runtime bug) ───────────
+
+test('PDF import extracts text via pdfjs (real parse)', async () => {
+  // Generate a PDF with known text, then parse it through the real IPC path
+  // (importPreview → parseDocument → parsePDF/pdfjs). Verifies the pdf-lib→pdfjs
+  // fix actually extracts text at runtime, not just that it builds.
+  const doc = await PDFDocument.create()
+  const page = doc.addPage([612, 792])
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  page.drawText('BroadcastBuddy PDF probe 12345', { x: 50, y: 700, size: 18, font })
+  const bytes = await doc.save()
+  const tmp = path.join(os.tmpdir(), `bb-pdf-probe-${Date.now()}.pdf`)
+  fs.writeFileSync(tmp, bytes)
+
+  try {
+    const preview = await win.evaluate((p: string) => window.api.importPreview(p), tmp)
+    expect(preview).toHaveProperty('textPreview')
+    expect(preview.textPreview).toContain('BroadcastBuddy PDF probe')
+    expect(preview.pageCount).toBe(1)
+  } finally {
+    fs.rmSync(tmp, { force: true })
+  }
+})
+
+// ── Parity port: OBS stream control + replay buffer ───────────────────────────
+
+test('stream status returns a StreamState shape', async () => {
+  const s = await win.evaluate(() => window.api.obsStreamStatus())
+  expect(s).toHaveProperty('streaming')
+  expect(s).toHaveProperty('replayBufferActive')
+  expect(typeof s.streaming).toBe('boolean')
+})
+
+test('stream start/stop + save-replay fail soft when OBS is disconnected', async () => {
+  const start = await win.evaluate(() => window.api.obsStartStream())
+  expect(start.success).toBe(false)
+  const stop = await win.evaluate(() => window.api.obsStopStream())
+  expect(stop.success).toBe(false)
+  const replay = await win.evaluate(() => window.api.obsSaveReplay())
+  expect(replay.success).toBe(false)
+})
+
+// ── Parity port: system monitor ───────────────────────────────────────────────
+
+test('system stats returns CPU/RAM/disk shape', async () => {
+  const s = await win.evaluate(() => window.api.systemGetStats())
+  expect(s).toHaveProperty('cpuPercent')
+  expect(s).toHaveProperty('memPercent')
+  expect(s).toHaveProperty('diskFreeGB')
+  expect(typeof s.cpuPercent).toBe('number')
+  expect(s.memPercent).toBeGreaterThanOrEqual(0)
+  expect(s.memPercent).toBeLessThanOrEqual(100)
+})
+
+// ── Parity port: Stream Deck installer ────────────────────────────────────────
+
+test('streamdeck status reports support + bundled availability', async () => {
+  const s = await win.evaluate(() => window.api.streamdeckGetStatus())
+  expect(s).toHaveProperty('supported')
+  expect(s).toHaveProperty('streamDeckInstalled')
+  expect(s).toHaveProperty('pluginInstalled')
+  expect(s).toHaveProperty('bundledAvailable')
+  expect(typeof s.supported).toBe('boolean')
+  // On Linux (test host) the installer is unsupported and must report so cleanly.
+  if (!s.supported) {
+    const r = await win.evaluate(() => window.api.streamdeckInstallPlugin())
+    expect(r.ok).toBe(false)
+    expect(r.error).toBeTruthy()
+  }
 })
 
 // ── Wave 2: slow zoom + transition auto-revert ────────────────────────────────

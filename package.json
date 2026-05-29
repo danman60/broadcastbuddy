@@ -22,6 +22,7 @@
     "mammoth": "^1.11.0",
     "openai": "^6.25.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38",
     "sharp": "^0.34.5",
     "ws": "^8.19.0",
     "zustand": "^4.5.0"
@@ -58,6 +59,15 @@
           "libstdc++-6.dll",
           "libgcc_s_seh-1.dll",
           "libwinpthread-1.dll"
+        ]
+      },
+      {
+        "from": "streamdeck-plugin/com.broadcastbuddy.streamdeck.sdPlugin",
+        "to": "streamdeck-plugin",
+        "filter": [
+          "**/*",
+          "!node_modules/**",
+          "!**/*.map"
         ]
       }
     ],

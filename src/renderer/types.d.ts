@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -102,6 +102,19 @@ interface ElectronAPI {
   obsStopRecord: () => Promise<{ success: boolean; outputPath?: string; error?: string }>
   obsToggleRecord: () => Promise<{ success: boolean; active?: boolean; error?: string }>
   obsRecordStatus: () => Promise<RecordState>
+
+  // OBS stream control + replay buffer
+  obsStartStream: () => Promise<{ success: boolean; error?: string }>
+  obsStopStream: () => Promise<{ success: boolean; error?: string }>
+  obsSaveReplay: () => Promise<{ success: boolean; error?: string }>
+  obsStreamStatus: () => Promise<StreamState>
+
+  // System monitor
+  systemGetStats: () => Promise<SystemStats>
+
+  // Stream Deck plugin installer
+  streamdeckGetStatus: () => Promise<StreamDeckStatus>
+  streamdeckInstallPlugin: () => Promise<{ ok: boolean; filesCopied?: number; target?: string; error?: string }>
 
   // OBS Slow Zoom
   obsSlowZoomTriggerWide: () => Promise<SlowZoomStatus>

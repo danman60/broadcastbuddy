@@ -31,8 +31,19 @@ export interface AudioInputLevel {
   levels: number[] // post-fader peak per channel (0..1 mul)
 }
 
+// Live stream + replay-buffer state (pushed on StreamStateChanged).
+export interface StreamState {
+  streaming: boolean
+  replayBufferActive: boolean
+}
+
 const recordStateCallbacks: Array<(state: RecordState) => void> = []
 const audioLevelsCallbacks: Array<(levels: AudioInputLevel[]) => void> = []
+const streamStateCallbacks: Array<(state: StreamState) => void> = []
+const replaySavedCallbacks: Array<(path: string) => void> = []
+
+let streaming = false
+let replayBufferActive = false
 
 export function onConnected(cb: ConnectedCallback): void {
   connectedCallbacks.push(cb)
@@ -52,6 +63,14 @@ export function setOnRecordStateChanged(cb: (state: RecordState) => void): void 
 
 export function setOnAudioLevels(cb: (levels: AudioInputLevel[]) => void): void {
   audioLevelsCallbacks.push(cb)
+}
+
+export function setOnStreamStateChanged(cb: (state: StreamState) => void): void {
+  streamStateCallbacks.push(cb)
+}
+
+export function setOnReplaySaved(cb: (path: string) => void): void {
+  replaySavedCallbacks.push(cb)
 }
 
 // InputVolumeMeters fires ~50/sec. Coalesce to ~20/sec (50ms) before forwarding
@@ -173,6 +192,8 @@ export function connect(host: string, port: number, password?: string): Promise<
         pendingRequests.delete(id)
       }
       transitionKindByName.clear()
+      streaming = false
+      replayBufferActive = false
       recordEvent('obs', 'OBS disconnected')
       for (const cb of disconnectedCallbacks) {
         try { cb() } catch (err) {
@@ -253,6 +274,45 @@ function handleEvent(eventType: string | undefined, eventData: Record<string, un
       for (const cb of recordStateCallbacks) {
         try { cb(state) } catch (err) {
           logger.warn(`onRecordStateChanged callback threw: ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      break
+    }
+    case 'StreamStateChanged': {
+      const outputState = (eventData?.outputState as string) ?? ''
+      if (outputState === 'OBS_WEBSOCKET_OUTPUT_STARTED') streaming = true
+      else if (outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPED' || outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPING') streaming = false
+      else return // ignore STARTING
+      logger.info(`StreamStateChanged: ${outputState} streaming=${streaming}`)
+      recordEvent('obs', streaming ? 'Stream started' : 'Stream stopped')
+      const state: StreamState = { streaming, replayBufferActive }
+      for (const cb of streamStateCallbacks) {
+        try { cb(state) } catch (err) {
+          logger.warn(`onStreamStateChanged callback threw: ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      break
+    }
+    case 'ReplayBufferStateChanged': {
+      const outputState = (eventData?.outputState as string) ?? ''
+      if (outputState === 'OBS_WEBSOCKET_OUTPUT_STARTED') replayBufferActive = true
+      else if (outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPED') replayBufferActive = false
+      else return
+      const state: StreamState = { streaming, replayBufferActive }
+      for (const cb of streamStateCallbacks) {
+        try { cb(state) } catch (err) {
+          logger.warn(`onStreamStateChanged callback threw: ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      break
+    }
+    case 'ReplayBufferSaved': {
+      const savedPath = (eventData?.savedReplayPath as string) ?? ''
+      logger.info(`ReplayBufferSaved: ${savedPath}`)
+      recordEvent('obs', 'Replay saved')
+      for (const cb of replaySavedCallbacks) {
+        try { cb(savedPath) } catch (err) {
+          logger.warn(`onReplaySaved callback threw: ${err instanceof Error ? err.message : err}`)
         }
       }
       break
@@ -367,6 +427,33 @@ export async function getRecordStatus(): Promise<RecordState> {
   } catch {
     return { active: false, paused: false, timecode: '' }
   }
+}
+
+// ── Stream control + replay buffer ──────────────────────────────────────────
+
+export async function startStreaming(): Promise<void> {
+  await sendRequest('StartStream')
+  logger.info('StartStream')
+}
+
+export async function stopStreaming(): Promise<void> {
+  await sendRequest('StopStream')
+  logger.info('StopStream')
+}
+
+export async function saveReplayBuffer(): Promise<void> {
+  await sendRequest('SaveReplayBuffer')
+  logger.info('SaveReplayBuffer')
+}
+
+export async function getStreamStatus(): Promise<StreamState> {
+  try {
+    const status = (await sendRequest('GetStreamStatus')) as { outputActive?: boolean } | null
+    streaming = !!status?.outputActive
+  } catch {
+    // leave cached value
+  }
+  return { streaming, replayBufferActive }
 }
 
 export function isConnected(): boolean {
