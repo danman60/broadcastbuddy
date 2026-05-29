@@ -32,8 +32,22 @@ Prior session claimed "ALL generic gaps ported" — re-scan found these still mi
 - Chat needs a BB Supabase project + `chat_messages` table before enabling.
 - Drive sharing scope for the installer (file id `1zXq94exV3aP8RmDLbICMigBlb1KL-Av1`, still private).
 
+### Session 2026-05-28 (cont.) — PDF fix + 4 parity gaps ported + installer rebuilt
+User said "do all". Built everything that can be done without hardware:
+- **PDF import fixed (real bug closed)** — `documentParser.parsePDF` now uses `pdfjs-dist` legacy build (real text extraction; pdf-lib had none). VERIFIED at runtime by a test that generates a PDF and asserts extracted text — genuinely works, not just builds. Commit `9efba33`.
+- **4 generic parity gaps ported from CompSync** (commit `9efba33`, competition deps stripped):
+  - Global hotkeys (`hotkeys.ts`) — fire/hide/next/prev/toggle-record/save-replay via globalShortcut; editable in Settings → "Global Hotkeys"; re-registers on save. Defaults F5/F6/F7/F8/F9/F10.
+  - OBS stream control + replay buffer — `obsConnection` startStreaming/stopStreaming/saveReplayBuffer + StreamStateChanged/ReplayBufferSaved events; Start/Stop Stream + Save Replay buttons in StreamInfoPanel.
+  - System monitor (`systemMonitor.ts`) — CPU/RAM/disk poll (pure os/fs, no deps, watches Videos dir) + low-disk/drive-lost alerts; "System" panel in right column.
+  - Stream Deck in-app installer (`streamDeckPlugin.ts`, Windows-only) — one-click copy of bundled `.sdPlugin`; "Stream Deck Plugin" section in Settings; plugin added to electron-builder extraResources.
+  - **Overlay Mode (5th gap) deliberately NOT ported** — CompSync's panel set is routine-coupled; needs redesign, a straight port would be wrong.
+- **62 Playwright tests pass** (added stream-control/system/streamdeck/PDF tests). tsc 0/0. build EXIT 0.
+- **NOT runtime-verified against live OBS** — stream control, replay save, and hotkeys' record actions need a real OBS + desktop; user-pending on FIRMAMENT.
+- **Stream Deck plugin caveat:** the bundled `.sdPlugin` is manifest+PI only (no built `bin/plugin.js`). The installer works (copies the folder) but the plugin itself may need a full SDK build to be fully functional — follow-up.
+- **Installer rebuilt + staged** with ALL of tonight's fixes (overlay WS-port fix + PDF + 4 features): `/mnt/firmament/BroadcastBuddy-Setup-2026-05-28.exe` (112MB, NSIS via wine on native Ubuntu). **INSTALL THIS ONE.** ⚠️ The old `/mnt/firmament/BroadcastBuddy-Setup-2026-05-20.exe` (96MB) is STALE — it has the broken overlay WS port (won't connect to OBS). Delete or ignore it. Local copy: `release/BroadcastBuddy Setup 1.0.0.exe`.
+
 ### Build / test status
-electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright 57 passed / 0 failed (xvfb, workers=1).
+electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright 62 passed / 0 failed (xvfb, workers=1).
 
 ---
 
