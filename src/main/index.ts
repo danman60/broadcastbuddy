@@ -76,7 +76,7 @@ app.whenReady().then(() => {
   createWindow()
 
   // 5. Start HTTP server (overlay page)
-  overlay.startServer(serverConfig.httpPort)
+  overlay.startServer(serverConfig.httpPort, serverConfig.wsPort)
 
   // 6. Start WebSocket hub
   wsHub.start(serverConfig.wsPort)

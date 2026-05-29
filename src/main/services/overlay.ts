@@ -650,7 +650,12 @@ export function loadSessionState(
 
 // ── Express server ───────────────────────────────────────────────
 
-export function startServer(port: number): void {
+// WS hub port, injected into the served browser-source HTML so the overlay
+// connects to the ACTUAL configured hub port (not a hardcoded default).
+let configuredWsPort = 19081
+
+export function startServer(port: number, wsPort = 19081): void {
+  configuredWsPort = wsPort
   const app = express()
 
   app.get('/overlay', (_req, res) => {
@@ -1344,7 +1349,7 @@ function buildOverlayHTML(): string {
   </div>
 
   <script>
-    const WS_URL = 'ws://127.0.0.1:9877';
+    const WS_URL = 'ws://' + location.hostname + ':' + ${configuredWsPort};
     let ws = null;
     let reconnectTimer = null;
     let typewriterTimer = null;

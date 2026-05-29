@@ -7,8 +7,8 @@ import '../styles/settings.css'
 export function Settings() {
   const { settings, setSettings, setShowSettings } = useStore()
 
-  const [httpPort, setHttpPort] = useState(9876)
-  const [wsPort, setWsPort] = useState(9877)
+  const [httpPort, setHttpPort] = useState(19080)
+  const [wsPort, setWsPort] = useState(19081)
   const [apiKey, setApiKey] = useState('')
   const [geminiKey, setGeminiKey] = useState('')
 
