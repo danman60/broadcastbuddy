@@ -2,7 +2,7 @@
 
 ## ⭐ MORNING REVIEW — 2026-05-29 (read this first)
 
-**State: GREEN.** tsc 0/0 (node+web) · electron-vite build EXIT 0 · **239 Playwright tests pass** (30 specs, `xvfb-run -a npx playwright test --workers=1`). All work committed + pushed to `main` (remote moved to `broadcastbuddy.git`).
+**State: GREEN.** tsc 0/0 (node+web) · electron-vite build EXIT 0 · **243 Playwright tests pass** (31 specs, `xvfb-run -a npx playwright test --workers=1`). All work committed + pushed to `main` (remote moved to `broadcastbuddy.git`).
 
 **What shipped overnight (all verified headless unless noted):**
 - Fixed the **real overlay bug**: browser source hardcoded the dead `ws://…:9877`; now injects the configured `wsPort` (default 19081) + uses `location.hostname`. (OBS could never connect before.)
