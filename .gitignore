@@ -10,3 +10,5 @@ release/
 Thumbs.db
 sessions/
 test-results/
+graphify-out/
+.claude-crash-transcript.md
