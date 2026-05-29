@@ -2,33 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import type { AudioInputLevel } from '../../shared/types'
 import { IPC } from '../../shared/types'
+import { mulToDb, dBToPercent, dBToClass, formatDB } from '../../shared/audioLevels'
 import '../styles/meters.css'
-
-// OBS magnitude (post-fader peak, 0..1 multiplier) → dBFS. 0 (silence) maps to
-// -Infinity, which the bar treats as the floor (-60 dBFS).
-function mulToDb(mul: number): number {
-  if (mul <= 0) return -Infinity
-  return 20 * Math.log10(mul)
-}
-
-function dBToPercent(dB: number): number {
-  if (dB <= -60) return 0
-  if (dB >= 0) return 100
-  return ((dB + 60) / 60) * 100
-}
-
-// Green = healthy, yellow = approaching clip, red = hot (likely clipping).
-function dBToClass(dB: number): string {
-  if (dB <= -60) return 'silent'
-  if (dB > -6) return 'hot'
-  if (dB > -12) return 'medium'
-  return 'good'
-}
-
-function formatDB(dB: number): string {
-  if (dB <= -60) return '-inf'
-  return `${Math.round(dB)} dB`
-}
 
 interface InputMeter {
   inputName: string
