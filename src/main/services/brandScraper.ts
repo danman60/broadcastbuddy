@@ -29,7 +29,9 @@ export async function scrapeWebsite(url: string): Promise<BrandKit> {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     })
-    html = await response.text()
+    // Cap processed HTML — huge pages combined with regex extraction can stall
+    // the main process; brand metadata lives in the head/early body anyway.
+    html = (await response.text()).slice(0, 3_000_000)
   } catch (err) {
     throw new Error(`Failed to fetch ${url}: ${err instanceof Error ? err.message : String(err)}`)
   } finally {
@@ -151,12 +153,14 @@ function extractLogo(html: string, baseUrl: string): string | null {
   const patterns = [
     /property="og:image"\s+content="([^"]+)"/i,
     /name="og:image"\s+content="([^"]+)"/i,
-    /<link[^>]+rel="icon"[^>]+href="([^"]+)"/i,
-    /<link[^>]+rel="apple-touch-icon"[^>]+href="([^"]+)"/i,
-    /<img[^>]+class="[^"]*logo[^"]*"[^>]+src="([^"]+)"/i,
-    /<img[^>]+id="[^"]*logo[^"]*"[^>]+src="([^"]+)"/i,
-    /<img[^>]+alt="[^"]*logo[^"]*"[^>]+src="([^"]+)"/i,
-    /src="([^"]*logo[^"]*\.(png|svg|jpg|webp))"/i,
+    // Quantifiers are bounded ({1,400}/{0,200}) to prevent catastrophic
+    // backtracking (ReDoS) on hostile/malformed HTML — tags are short.
+    /<link[^>]{1,400}rel="icon"[^>]{1,400}href="([^"]+)"/i,
+    /<link[^>]{1,400}rel="apple-touch-icon"[^>]{1,400}href="([^"]+)"/i,
+    /<img[^>]{1,400}class="[^"]{0,200}logo[^"]{0,200}"[^>]{1,400}src="([^"]+)"/i,
+    /<img[^>]{1,400}id="[^"]{0,200}logo[^"]{0,200}"[^>]{1,400}src="([^"]+)"/i,
+    /<img[^>]{1,400}alt="[^"]{0,200}logo[^"]{0,200}"[^>]{1,400}src="([^"]+)"/i,
+    /src="([^"]{0,200}logo[^"]{0,200}\.(png|svg|jpg|webp))"/i,
   ]
 
   for (const pattern of patterns) {
