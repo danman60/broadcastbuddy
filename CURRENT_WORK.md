@@ -75,6 +75,11 @@ Cross-checked BB's 7 CC calls against CC's LIVE code (not docs). Result: aligned
   - Non-bugs ruled out: overlay missing-notifyChange (renderer uses IPC return), WS state injection (hub ignores client state), handleCommand throw (wrapped in try/catch), BroadcastPackagePanel/RecordingUploadPanel cleanups (already correct), session/recovery reads (already guarded).
 - **5 new UI specs (+50 → 172 total):** overlay-controls, starting-soon-media, logo-ticker, animation-panel, daychecklist-ui. Fixed 2 first-run test bugs (daychecklist dismissed-state persistence bleed; ambiguous "Show" selector).
 - **172 Playwright tests pass** (14 specs, xvfb, workers=1).
+- **More bug-hunt rounds (import pipeline + core index/ipc) → 3 more fixes:**
+  - llmService: robust LLM-response parsing (`parseLlmArray` strips fences anywhere + slices to outermost `[...]` + clear error on bad JSON; verified on raw/fenced/prose/invalid) + empty-doc guard + 40k input cap. FieldMapper transforms audited — already graceful, no fix.
+  - `index.ts`: single-instance lock (packaged only) — 2nd launch would fail to bind 19080/19081; now focuses existing window. Gated so the test harness's many instances are unaffected.
+  - Core index/ipc audit otherwise CLEAN (slowZoom order, selectTrigger bounds, CC-apply broadcast all verified fine).
+- **r2Upload multipart** (>100MB) — closes the CC-flagged >5GB recital-video gap (single PUT caps at 5GB). CreateMultipartUpload → 100MB part loop → Complete, Abort on error. **NOT runtime-verified (no live R2 >5GB upload)** — validate on FIRMAMENT.
 
 ### Build / test status
 electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright **172 passed / 0 failed** (xvfb, workers=1, 14 specs).
