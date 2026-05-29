@@ -1,5 +1,27 @@
 # Current Work - BroadcastBuddy
 
+## ⭐ MORNING REVIEW — 2026-05-29 (read this first)
+
+**State: GREEN.** tsc 0/0 (node+web) · electron-vite build EXIT 0 · **177 Playwright tests pass** (16 specs, `xvfb-run -a npx playwright test --workers=1`). All work committed + pushed to `main` (remote moved to `broadcastbuddy.git`).
+
+**What shipped overnight (all verified headless unless noted):**
+- Fixed the **real overlay bug**: browser source hardcoded the dead `ws://…:9877`; now injects the configured `wsPort` (default 19081) + uses `location.hostname`. (OBS could never connect before.)
+- tsc 87→0; PDF import fixed (pdfjs, runtime-verified); 4 CompSync parity features ported (hotkeys, OBS stream-control+replay, system monitor, Stream Deck installer).
+- **Stream Deck plugin built** (`bin/plugin.js`) + 7 new actions, statically verified (commands↔wsHub, UUIDs↔manifest 1:1). NOT hardware-validated.
+- **9 verified bug-fixes** (7 audit rounds incl. adversarial self-verify): atomic session/recovery writes, brandScraper ReDoS, store-listener idempotency, robust LLM-response parsing, single-instance lock (packaged), + the overlay port fix.
+- **r2 multipart upload** (>100MB) — closes the CC >5GB recital-video gap. **NOT runtime-verified (no live R2).**
+- CC↔BB integration verified airtight with CommandCentered-2 (CC fixed its WS port `3c2d0cd`); headless CC apply-package E2E added.
+- Test suite grew to 177 (overlay state-machine, triggers/session/import/styling/playlist/resilience UI, CC apply, WS hub + auto-hide timer, wave 5-8 IPC, plugin commands). Suite-quality audited (0 critical).
+
+**🔴 NEEDS YOU (hardware / can't headless):**
+1. Live OBS walkthrough on FIRMAMENT — install `/mnt/firmament/BroadcastBuddy-Setup-2026-05-28.exe` (⚠️ NOT the stale `…-05-20.exe`). Exercise record/meters/slow-zoom/stream/replay/hotkeys + tablet WiFi + Stream Deck device.
+2. Validate r2 multipart with a real >5GB upload.
+3. Decisions: delete stale 05-20 installer? · feature-card vs chip · starting-soon media default · chat Supabase project · installer Drive sharing scope.
+
+**Honest caveats:** "tested" = headless surface only. Plugin builds (not hardware-run). Multipart builds (not R2-run). Remote-OBS overlay needs the WS hub bound to 0.0.0.0 (currently 127.0.0.1 — fine for same-machine).
+
+---
+
 ## Session 2026-05-28 (overnight harden + test) — tsc clean, real overlay bug fixed, test suite added
 
 Mission: harden + test the 8-wave parity port (prior session shipped it but NOTHING was runtime-tested). Progress:
