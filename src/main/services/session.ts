@@ -4,6 +4,7 @@ import path from 'path'
 import { Session, Trigger, OverlayStyling, DEFAULT_STYLING, LoopMode, Note, StreamConfig } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
+import { writeFileAtomic } from './fsAtomic'
 
 const logger = createLogger('session')
 
@@ -68,7 +69,7 @@ export function saveSession(
   currentSession.updatedAt = new Date().toISOString()
 
   const filePath = path.join(getSessionsDir(), `${currentSession.id}.json`)
-  fs.writeFileSync(filePath, JSON.stringify(currentSession, null, 2), 'utf-8')
+  writeFileAtomic(filePath, JSON.stringify(currentSession, null, 2))
   logger.info(`Session saved: ${currentSession.name} → ${filePath}`)
   recordEvent('session', `Session saved: ${currentSession.name}`, { sessionId: currentSession.id, triggers: triggers.length })
   return currentSession

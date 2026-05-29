@@ -17,6 +17,7 @@ import { app } from 'electron'
 import type { Trigger, OverlayState } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
+import { writeFileAtomic } from './fsAtomic'
 
 const logger = createLogger('crashRecovery')
 
@@ -91,7 +92,7 @@ function writeSnapshot(): void {
   // Skip empty snapshots — nothing worth restoring.
   if (!snap.triggers.length && !snap.currentSessionId) return
   try {
-    fs.writeFileSync(getSnapshotPath(), JSON.stringify(snap), 'utf-8')
+    writeFileAtomic(getSnapshotPath(), JSON.stringify(snap))
   } catch (err) {
     logger.warn(`Failed to write snapshot: ${err instanceof Error ? err.message : err}`)
   }
