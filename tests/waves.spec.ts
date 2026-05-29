@@ -235,11 +235,12 @@ test('chat reconfigure does not throw when unconfigured', async () => {
 test('event log returns recent records', async () => {
   const events = await win.evaluate(() => window.api.eventsGetRecent(20))
   expect(Array.isArray(events)).toBe(true)
-  // The app records session/startup events on boot, so there should be some.
-  if (events.length > 0) {
-    expect(events[0]).toHaveProperty('kind')
-    expect(events[0]).toHaveProperty('message')
-  }
+  // The app records a 'system' "BroadcastBuddy started" event on boot, so the
+  // log is guaranteed non-empty — assert shape unconditionally.
+  expect(events.length).toBeGreaterThan(0)
+  expect(events[0]).toHaveProperty('kind')
+  expect(events[0]).toHaveProperty('message')
+  expect(typeof events[0].t).toBe('string')
 })
 
 test('crash recovery check returns a status', async () => {

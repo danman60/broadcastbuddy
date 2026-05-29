@@ -92,13 +92,13 @@ test('IPC: eventsGetRecent returns an array of records', async () => {
     return window.api.eventsGetRecent(50)
   })
   expect(Array.isArray(rows)).toBe(true)
-  // If any events have been recorded, each carries t/kind/message.
-  if (rows.length > 0) {
-    const r = rows[0]
-    expect(r).toHaveProperty('t')
-    expect(r).toHaveProperty('kind')
-    expect(r).toHaveProperty('message')
-  }
+  // The boot 'system' event guarantees the log is non-empty — assert shape
+  // unconditionally (each record carries t/kind/message).
+  expect(rows.length).toBeGreaterThan(0)
+  const r = rows[0]
+  expect(r).toHaveProperty('t')
+  expect(r).toHaveProperty('kind')
+  expect(r).toHaveProperty('message')
 })
 
 test('EventLogPanel renders in the right panel', async () => {
