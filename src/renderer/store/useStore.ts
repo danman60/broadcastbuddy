@@ -84,6 +84,13 @@ export const useStore = create<AppStore>((set) => ({
 
 // Initialize IPC listeners
 export function initStoreListeners(): void {
+  // Idempotent: clear any prior registration first. RecoveryBanner.restore()
+  // re-calls this, and React StrictMode double-mounts App in dev — without this
+  // the 3 store listeners would stack and every state push would fire twice.
+  window.api.removeAllListeners('overlay:state-update')
+  window.api.removeAllListeners('triggers:updated')
+  window.api.removeAllListeners('session:updated')
+
   window.api.on('overlay:state-update', (state) => {
     useStore.getState().setOverlayState(state as OverlayState)
   })
