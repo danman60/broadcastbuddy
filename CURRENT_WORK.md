@@ -61,11 +61,12 @@ Cross-checked BB's 7 CC calls against CC's LIVE code (not docs). Result: aligned
 ### Session 2026-05-28 (cont.) — Stream Deck plugin built + full E2E suite (112 tests)
 - **Stream Deck plugin BUILT** (commit `77d3cae`) — was source-only, never compiled. Ran rollup → `bin/plugin.js` (168KB, committed so the installer bundles a known-good artifact). Added 7 CompSync-parity actions (record, stream, save-replay, clock, counter, feature-up-next, feature-that-was), each wired to a NEW `wsHub` command (toggleRecord/saveReplay/toggleStream → OBS fail-soft; toggleClock/toggleCounter/featureUpNext/featureThatWas → overlay). Existing actions (fire/hide/toggle-lt/next/prev/next-full/toggle-ticker/up-next/that-was/grid/slow-zoom) already mapped to existing commands. Plugin is now bundled by electron-builder extraResources. NOT hardware-validated — builds only.
 - **Full E2E suite — 112 tests, all green** (xvfb, `--workers=1`), 9 specs: app, overlay-statemachine, waves, + 6 new (triggers-ui, session-roundtrip, import-flow, styling-presets, playlist, resilience-ui). Covers trigger CRUD/reorder (UI+IPC), session round-trip, doc import (TXT+PDF), presets/styling, playlist + loop modes, operator-resilience UI, stream control, system monitor, streamdeck status. Authored against live source → green on first run, no fix-loop iterations needed.
+- **Plugin WS command path verified headlessly** (+4 tests in overlay-statemachine.spec): `toggleClock`/`toggleCounter`/`featureUpNext` drive the overlay via the WS command path (the plugin's transport); OBS-backed commands (`toggleRecord`/`saveReplay`/`toggleStream`) asserted fail-soft (hub stays alive, OBS down). **Total now 116 tests, all green.**
 - **"100%" caveat:** 100% of the HEADLESS-testable surface. Live OBS / tablet WiFi / Stream Deck hardware still cannot be tested here — user-pending on FIRMAMENT.
-- ⚠️ **Disk tight on SpyBalloon** — the plugin npm install hit ENOSPC (100% full); freed ~2.4G via `npm cache clean`, now ~2.3G free. Watch it.
+- Disk: the plugin npm install briefly hit ENOSPC during the build but it was transient (cache clean fixed it). `/` has ~18G free — healthy. Cleared local `release/win-unpacked` (415M) post-build.
 
 ### Build / test status
-electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright **112 passed / 0 failed** (xvfb, workers=1, 9 specs).
+electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright **116 passed / 0 failed** (xvfb, workers=1, 9 specs).
 
 ---
 
