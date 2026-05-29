@@ -40,10 +40,46 @@ Rules:
 - Preserve the original order from the document
 - Return raw JSON only, no markdown fences, no explanation`
 
+// Robustly pull the JSON array out of an LLM response. Handles markdown fences
+// ANYWHERE (not just at position 0) and leading/trailing prose ("Here's the
+// JSON: [...]. Done."), and turns a parse failure into a clear error instead of
+// a raw SyntaxError. Exported for unit testing.
+export function parseLlmArray(content: string): Record<string, unknown>[] {
+  let s = content.trim()
+  // Prefer a fenced block if present (```json ... ```), anywhere in the text.
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fence) s = fence[1].trim()
+  // Otherwise slice to the outermost [...] so surrounding prose is dropped.
+  const start = s.indexOf('[')
+  const end = s.lastIndexOf(']')
+  if (start !== -1 && end > start) s = s.slice(start, end + 1)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(s)
+  } catch {
+    throw new Error('DeepSeek returned a response that was not valid JSON.')
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error('DeepSeek response is not a JSON array of triggers.')
+  }
+  return parsed as Record<string, unknown>[]
+}
+
 export async function extractTriggers(documentText: string): Promise<ExtractionResult> {
   const apiKey = settings.get('deepseekApiKey')
   if (!apiKey) {
     throw new Error('DeepSeek API key not configured. Set it in Settings.')
+  }
+
+  const text = documentText.trim()
+  if (!text) {
+    throw new Error('Document is empty — nothing to extract.')
+  }
+  // Cap input so a huge rundown can't blow the token budget / cost.
+  const MAX_INPUT_CHARS = 40000
+  const input = text.length > MAX_INPUT_CHARS ? text.slice(0, MAX_INPUT_CHARS) : text
+  if (input.length < text.length) {
+    logger.warn(`Document truncated ${text.length}→${input.length} chars before sending to DeepSeek`)
   }
 
   const client = new OpenAI({
@@ -51,13 +87,13 @@ export async function extractTriggers(documentText: string): Promise<ExtractionR
     baseURL: 'https://api.deepseek.com',
   })
 
-  logger.info(`Sending ${documentText.length} chars to DeepSeek for parsing`)
+  logger.info(`Sending ${input.length} chars to DeepSeek for parsing`)
 
   const response = await client.chat.completions.create({
     model: 'deepseek-chat',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: documentText },
+      { role: 'user', content: input },
     ],
     temperature: 0.1,
     max_tokens: 4096,
@@ -70,17 +106,7 @@ export async function extractTriggers(documentText: string): Promise<ExtractionR
 
   logger.info(`DeepSeek response: ${content.length} chars`)
 
-  // Parse JSON — handle potential markdown fences
-  let jsonStr = content.trim()
-  if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-  }
-
-  const parsed = JSON.parse(jsonStr)
-
-  if (!Array.isArray(parsed)) {
-    throw new Error('DeepSeek response is not an array')
-  }
+  const parsed = parseLlmArray(content)
 
   // Collect unique field names from all objects
   const fieldNames = new Set<string>()
