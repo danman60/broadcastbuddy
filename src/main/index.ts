@@ -57,7 +57,27 @@ function createWindow(): void {
   })
 }
 
+// Single-instance lock (packaged builds only): a second launch would fail to
+// bind the overlay HTTP (19080) + WS (19081) ports, leaving a broken window.
+// Refuse the second instance and focus the existing one. Gated to packaged so
+// the test harness (which launches many short-lived instances) is unaffected.
+if (app.isPackaged && !app.requestSingleInstanceLock()) {
+  logger.warn('Another BroadcastBuddy instance is already running — quitting this one')
+  app.quit()
+} else if (app.isPackaged) {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    }
+  })
+}
+
 app.whenReady().then(() => {
+  // If we didn't get the single-instance lock, the app is quitting — don't
+  // start servers that would collide with the primary instance.
+  if (app.isPackaged && !app.hasSingleInstanceLock()) return
   logger.info('BroadcastBuddy starting...')
 
   // Reap orphaned wifi-display process from a previous crash before anything
