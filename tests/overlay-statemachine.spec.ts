@@ -167,3 +167,53 @@ test('WS command: toggleGrid from a raw client toggles the grid', async () => {
   const after = await overlay.locator('#bb-grid').evaluate((el) => el.classList.contains('visible'))
   expect(after).toBe(!before)
 })
+
+// ── New Stream Deck plugin command surface (added with the plugin build) ──────
+// The plugin sends these WS commands; verify the hub routes them to the overlay.
+// OBS-backed commands (toggleRecord/saveReplay/toggleStream) can't be checked
+// headlessly — covered by a fail-soft "hub stays alive" assertion below.
+
+test('WS command: toggleClock drives the on-air clock', async () => {
+  const before = await overlay.locator('#bb-clock').evaluate((el) => el.classList.contains('visible'))
+  await sendCommand('toggleClock')
+  const after = await overlay.locator('#bb-clock').evaluate((el) => el.classList.contains('visible'))
+  expect(after).toBe(!before)
+  await sendCommand('toggleClock') // restore
+})
+
+test('WS command: toggleCounter drives the counter badge', async () => {
+  const before = await overlay.locator('#bb-counter').evaluate((el) => el.classList.contains('visible'))
+  await sendCommand('toggleCounter')
+  const after = await overlay.locator('#bb-counter').evaluate((el) => el.classList.contains('visible'))
+  expect(after).toBe(!before)
+  await sendCommand('toggleCounter') // restore
+})
+
+test('WS command: featureUpNext drives the feature card from a neighbour', async () => {
+  // Needs >=2 triggers + a selected position so a neighbour exists.
+  await win.evaluate(async () => {
+    await window.api.triggerClearAll()
+    await window.api.triggerAdd({ id: 'fc-a', name: 'A', title: 'First', subtitle: '', category: '', order: 0, logoDataUrl: '' })
+    await window.api.triggerAdd({ id: 'fc-b', name: 'B', title: 'Second', subtitle: '', category: '', order: 1, logoDataUrl: '' })
+    await window.api.triggerSelect(0)
+  })
+  await sendCommand('featureUpNext', { kicker: 'UP NEXT' })
+  await expect(overlay.locator('#bb-feature-card')).toHaveClass(/visible/)
+  await expect(overlay.locator('#bb-fc-kicker')).toHaveText('UP NEXT')
+  await win.evaluate(() => window.api.overlayFeatureHide())
+  await overlay.waitForTimeout(950)
+})
+
+test('WS command: OBS-backed commands fail soft (hub stays alive, OBS down)', async () => {
+  // toggleRecord/saveReplay/toggleStream have no OBS in the test env — they must
+  // not throw or wedge the hub. Send all three, then prove the hub still routes
+  // a normal command (toggleGrid) right after.
+  await sendCommand('toggleRecord')
+  await sendCommand('saveReplay')
+  await sendCommand('toggleStream')
+  const before = await overlay.locator('#bb-grid').evaluate((el) => el.classList.contains('visible'))
+  await sendCommand('toggleGrid')
+  const after = await overlay.locator('#bb-grid').evaluate((el) => el.classList.contains('visible'))
+  expect(after).toBe(!before)
+  await sendCommand('toggleGrid') // restore
+})
