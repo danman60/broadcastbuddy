@@ -75,6 +75,8 @@ export async function installPlugin(): Promise<{ ok: boolean; filesCopied?: numb
   }
   const target = path.join(pluginsDir, PLUGIN_UUID)
   try {
+    // Clean any prior install so an upgrade can't leave stale files behind.
+    if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true })
     const filesCopied = copyDirRecursive(bundled, target)
     logger.info(`Stream Deck plugin installed: ${filesCopied} files → ${target}`)
     return { ok: true, filesCopied, target }

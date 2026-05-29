@@ -50,6 +50,9 @@
     "files": [
       "out/**/*"
     ],
+    "asarUnpack": [
+      "**/node_modules/pdfjs-dist/**"
+    ],
     "extraResources": [
       {
         "from": "resources/",
