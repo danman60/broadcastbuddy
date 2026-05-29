@@ -65,8 +65,19 @@ Cross-checked BB's 7 CC calls against CC's LIVE code (not docs). Result: aligned
 - **"100%" caveat:** 100% of the HEADLESS-testable surface. Live OBS / tablet WiFi / Stream Deck hardware still cannot be tested here — user-pending on FIRMAMENT.
 - Disk: the plugin npm install briefly hit ENOSPC during the build but it was transient (cache clean fixed it). `/` has ~18G free — healthy. Cleared local `release/win-unpacked` (415M) post-build.
 
+### Session 2026-05-29 (overnight cont.) — bug-hunt fixes + coverage to 172
+- **Headless CC apply-package E2E** (+6, cc-integration.spec) — synthetic BroadcastPackage through ccApplyPackage proves trigger conversion, streaming, accent fallback, overlayConfig, null-safety. No live CC needed.
+- **Plugin WS command path verified** (+4 in overlay-statemachine) — toggleClock/toggleCounter/featureUpNext drive overlay; OBS commands fail soft. Plugin statically verified: 19 sent commands all ∈ wsHub handled set; 19 manifest UUIDs ↔ 19 action classes (decorators match).
+- **Full-codebase bug-hunt (4 parallel auditors) → 4 verified fixes** (rest triaged as non-bugs):
+  - `fsAtomic.writeFileAtomic` (temp+fsync+rename) for `saveSession` + `writeSnapshot` — crash-mid-write no longer truncates session/recovery JSON.
+  - brandScraper ReDoS — bounded all logo-regex quantifiers + 3MB HTML cap (200k pathological input: multi-sec → 0ms; main process no longer freezes on a hostile page).
+  - `initStoreListeners` idempotent — RecoveryBanner.restore re-called it → store listeners double-registered in prod (every push fired twice). Now clears first.
+  - Non-bugs ruled out: overlay missing-notifyChange (renderer uses IPC return), WS state injection (hub ignores client state), handleCommand throw (wrapped in try/catch), BroadcastPackagePanel/RecordingUploadPanel cleanups (already correct), session/recovery reads (already guarded).
+- **5 new UI specs (+50 → 172 total):** overlay-controls, starting-soon-media, logo-ticker, animation-panel, daychecklist-ui. Fixed 2 first-run test bugs (daychecklist dismissed-state persistence bleed; ambiguous "Show" selector).
+- **172 Playwright tests pass** (14 specs, xvfb, workers=1).
+
 ### Build / test status
-electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright **116 passed / 0 failed** (xvfb, workers=1, 9 specs).
+electron-vite build EXIT 0 · tsc --noEmit EXIT 0 (node + web) · Playwright **172 passed / 0 failed** (xvfb, workers=1, 14 specs).
 
 ---
 
