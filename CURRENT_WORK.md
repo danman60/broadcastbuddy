@@ -20,6 +20,12 @@
 
 **Honest caveats:** "tested" = headless surface only. Plugin builds (not hardware-run). Multipart builds (not R2-run). Remote-OBS overlay needs the WS hub bound to 0.0.0.0 (currently 127.0.0.1 — fine for same-machine).
 
+**Gallery findings (audited tonight, NOT fixed — gallery is untestable headless; matching-logic changes need real gallery data to validate):**
+- `galleryService.matchPhotos` boundary check is inclusive on both ends (`>= start && <= end`) for exact + gap zones — a photo exactly on a routine boundary could be ambiguous between two routines. Consider half-open windows (`>= start && < end`). DATA-QUALITY (wrong assignment), not a crash.
+- `parseHMS` accepts out-of-range times from Gemini (e.g. "99:99:99" → 99h) with no bounds check → could produce wild clock offsets. Add range validation/clamp.
+- gallerySlug uses `Date.now().toString(36)` — same-ms + same-title collision possible (rare); consider a random suffix.
+- (Verified NON-bugs the audit flagged: the upload loop's file read IS inside try/catch — one bad photo is skipped, not fatal; and `matchedRoutineIndex!` is guarded by the filter. Upload path is safe.)
+
 ---
 
 ## Session 2026-05-28 (overnight harden + test) — tsc clean, real overlay bug fixed, test suite added
