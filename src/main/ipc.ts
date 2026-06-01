@@ -47,6 +47,11 @@ function pushState(): void {
   }
 }
 
+function pushLastAdhoc(): void {
+  const win = getMainWindow()
+  if (win) win.webContents.send(IPC.OVERLAY_LAST_ADHOC_UPDATE, overlay.getLastAdhoc())
+}
+
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
@@ -62,6 +67,21 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.OVERLAY_HIDE_LT, () => {
     overlay.hideLowerThird()
     pushState()
+  })
+
+  // ── Ad-hoc freeform lower-third (Phase D) ─────────────────────
+  // Fire a one-off lower-third from arbitrary text. Does not touch the saved
+  // triggers. Pushes the last-adhoc readout to the renderer + WS overlay.
+  ipcMain.handle(IPC.OVERLAY_FIRE_ADHOC, (_e, title: string, subtitle?: string) => {
+    overlay.fireAdhoc(typeof title === 'string' ? title : '', typeof subtitle === 'string' ? subtitle : '')
+    pushState()
+    pushLastAdhoc()
+    broadcastState()
+    return overlay.getLastAdhoc()
+  })
+
+  ipcMain.handle(IPC.OVERLAY_GET_LAST_ADHOC, () => {
+    return overlay.getLastAdhoc()
   })
 
   ipcMain.handle(IPC.OVERLAY_GET_STATE, () => {
@@ -1220,8 +1240,18 @@ export function registerIpcHandlers(): void {
     if (win && payload) win.webContents.send('cc:package-pushed', payload)
   })
 
-  // Phase D will consume ad-hoc lower-thirds here. Wired now, no-op for now.
-  ccRelay.setOnAdhoc(() => { /* reserved for Phase D */ })
+  // A relayed 'adhoc' broadcast fires a one-off lower-third identically to the
+  // local Ad-hoc box. Validate defensively (strings, fallback empty) so a
+  // malformed payload can't throw inside the relay callback.
+  ccRelay.setOnAdhoc((payload) => {
+    const p = (payload ?? {}) as { title?: unknown; subtitle?: unknown }
+    const title = typeof p.title === 'string' ? p.title : ''
+    const subtitle = typeof p.subtitle === 'string' ? p.subtitle : ''
+    overlay.fireAdhoc(title, subtitle)
+    pushState()
+    pushLastAdhoc()
+    broadcastState()
+  })
 
   // Push relay connection-state changes to the renderer so the UI can show it.
   ccRelay.setOnStateChange(() => {

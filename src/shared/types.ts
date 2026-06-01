@@ -651,6 +651,9 @@ export const IPC = {
   // Overlay control
   OVERLAY_FIRE_LT: 'overlay:fire-lt',
   OVERLAY_HIDE_LT: 'overlay:hide-lt',
+  OVERLAY_FIRE_ADHOC: 'overlay:fire-adhoc',     // (title, subtitle) → one-off lower-third
+  OVERLAY_GET_LAST_ADHOC: 'overlay:get-last-adhoc',
+  OVERLAY_LAST_ADHOC_UPDATE: 'overlay:last-adhoc', // main → renderer push on each ad-hoc fire
   OVERLAY_GET_STATE: 'overlay:get-state',
   OVERLAY_UPDATE_STYLING:'overlay:update-styling',
   OVERLAY_SET_LOGOS: 'overlay:set-logos',

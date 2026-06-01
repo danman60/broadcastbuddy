@@ -5,6 +5,7 @@ import { TriggerList } from './TriggerList'
 import { OverlayPreview } from './OverlayPreview'
 import { TriggerEditor } from './TriggerEditor'
 import { OverlayControls } from './OverlayControls'
+import { AdhocPanel } from './AdhocPanel'
 import { AnimationPanel } from './AnimationPanel'
 import { StylingPanel } from './StylingPanel'
 import { LogoManager } from './LogoManager'
@@ -56,6 +57,7 @@ export function App() {
         </div>
         <div className="right-panel">
           <OverlayControls />
+          <AdhocPanel />
           <TriggerEditor />
           <AnimationPanel />
           <StartingSoonPanel />

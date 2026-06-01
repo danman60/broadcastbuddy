@@ -4,6 +4,8 @@ interface ElectronAPI {
   // Overlay
   overlayFireLT: () => Promise<void>
   overlayHideLT: () => Promise<void>
+  overlayFireAdhoc: (title: string, subtitle?: string) => Promise<{ title: string; subtitle: string; at: number } | null>
+  overlayGetLastAdhoc: () => Promise<{ title: string; subtitle: string; at: number } | null>
   overlayGetState: () => Promise<OverlayState>
   overlayUpdateStyling: (updates: Partial<OverlayStyling>) => Promise<void>
   overlaySetLogos: (company: string, client: string) => Promise<void>

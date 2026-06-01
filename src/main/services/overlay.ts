@@ -392,6 +392,47 @@ export function fireText(title: string, subtitle = '', label = ''): void {
   fireLowerThird()
 }
 
+// ── Ad-hoc freeform lower-third (Phase D) ────────────────────────
+// Fire arbitrary title/subtitle text as a ONE-OFF lower-third. Does NOT mutate
+// the saved triggers array or selectedIndex — it's transient. Reuses the same
+// visible/auto-hide/notifyChange machinery as fireLowerThird so the browser
+// source renders it identically. Sources: the local Ad-hoc box AND the CC live
+// relay's 'adhoc' broadcast.
+
+let adhocCounter = 0
+let lastAdhoc: { title: string; subtitle: string; at: number } | null = null
+
+export function fireAdhoc(title: string, subtitle = ''): void {
+  const t = typeof title === 'string' ? title : ''
+  const s = typeof subtitle === 'string' ? subtitle : ''
+  // Construct the transient lower-third in-place. No trigger object is added,
+  // and selectedIndex is left untouched.
+  adhocCounter++
+  overlayState.lowerThird.name = t
+  overlayState.lowerThird.title = t
+  overlayState.lowerThird.subtitle = s
+  overlayState.lowerThird.label = ''
+  lastAdhoc = { title: t, subtitle: s, at: Date.now() }
+
+  // Reuse fireLowerThird's visible + auto-hide + notify path without going
+  // through it (so we don't depend on/disturb playlist selection state).
+  overlayState.lowerThird.visible = true
+  if (autoHideTimer) clearTimeout(autoHideTimer)
+  const seconds = overlayState.lowerThird.styling.autoHideSeconds
+  if (seconds > 0) {
+    autoHideTimer = setTimeout(() => {
+      hideLowerThird()
+    }, seconds * 1000)
+  }
+  notifyChange()
+  logger.info(`Ad-hoc lower third fired (adhoc-${adhocCounter}): ${t}`)
+  recordEvent('overlay', `Ad-hoc lower third fired: ${t}`)
+}
+
+export function getLastAdhoc(): { title: string; subtitle: string; at: number } | null {
+  return lastAdhoc
+}
+
 // ── Styling ──────────────────────────────────────────────────────
 
 export function updateStyling(updates: Partial<OverlayStyling>): void {

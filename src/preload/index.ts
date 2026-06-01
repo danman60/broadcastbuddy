@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
   overlayFireLT: () => ipcRenderer.invoke(IPC.OVERLAY_FIRE_LT),
   overlayHideLT: () => ipcRenderer.invoke(IPC.OVERLAY_HIDE_LT),
+  overlayFireAdhoc: (title: string, subtitle?: string) =>
+    ipcRenderer.invoke(IPC.OVERLAY_FIRE_ADHOC, title, subtitle),
+  overlayGetLastAdhoc: () => ipcRenderer.invoke(IPC.OVERLAY_GET_LAST_ADHOC),
   overlayGetState: () => ipcRenderer.invoke(IPC.OVERLAY_GET_STATE),
   overlayUpdateStyling: (updates: Partial<OverlayStyling>) =>
     ipcRenderer.invoke(IPC.OVERLAY_UPDATE_STYLING, updates),
