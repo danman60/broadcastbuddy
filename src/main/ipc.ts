@@ -12,6 +12,7 @@ import * as galleryService from './services/galleryService'
 import * as wifiDisplay from './services/wifiDisplay'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
+import * as ccRelay from './services/ccRelay'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
@@ -653,6 +654,23 @@ export function registerIpcHandlers(): void {
       })
     }
 
+    // Auto-arm the CC→BB live relay if the package carries a `realtime` block.
+    // tenantId comes from the saved CC connection settings used for the fetch.
+    // No realtime block → leave the relay dormant (back-compat with old packages).
+    const rt = pkg.realtime
+    const resolvedEventId = pkg.eventId || eventId || ''
+    const cc = settings.get('ccConfig') as { tenantId?: string } | undefined
+    const tenantId = cc?.tenantId || ''
+    if (rt && rt.supabaseUrl && rt.supabaseAnonKey && tenantId && resolvedEventId) {
+      ccRelay.init({
+        enabled: true,
+        supabaseUrl: rt.supabaseUrl,
+        supabaseAnonKey: rt.supabaseAnonKey,
+        tenantId,
+        eventId: resolvedEventId,
+      })
+    }
+
     return { success: true, triggerCount: newTriggers.length }
   })
 
@@ -1190,6 +1208,29 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CHAT_LIVESTREAM_UNPIN, async (_e, id: string) => {
     const ok = await chatBridge.livestreamUnpin(id)
     return { ok }
+  })
+
+  // ── CC→BB live relay (Supabase Realtime broadcast, dormant until armed) ───────
+
+  // A relayed 'package' broadcast applies identically to a WS package push:
+  // forward it to the renderer as cc:package-pushed, which auto-applies via the
+  // same BroadcastPackagePanel path as a manual pull.
+  ccRelay.setOnPackage((payload) => {
+    const win = getMainWindow()
+    if (win && payload) win.webContents.send('cc:package-pushed', payload)
+  })
+
+  // Phase D will consume ad-hoc lower-thirds here. Wired now, no-op for now.
+  ccRelay.setOnAdhoc(() => { /* reserved for Phase D */ })
+
+  // Push relay connection-state changes to the renderer so the UI can show it.
+  ccRelay.setOnStateChange(() => {
+    const win = getMainWindow()
+    if (win) win.webContents.send(IPC.CC_RELAY_STATE_UPDATE, ccRelay.getState())
+  })
+
+  ipcMain.handle(IPC.CC_RELAY_GET_STATE, () => {
+    return ccRelay.getState()
   })
 
   // ── Operator day checklist (start-of-day / end-of-day) ────────

@@ -333,6 +333,26 @@ export interface ChatState {
   bannedAuthors: string[]
 }
 
+// ── CC→BB Live Relay (Supabase Realtime broadcast, config-injected, dormant) ──
+// CC (on Vercel) can't WS-push to the operator's local BB. Instead CC publishes
+// on a Supabase Realtime *broadcast* channel `bb:<tenantId>:<eventId>`; BB
+// subscribes via the anon key. Dormant until a package's `realtime` block arms
+// it (or it's explicitly init'd). See src/main/services/ccRelay.ts.
+
+export interface CcRelayConfig {
+  enabled: boolean
+  supabaseUrl: string
+  supabaseAnonKey: string
+  tenantId: string
+  eventId: string
+}
+
+export interface CcRelayState {
+  connected: boolean
+  enabled: boolean
+  channel: string // 'bb:<tenantId>:<eventId>' when configured, else ''
+}
+
 // ── Operator Day Checklist (start-of-day / end-of-day) ──────────────────────
 // The operator's OWN pre-show setup / post-show teardown list — distinct from
 // the CC-pushed broadcast-package checklist. Item definitions are static in
@@ -498,6 +518,14 @@ export interface BroadcastPackage {
     clientFolderId: string | null
     clientFolderUrl: string | null
   }
+  // CC→BB live relay coordinates. When present (both url + anon key), applying
+  // the package auto-arms ccRelay so subsequent CC pushes land live. Omitted on
+  // old packages / when CC's Supabase env is unset → relay stays dormant.
+  realtime?: {
+    channel?: string // 'bb:<tenantId>:<eventId>' (informational)
+    supabaseUrl: string
+    supabaseAnonKey: string
+  }
 }
 
 export interface CCEvent {
@@ -582,7 +610,7 @@ export interface AudioInputLevel {
 
 // ── Operator Resilience (event log / crash recovery / startup / backup) ──────
 
-export type EventLogKind = 'session' | 'overlay' | 'obs' | 'wifi' | 'gallery' | 'chat' | 'system' | 'error'
+export type EventLogKind = 'session' | 'overlay' | 'obs' | 'wifi' | 'gallery' | 'chat' | 'cc' | 'system' | 'error'
 
 export interface EventLogRecord {
   t: string // ISO timestamp
@@ -820,6 +848,10 @@ export const IPC = {
   CHAT_UNBAN_AUTHOR: 'chat:unban-author',   // lift a ban
   CHAT_LIVESTREAM_PIN: 'chat:livestream-pin',     // pin for the PUBLIC livestream overlay
   CHAT_LIVESTREAM_UNPIN: 'chat:livestream-unpin',
+
+  // CC→BB live relay (Supabase Realtime broadcast, dormant until a package arms it)
+  CC_RELAY_GET_STATE: 'cc:relay-get-state',
+  CC_RELAY_STATE_UPDATE: 'cc:relay-state', // main → renderer push
 
   // Operator day checklist (start-of-day / end-of-day)
   DAY_CHECKLIST_GET: 'day-checklist:get',          // (date, kind) → DayChecklistView

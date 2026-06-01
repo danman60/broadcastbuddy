@@ -7,6 +7,7 @@ import * as wifiDisplay from './services/wifiDisplay'
 import * as obsConnection from './services/obsConnection'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
+import * as ccRelay from './services/ccRelay'
 import * as session from './services/session'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
@@ -202,6 +203,7 @@ app.on('before-quit', () => {
   wifiDisplay.cleanup()
   stopTabletLogServer()
   chatBridge.disconnect()
+  ccRelay.disconnect()
   wsHub.stop()
   overlay.stopServer()
 })

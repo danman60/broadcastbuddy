@@ -232,6 +232,9 @@ contextBridge.exposeInMainWorld('api', {
   chatLivestreamPin: (id: string) => ipcRenderer.invoke(IPC.CHAT_LIVESTREAM_PIN, id),
   chatLivestreamUnpin: (id: string) => ipcRenderer.invoke(IPC.CHAT_LIVESTREAM_UNPIN, id),
 
+  // ── CC→BB live relay ──────────────────────────────────────────
+  ccRelayGetState: () => ipcRenderer.invoke(IPC.CC_RELAY_GET_STATE),
+
   // ── Operator day checklist (start-of-day / end-of-day) ────────
   dayChecklistGet: (date: string, kind: 'start' | 'end') => ipcRenderer.invoke(IPC.DAY_CHECKLIST_GET, date, kind),
   dayChecklistSetItem: (date: string, kind: 'start' | 'end', itemId: string, value: string) =>

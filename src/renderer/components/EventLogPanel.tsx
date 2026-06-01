@@ -10,11 +10,12 @@ const KIND_COLORS: Record<EventLogKind, string> = {
   wifi: '#22d3ee',
   gallery: '#fbbf24',
   chat: '#f472b6',
+  cc: '#818cf8',
   system: '#94a3b8',
   error: '#f87171',
 }
 
-const KINDS: EventLogKind[] = ['session', 'overlay', 'obs', 'wifi', 'gallery', 'chat', 'system', 'error']
+const KINDS: EventLogKind[] = ['session', 'overlay', 'obs', 'wifi', 'gallery', 'chat', 'cc', 'system', 'error']
 
 export function EventLogPanel() {
   const compactMode = useStore((s) => s.compactMode)

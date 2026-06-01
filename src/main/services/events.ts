@@ -31,6 +31,7 @@ export type EventKind =
   | 'wifi'
   | 'gallery'
   | 'chat'
+  | 'cc'
   | 'system'
   | 'error'
 

@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -161,6 +161,9 @@ interface ElectronAPI {
   chatUnbanAuthor: (author: string) => Promise<{ ok: boolean; bannedAuthors: string[] }>
   chatLivestreamPin: (id: string) => Promise<{ ok: boolean }>
   chatLivestreamUnpin: (id: string) => Promise<{ ok: boolean }>
+
+  // CC→BB live relay
+  ccRelayGetState: () => Promise<CcRelayState>
 
   // Operator day checklist (start-of-day / end-of-day)
   dayChecklistGet: (date: string, kind: DayChecklistKind) => Promise<DayChecklistView>
