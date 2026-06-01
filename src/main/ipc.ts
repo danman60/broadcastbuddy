@@ -551,10 +551,10 @@ export function registerIpcHandlers(): void {
         }
         return {
           id: generateId() + i,
-          name: t.name,
-          title: t.name,
+          name: t.name || t.title || '',
+          title: t.title || t.name,
           subtitle: t.subtitle || '',
-          category: t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
+          category: t.category || t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
           order: i,
           logoDataUrl,
         }

@@ -478,7 +478,9 @@ export interface BroadcastPackage {
   triggers: Array<{
     type: 'title_card' | 'lower_third'
     name: string
+    title?: string
     subtitle?: string
+    category?: string
     logoUrl?: string | null
     shiftName?: string
   }>
