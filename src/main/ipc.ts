@@ -578,6 +578,7 @@ export function registerIpcHandlers(): void {
           category: t.category || t.shiftName || (t.type === 'title_card' ? 'Title' : ''),
           order: i,
           logoDataUrl,
+          type: t.type || 'lower_third',
         }
       })
     )

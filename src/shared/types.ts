@@ -13,6 +13,7 @@ export interface Trigger {
   category: string // grouping label (optional)
   order: number // sort position
   logoDataUrl: string // per-entry logo (base64 data URL, optional)
+  type?: 'lower_third' | 'title_card' | 'feature' // visual form (default lower_third); title_card/feature → full-screen feature card
 }
 
 // ── Overlay Styling ──────────────────────────────────────────────
@@ -496,7 +497,7 @@ export interface BroadcastPackage {
     secondaryColor: string | null
   }
   triggers: Array<{
-    type: 'title_card' | 'lower_third'
+    type: 'title_card' | 'lower_third' | 'feature'
     name: string
     title?: string
     subtitle?: string

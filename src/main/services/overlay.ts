@@ -349,13 +349,39 @@ export function getGridVisible(): boolean {
 
 // ── Overlay control ──────────────────────────────────────────────
 
-export function fireLowerThird(): void {
-  overlayState.lowerThird.visible = true
+// forceLowerThird: transient text fires (chat pins) always render as a lower
+// third even when the currently-selected playlist trigger is a title_card/feature.
+export function fireLowerThird(forceLowerThird = false): void {
+  const selected = selectedIndex >= 0 && selectedIndex < triggers.length ? triggers[selectedIndex] : null
 
-  // Track played trigger
-  if (selectedIndex >= 0 && selectedIndex < triggers.length) {
-    playedSet.add(triggers[selectedIndex].id)
+  // Track played trigger (position logic is identical regardless of visual form)
+  if (selected) {
+    playedSet.add(selected.id)
   }
+
+  // title_card / feature triggers render as the FULL-SCREEN feature card instead
+  // of a lower third. Playlist position (selectedIndex) is untouched.
+  if (!forceLowerThird && selected && (selected.type === 'title_card' || selected.type === 'feature')) {
+    // Cancel any pending lower-third auto-hide and clear the chip so the two
+    // forms never show simultaneously.
+    if (autoHideTimer) {
+      clearTimeout(autoHideTimer)
+      autoHideTimer = null
+    }
+    overlayState.lowerThird.visible = false
+    showFeatureCard({
+      kicker: selected.category || '',
+      title: selected.title || selected.name,
+      subtitle: selected.subtitle,
+      logoDataUrl: selected.logoDataUrl || '',
+      animateIn: 'slide-up',
+    })
+    logger.info(`Feature card fired (trigger type ${selected.type}): ${selected.name}`)
+    recordEvent('overlay', `Feature card fired: ${selected.name}`, { triggerId: selected.id })
+    return
+  }
+
+  overlayState.lowerThird.visible = true
 
   if (autoHideTimer) clearTimeout(autoHideTimer)
   const seconds = overlayState.lowerThird.styling.autoHideSeconds
@@ -367,8 +393,7 @@ export function fireLowerThird(): void {
 
   notifyChange()
   logger.info('Lower third fired')
-  const fired = selectedIndex >= 0 && selectedIndex < triggers.length ? triggers[selectedIndex] : null
-  recordEvent('overlay', `Lower third fired${fired ? `: ${fired.name}` : ''}`, fired ? { triggerId: fired.id } : undefined)
+  recordEvent('overlay', `Lower third fired${selected ? `: ${selected.name}` : ''}`, selected ? { triggerId: selected.id } : undefined)
 }
 
 export function hideLowerThird(): void {
@@ -389,7 +414,7 @@ export function fireText(title: string, subtitle = '', label = ''): void {
   overlayState.lowerThird.title = title
   overlayState.lowerThird.subtitle = subtitle
   overlayState.lowerThird.label = label
-  fireLowerThird()
+  fireLowerThird(true) // transient chat pins always render as a lower third
 }
 
 // ── Ad-hoc freeform lower-third (Phase D) ────────────────────────
