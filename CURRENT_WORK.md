@@ -1,5 +1,22 @@
 # Current Work - BroadcastBuddy
 
+## Session 2026-06-01 — BB edit suite + realtime + ad-hoc + trigger type + preview (CC↔BB)
+
+**State: GREEN.** BB 272 Playwright tests pass · CC `npm run type-check` 0 errors · prod migration applied. All committed + pushed both repos. Plan: `CommandCentered/docs/plans/2026-06-01-bb-edit-suite-and-realtime.md`.
+
+Fixed first: CC `importFromDocument` 500 (malformed DeepSeek JSON) — JSON mode + max_tokens 8192 + TRPCError. CC `7cd87d4`.
+
+5 phases shipped (order A→C→D→B→E):
+- **A — Edit/save suite + fidelity** (CC `04945b1`, BB `1e1d8a8`): trigger inline per-field edit (wire `update`), dnd-kit drag reorder (wire `reorder`), bulk category set (`updateMany`), server bulk delete (`deleteMany`). **buildBroadcastPackage now emits `title`+`category`** (were dropped — editing title was dead before). BB CC_APPLY consumes real title/category.
+- **C — Supabase Realtime relay** (CC `850b551`, BB `0d705be`): Vercel can't WS-push to local BB → CC publishes on Supabase broadcast channel `bb:<tenant>:<event>` (`app/src/lib/bb-realtime.ts` `publishToBb`), package carries a `realtime{url,anonKey,channel}` block, BB `ccRelay.ts` auto-arms on apply + subscribes. New "Push live to BB" button replaces dead `pushToApp`. ⚠️ anon+channel = injectable; add per-event token before broad exposure.
+- **D — Ad-hoc freeform overlay** (CC `acf5494`, BB `861be3e`): `overlay.fireAdhoc` transient lower-third (no saved-trigger mutation) + copyable last-sent readout (`AdhocPanel`). Inputs in BOTH BB (local) and CC (`pushAdhoc`→relay). relay `onAdhoc` wired.
+- **B — Trigger type end-to-end** (CC `b6b61b3`, BB `5148318`): `BroadcastTrigger.triggerType` column (migration `20260601_broadcast_trigger_type`, **applied to prod**, 131 rows→lower_third). lower_third|title_card|feature; BB renders title_card/feature via `showFeatureCard` instead of lower third (playlist logic type-agnostic). Type selector per row + add form.
+- **E — Live overlay preview in CC** (CC `29762ed`): `OverlayPreviewCard.tsx` faithful CSS preview mirroring BB OverlayPreview, applies event `overlayConfig`; per-row 👁 Preview + sticky panel. Screenshot-verified.
+
+**Gotcha:** BB test harness runs against built `out/` — `npx electron-vite build` before `playwright test` or new IPC/preload methods are absent at runtime.
+
+**Not hardware-verified:** live Supabase broadcast delivery (relay tested via direct handler invocation, not a real broadcast — same constraint as cc-relay/chat); live OBS feature-card render.
+
 ## ⭐ MORNING REVIEW — 2026-05-29 (read this first)
 
 **State: GREEN.** tsc 0/0 (node+web) · electron-vite build EXIT 0 · **253 Playwright tests pass** (35 specs, `xvfb-run -a npx playwright test --workers=1`). All work committed + pushed to `main` (remote moved to `broadcastbuddy.git`).
