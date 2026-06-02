@@ -74,6 +74,53 @@ export interface OverlayStyling {
   // Lower-third label prefix style (UP NEXT / THAT WAS chip)
   labelColor?: string                  // hex — label text color
   labelBackgroundColor?: string        // hex — label chip background
+
+  // ── CompSync-style PER-ELEMENT deep styling (optional, non-breaking) ──
+  // When absent, the renderer falls back to the global styling above. When a
+  // sub-entry is present, it overrides that element/sub-element only.
+  elements?: OverlayPerElementStyling
+}
+
+/**
+ * Per-sub-element styling (CompSync OverlaySubElementStyle). Overrides the
+ * element's CSS defaults via inline style. All fields optional.
+ */
+export interface OverlaySubElementStyle {
+  fontSize?: number    // px; absent/0 = use CSS default
+  color?: string       // hex; absent/'' = use CSS default
+  fontWeight?: number  // 100..900; absent/0 = use CSS default
+  order?: number       // flex order within the card; default 0
+  show?: boolean       // false hides this sub-element (display:none)
+}
+
+/**
+ * Element-level card / container styling (CompSync OverlayElementCardStyle).
+ * Applied as inline overrides on the element root. All fields optional.
+ */
+export interface OverlayElementCardStyle {
+  backgroundColor?: string   // hex; absent/'' = use existing default
+  backgroundOpacity?: number // 0..1 (combined with backgroundColor → rgba)
+  backdropBlur?: number      // px; absent/0 = none
+  paddingX?: number          // px
+  paddingY?: number          // px
+  innerGap?: number          // px; gap between sub-elements
+  borderRadius?: number      // px
+  borderColor?: string       // hex
+  borderWidth?: number       // px
+}
+
+/**
+ * Optional per-element styling layer that sits on top of the global
+ * OverlayStyling. Absent entries fall back to the global look.
+ */
+export interface OverlayPerElementStyling {
+  lowerThird?: {
+    card?: OverlayElementCardStyle
+    sub?: Partial<Record<'title' | 'subtitle' | 'label', OverlaySubElementStyle>>
+  }
+  featureCard?: {
+    sub?: Partial<Record<'kicker' | 'title' | 'subtitle', OverlaySubElementStyle>>
+  }
 }
 
 // ── Stream Config ────────────────────────────────────────────────

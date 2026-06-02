@@ -811,6 +811,8 @@ function buildOverlayHTML(): string {
   .lower-third.visible { opacity: 1; }
 
   .lt-card {
+    display: flex;
+    flex-direction: column;
     padding: 16px 28px;
     border-radius: var(--border-radius, 8px);
     color: var(--text-color, #ffffff);
@@ -1731,6 +1733,55 @@ function buildOverlayHTML(): string {
       particles.forEach(function(p) { p.remove(); });
     }
 
+    // ── Per-element deep styling (CompSync parity) ──────────────────
+    // Convert hex + 0..1 opacity → rgba(); falls back to the raw hex when
+    // opacity is absent. Empty hex returns '' so callers can skip.
+    function bbRgba(hex, opacity) {
+      if (!hex) return '';
+      if (opacity === undefined || opacity === null) return hex;
+      var h = hex.replace('#', '');
+      if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+      var r = parseInt(h.substring(0,2),16) || 0;
+      var g = parseInt(h.substring(2,4),16) || 0;
+      var b = parseInt(h.substring(4,6),16) || 0;
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + opacity + ')';
+    }
+    // Apply an OverlaySubElementStyle to a single DOM node (inline overrides).
+    function bbApplySub(node, sub) {
+      if (!node || !sub) return;
+      if (sub.show === false) { node.style.display = 'none'; return; }
+      if (sub.fontSize) node.style.fontSize = sub.fontSize + 'px';
+      if (sub.color) node.style.color = sub.color;
+      if (sub.fontWeight) node.style.fontWeight = sub.fontWeight;
+      if (sub.order !== undefined && sub.order !== null) node.style.order = sub.order;
+    }
+    // Apply an OverlayElementCardStyle to a card root (inline overrides).
+    function bbApplyCard(node, card) {
+      if (!node || !card) return;
+      if (card.backgroundColor) {
+        node.style.background = bbRgba(card.backgroundColor, card.backgroundOpacity);
+      }
+      if (card.backdropBlur) {
+        node.style.backdropFilter = 'blur(' + card.backdropBlur + 'px)';
+        node.style.webkitBackdropFilter = 'blur(' + card.backdropBlur + 'px)';
+      }
+      if (card.paddingX !== undefined && card.paddingX !== null) {
+        node.style.paddingLeft = card.paddingX + 'px';
+        node.style.paddingRight = card.paddingX + 'px';
+      }
+      if (card.paddingY !== undefined && card.paddingY !== null) {
+        node.style.paddingTop = card.paddingY + 'px';
+        node.style.paddingBottom = card.paddingY + 'px';
+      }
+      if (card.innerGap !== undefined && card.innerGap !== null) node.style.gap = card.innerGap + 'px';
+      if (card.borderRadius !== undefined && card.borderRadius !== null) node.style.borderRadius = card.borderRadius + 'px';
+      if (card.borderWidth !== undefined && card.borderWidth !== null) {
+        node.style.borderStyle = 'solid';
+        node.style.borderWidth = card.borderWidth + 'px';
+      }
+      if (card.borderColor) node.style.borderColor = card.borderColor;
+    }
+
     function applyState(msg) {
       const lt = msg.overlay.lowerThird;
       const el = document.getElementById('lt');
@@ -1782,6 +1833,38 @@ function buildOverlayHTML(): string {
       if (s.textGlow) cardClasses += ' text-glow';
       if (lt.label) cardClasses += ' has-label';
       card.className = cardClasses;
+
+      // ── Per-element overrides (CompSync parity) ──
+      // Reset any prior inline overrides so removing config restores the
+      // global look, then re-apply if present.
+      card.style.background = '';
+      card.style.backdropFilter = '';
+      card.style.webkitBackdropFilter = '';
+      card.style.paddingLeft = '';
+      card.style.paddingRight = '';
+      card.style.paddingTop = '';
+      card.style.paddingBottom = '';
+      card.style.gap = '';
+      card.style.borderStyle = '';
+      card.style.borderWidth = '';
+      card.style.borderColor = '';
+      [titleEl, subtitleEl, labelEl].forEach(function(n){
+        if (!n) return;
+        n.style.display = '';
+        n.style.fontSize = '';
+        n.style.color = '';
+        n.style.fontWeight = '';
+        n.style.order = '';
+      });
+      var elStyles = s.elements && s.elements.lowerThird;
+      if (elStyles) {
+        bbApplyCard(card, elStyles.card);
+        if (elStyles.sub) {
+          bbApplySub(titleEl, elStyles.sub.title);
+          bbApplySub(subtitleEl, elStyles.sub.subtitle);
+          bbApplySub(labelEl, elStyles.sub.label);
+        }
+      }
 
       // Determine animation
       const anim = s.animation === 'random'
@@ -1913,7 +1996,7 @@ function buildOverlayHTML(): string {
       if (msg.overlay.counter) applyCounter(msg.overlay.counter);
 
       // Feature card
-      if (msg.overlay.featureCard) applyFeatureCard(msg.overlay.featureCard);
+      if (msg.overlay.featureCard) applyFeatureCard(msg.overlay.featureCard, lt.styling && lt.styling.elements && lt.styling.elements.featureCard);
     }
 
     function applyClock(c) {
@@ -1975,7 +2058,7 @@ function buildOverlayHTML(): string {
       }
     }
 
-    function applyFeatureCard(fc) {
+    function applyFeatureCard(fc, fcStyle) {
       var fcEl = document.getElementById('bb-feature-card');
       if (!fcEl) return;
       var anim = fc.animateIn || 'slide-up';
@@ -2000,6 +2083,21 @@ function buildOverlayHTML(): string {
         } else {
           logoEl.classList.add('empty');
         }
+      }
+
+      // ── Per-element overrides (CompSync parity) ──
+      // Reset prior inline overrides, then re-apply if present.
+      [kickerEl, titleEl, subEl].forEach(function(n){
+        if (!n) return;
+        n.style.fontSize = '';
+        n.style.color = '';
+        n.style.fontWeight = '';
+        n.style.order = '';
+      });
+      if (fcStyle && fcStyle.sub) {
+        bbApplySub(kickerEl, fcStyle.sub.kicker);
+        bbApplySub(titleEl, fcStyle.sub.title);
+        bbApplySub(subEl, fcStyle.sub.subtitle);
       }
 
       // Mode — "THAT WAS" style kickers flip the card into the retrospective
