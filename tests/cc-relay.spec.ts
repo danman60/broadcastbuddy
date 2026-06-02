@@ -163,6 +163,35 @@ test('overlay-config relay broadcast ignores a non-object payload (no throw)', a
   expect(after).toBe(before)
 })
 
+test('overlay-config relay applies content: logos (URLs) + starting-soon text', async () => {
+  const cfg = {
+    content: {
+      logos: {
+        companyDataUrl: 'https://stream-stage-kappa.vercel.app/logo-white.png',
+        clientDataUrl: 'https://kmsdance.com/wp-content/themes/lounge-child/images/kerry.png',
+        showCompany: true,
+        showClient: true,
+      },
+      startingSoon: { title: 'KMSD WINTER SHOWCASE', subtitle: 'Doors at 6:30', sectionLabel: 'ACT TWO' },
+    },
+  }
+  const res = await win.evaluate(async (c) => window.api.ccRelayApplyOverlayConfig(c as any), cfg)
+  expect(res.success).toBe(true)
+
+  const state = await win.evaluate(async () => window.api.overlayGetState())
+  expect(state.companyLogo.visible).toBe(true)
+  expect(state.companyLogo.dataUrl).toContain('logo-white.png')
+  expect(state.clientLogo.visible).toBe(true)
+  expect(state.clientLogo.dataUrl).toContain('kerry.png')
+  expect(state.startingSoon.title).toBe('KMSD WINTER SHOWCASE')
+  expect(state.startingSoon.sectionLabel).toBe('ACT TWO')
+
+  // showCompany:false hides + clears.
+  await win.evaluate(async () => window.api.ccRelayApplyOverlayConfig({ content: { logos: { companyDataUrl: 'x', showCompany: false } } } as any))
+  const after = await win.evaluate(async () => (await window.api.overlayGetState()).companyLogo)
+  expect(after.visible).toBe(false)
+})
+
 test('cleanup', async () => {
   await win.evaluate(() => window.api.settingsSet('ccConfig', { baseUrl: '', apiKey: '', tenantId: '' }))
   await win.evaluate(async () => window.api.triggerClearAll())
