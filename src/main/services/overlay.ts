@@ -595,6 +595,19 @@ export function showFeatureCard(data: Partial<Omit<FeatureCardState, 'visible' |
   recordEvent('overlay', `Feature card fired: ${overlayState.featureCard.title || overlayState.featureCard.kicker}`)
 }
 
+// Set feature-card content WITHOUT firing/showing it. Used by the CC overlay
+// editor content sync so the next fire uses the editor-authored kicker/title/
+// subtitle/next-strip. Does not touch visible/firedAt (no entrance animation).
+export function setFeatureCardContent(
+  data: Partial<Omit<FeatureCardState, 'visible' | 'firedAt'>>,
+): void {
+  overlayState.featureCard = {
+    ...overlayState.featureCard,
+    ...data,
+  }
+  notifyChange()
+}
+
 export function hideFeatureCard(): void {
   if (featureCardTimer) {
     clearTimeout(featureCardTimer)

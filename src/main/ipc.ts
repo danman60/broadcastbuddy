@@ -63,7 +63,68 @@ function applyRelayedOverlayConfig(payload: unknown): void {
   const updates = applyOverlayConfigToStyling(payload as Record<string, unknown>)
   if (Object.keys(updates).length > 0) {
     overlay.updateStyling(updates)
-    pushState()
+  }
+  applyOverlayContent((payload as Record<string, unknown>).content)
+  pushState()
+}
+
+/**
+ * Apply the CC overlay-editor `content` block (direct text + logos) to the live
+ * overlay state. Additive + fully guarded — an absent/invalid `content` is a
+ * no-op. Maps to the real overlay.ts setters:
+ *   logos       → setCompanyLogo / setClientLogo (visibility derived from dataUrl)
+ *   startingSoon → updateStartingSoon (title/subtitle/sectionLabel/countdown/
+ *                  completion + media flags)
+ *   featureCard  → setFeatureCardContent (stores content; next fire animates it)
+ *   sample (lower-third preview text) is editor-only — not pushed live.
+ */
+function applyOverlayContent(content: unknown): void {
+  if (!content || typeof content !== 'object') return
+  const c = content as Record<string, unknown>
+  const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
+  const bool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined)
+
+  // ── Logos ──
+  if (c.logos && typeof c.logos === 'object') {
+    const l = c.logos as Record<string, unknown>
+    if (typeof l.companyDataUrl === 'string') {
+      overlay.setCompanyLogo(l.showCompany === false ? '' : l.companyDataUrl)
+    }
+    if (typeof l.clientDataUrl === 'string') {
+      overlay.setClientLogo(l.showClient === false ? '' : l.clientDataUrl)
+    }
+  }
+
+  // ── Starting Soon content ──
+  if (c.startingSoon && typeof c.startingSoon === 'object') {
+    const s = c.startingSoon as Record<string, unknown>
+    const ssUpdates: Partial<StartingSoonState> = {}
+    if (str(s.title) !== undefined) ssUpdates.title = str(s.title)
+    if (str(s.subtitle) !== undefined) ssUpdates.subtitle = str(s.subtitle)
+    if (str(s.sectionLabel) !== undefined) ssUpdates.sectionLabel = str(s.sectionLabel)
+    if (str(s.completionText) !== undefined) ssUpdates.completionText = str(s.completionText)
+    if (num(s.countdownSeconds) !== undefined) ssUpdates.countdownSeconds = num(s.countdownSeconds)
+    if (bool(s.showCountdown) !== undefined) ssUpdates.showCountdown = bool(s.showCountdown)
+    const media: Record<string, unknown> = {}
+    if (bool(s.showVisualizer) !== undefined) media.showVisualizer = bool(s.showVisualizer)
+    if (bool(s.showVideo) !== undefined) media.showVideo = bool(s.showVideo)
+    if (str(s.videoUrl) !== undefined) media.videoUrl = str(s.videoUrl)
+    // updateStartingSoon merges media onto the existing media, so a partial is safe.
+    if (Object.keys(media).length > 0) ssUpdates.media = media as unknown as StartingSoonState['media']
+    if (Object.keys(ssUpdates).length > 0) overlay.updateStartingSoon(ssUpdates)
+  }
+
+  // ── Feature card content (stored; next fire animates it) ──
+  if (c.featureCard && typeof c.featureCard === 'object') {
+    const f = c.featureCard as Record<string, unknown>
+    const fcUpdates: Record<string, string> = {}
+    if (str(f.kicker) !== undefined) fcUpdates.kicker = str(f.kicker) as string
+    if (str(f.title) !== undefined) fcUpdates.title = str(f.title) as string
+    if (str(f.subtitle) !== undefined) fcUpdates.subtitle = str(f.subtitle) as string
+    if (str(f.nextLabel) !== undefined) fcUpdates.nextLabel = str(f.nextLabel) as string
+    if (str(f.nextTitle) !== undefined) fcUpdates.nextTitle = str(f.nextTitle) as string
+    if (Object.keys(fcUpdates).length > 0) overlay.setFeatureCardContent(fcUpdates)
   }
 }
 
@@ -661,6 +722,7 @@ export function registerIpcHandlers(): void {
       if (Object.keys(stylingUpdates).length > 0) {
         overlay.updateStyling(stylingUpdates)
       }
+      applyOverlayContent((pkg.overlayConfig as Record<string, unknown>).content)
     }
 
     pushState()
