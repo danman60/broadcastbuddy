@@ -643,17 +643,22 @@ export function registerIpcHandlers(): void {
     // Apply saved overlay config if present
     if (pkg.overlayConfig) {
       const oc = pkg.overlayConfig as Record<string, unknown>
-      const stylingUpdates: Partial<import('../shared/types').OverlayStyling> = {}
-      if (oc.fontFamily) stylingUpdates.fontFamily = oc.fontFamily as string
-      if (oc.fontSize) stylingUpdates.fontSize = oc.fontSize as number
-      if (oc.textColor) stylingUpdates.textColor = oc.textColor as string
-      if (oc.backgroundColor) stylingUpdates.backgroundColor = oc.backgroundColor as string
-      if (oc.backgroundStyle) stylingUpdates.backgroundStyle = oc.backgroundStyle as import('../shared/types').BackgroundStyle
-      if (oc.accentColor) stylingUpdates.accentColor = oc.accentColor as string
-      if (oc.borderRadius) stylingUpdates.borderRadius = oc.borderRadius as number
-      if (oc.animation) stylingUpdates.animation = oc.animation as import('../shared/types').AnimationType
-      if (oc.animationDuration) stylingUpdates.animationDuration = oc.animationDuration as number
-      if (oc.autoHideSeconds) stylingUpdates.autoHideSeconds = oc.autoHideSeconds as number
+      type OS = import('../shared/types').OverlayStyling
+      const stylingUpdates: Partial<OS> = {}
+      // Lossless apply of a web/BB-authored OverlayStyling. Use !== undefined so
+      // 0 / false / '' values (letterSpacing 0, subtitleFontSize 0, textShadow
+      // false) apply, not just truthy ones. Includes layout so editor-positioned
+      // elements actually move in OBS.
+      const copy = <K extends keyof OS>(k: K) => {
+        if (oc[k as string] !== undefined) stylingUpdates[k] = oc[k as string] as OS[K]
+      }
+      ;([
+        'fontFamily', 'fontSize', 'fontWeight', 'textColor', 'backgroundColor',
+        'backgroundStyle', 'accentColor', 'borderRadius', 'animation',
+        'animationDuration', 'animationEasing', 'autoHideSeconds', 'layout',
+        'titleTextTransform', 'titleLetterSpacing', 'subtitleFontSize',
+        'subtitleColor', 'textShadow', 'textGlow', 'labelColor', 'labelBackgroundColor',
+      ] as (keyof OS)[]).forEach(copy)
       if (Object.keys(stylingUpdates).length > 0) {
         overlay.updateStyling(stylingUpdates)
       }
