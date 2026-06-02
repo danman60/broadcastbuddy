@@ -162,6 +162,10 @@ export interface StartingSoonMedia {
   showSlideshow: boolean
   showSocialBar: boolean
   showWelcome: boolean
+  // ── Live media layer (ported from CompSync Starting-Soon) ──
+  videoUrl?: string        // optional live/loop video feed URL for the inset window
+  showVideo?: boolean      // toggle the framed inset <video> window
+  showVisualizer?: boolean // toggle the bottom audio/decorative bar visualizer
 }
 
 export interface StartingSoonState {
@@ -1071,6 +1075,9 @@ export const DEFAULT_STARTING_SOON_MEDIA: StartingSoonMedia = {
   showSlideshow: false,
   showSocialBar: false,
   showWelcome: false,
+  videoUrl: '',
+  showVideo: false,
+  showVisualizer: false,
 }
 
 export const DEFAULT_STARTING_SOON: StartingSoonState = {

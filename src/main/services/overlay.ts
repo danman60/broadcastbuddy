@@ -1279,6 +1279,78 @@ function buildOverlayHTML(): string {
   }
   .ss-social.visible { display: flex; }
 
+  /* ── Starting Soon — live media: inset video window ──
+     A tasteful framed inset (not full-bleed) that composes with title/countdown.
+     Themed off --ss-accent. Hidden unless media.showVideo && media.videoUrl. */
+  .ss-video-window {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 30%;
+    aspect-ratio: 16 / 9;
+    border-radius: 14px;
+    overflow: hidden;
+    display: none;
+    z-index: 0; /* behind title/countdown text, above the ambient bg */
+    border: 2px solid color-mix(in srgb, var(--ss-accent, #667eea) 70%, transparent);
+    box-shadow:
+      0 18px 50px rgba(0, 0, 0, 0.55),
+      0 0 38px color-mix(in srgb, var(--ss-accent, #667eea) 30%, transparent);
+    background: rgba(10, 12, 22, 0.7);
+  }
+  .ss-video-window.visible { display: block; }
+  .ss-video-window video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* ── Starting Soon — live media: audio/decorative visualizer ──
+     Row of bars along the bottom. Default = decorative CSS keyframe animation
+     (accent-tinted, staggered). When the video has audible audio, Web Audio
+     drives bar heights and the CSS animation is suspended. */
+  .ss-visualizer {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 0;
+    height: 64px;
+    display: none;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .ss-visualizer.visible { display: flex; }
+  .ss-visualizer .viz-bar {
+    flex: 1;
+    min-width: 3px;
+    max-width: 14px;
+    height: 100%;
+    border-radius: 3px 3px 0 0;
+    transform: scaleY(0.08);
+    transform-origin: bottom center;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--ss-accent, #667eea) 90%, transparent),
+      color-mix(in srgb, var(--ss-accent, #667eea) 35%, transparent)
+    );
+    box-shadow: 0 0 8px color-mix(in srgb, var(--ss-accent, #667eea) 45%, transparent);
+    transition: transform 0.12s ease-out;
+  }
+  /* Decorative idle pulse — applied when no live audio is driving the bars. */
+  .ss-visualizer.decorative .viz-bar {
+    animation: ssVizPulse 1.1s ease-in-out infinite alternate;
+  }
+  @keyframes ssVizPulse {
+    from { transform: scaleY(0.12); }
+    to   { transform: scaleY(0.85); }
+  }
+
   /* ── Operator leveling grid (rule-of-thirds) ── */
   /* Operator-only — toggled OFF before going live. Lines use a white core with
      a 1px black drop-shadow so they stay visible over light or dark footage. */
@@ -1647,6 +1719,10 @@ function buildOverlayHTML(): string {
       <img class="ss-slide-front" />
       <img class="ss-slide-back" />
     </div>
+    <div class="ss-video-window" id="ss-video">
+      <video id="ss-video-player" muted loop playsinline></video>
+    </div>
+    <div class="ss-visualizer" id="ss-visualizer"></div>
     <div class="ss-section-badge" id="ss-section-badge"></div>
     <div class="ss-welcome" id="ss-welcome" style="display:none"></div>
     <div class="ss-title" id="ss-title"></div>
@@ -2409,6 +2485,123 @@ function buildOverlayHTML(): string {
           if (backImg) { backImg.classList.remove('active'); backImg.src = ''; }
         }
       }
+
+      // Live media: inset video window + visualizer ------------------------
+      applyStartingSoonLiveMedia(media, on);
+    }
+
+    // Drives the optional inset <video> window and the audio/decorative
+    // visualizer. Degrades gracefully: video plays a provided URL or hides;
+    // the visualizer animates decoratively via CSS and, if the video has
+    // audible audio, reacts via Web Audio (guarded — autoplay/CORS may block).
+    function applyStartingSoonLiveMedia(media, on) {
+      var videoWrap = document.getElementById('ss-video');
+      var videoEl = document.getElementById('ss-video-player');
+      var vizEl = document.getElementById('ss-visualizer');
+
+      // ── Video window ──
+      var wantVideo = !!(on && media && media.showVideo && media.videoUrl);
+      if (videoWrap && videoEl) {
+        if (wantVideo) {
+          if (videoEl.getAttribute('src') !== media.videoUrl) {
+            videoEl.setAttribute('src', media.videoUrl);
+            videoEl.load();
+          }
+          videoWrap.classList.add('visible');
+          var pp = videoEl.play();
+          if (pp && pp.catch) pp.catch(function() {}); // autoplay may be blocked
+        } else {
+          videoWrap.classList.remove('visible');
+          if (videoEl.getAttribute('src')) {
+            try { videoEl.pause(); } catch (e) {}
+            videoEl.removeAttribute('src');
+            try { videoEl.load(); } catch (e) {}
+          }
+        }
+      }
+
+      // ── Visualizer ──
+      var wantViz = !!(on && media && media.showVisualizer);
+      if (!vizEl) return;
+      if (!wantViz) {
+        vizEl.classList.remove('visible', 'decorative');
+        vizEl.innerHTML = '';
+        stopVizAudio();
+        return;
+      }
+
+      // Build the bar row once (~24 bars).
+      var BAR_COUNT = 24;
+      if (vizEl.childElementCount !== BAR_COUNT) {
+        vizEl.innerHTML = '';
+        for (var bi = 0; bi < BAR_COUNT; bi++) {
+          var bar = document.createElement('div');
+          bar.className = 'viz-bar';
+          // Stagger the decorative pulse so bars don't move in unison.
+          bar.style.animationDelay = (bi * 0.06) + 's';
+          bar.style.animationDuration = (0.9 + (bi % 5) * 0.12) + 's';
+          vizEl.appendChild(bar);
+        }
+      }
+      vizEl.classList.add('visible', 'decorative');
+
+      // If the video window is active, try to drive the bars from its audio.
+      // Falls back silently to the decorative CSS animation on any failure.
+      if (wantVideo && videoEl) {
+        tryStartVizAudio(videoEl, vizEl);
+      } else {
+        stopVizAudio();
+      }
+    }
+
+    function tryStartVizAudio(videoEl, vizEl) {
+      try {
+        if (window._ssVizCtx && window._ssVizSrcEl === videoEl) return; // already wired
+        stopVizAudio();
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        var ctx = new Ctx();
+        var src = ctx.createMediaElementSource(videoEl);
+        var analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        src.connect(analyser);
+        analyser.connect(ctx.destination);
+        var data = new Uint8Array(analyser.frequencyBinCount);
+        window._ssVizCtx = ctx;
+        window._ssVizSrcEl = videoEl;
+        if (ctx.resume) { try { ctx.resume(); } catch (e) {} }
+        var tick = function() {
+          if (!window._ssVizCtx) return;
+          analyser.getByteFrequencyData(data);
+          var bars = vizEl.querySelectorAll('.viz-bar');
+          var sum = 0;
+          for (var k = 0; k < data.length; k++) sum += data[k];
+          if (sum < 1) {
+            // No audible audio yet — keep the decorative CSS animation.
+            vizEl.classList.add('decorative');
+          } else {
+            vizEl.classList.remove('decorative');
+            var n = bars.length;
+            for (var i = 0; i < n; i++) {
+              var idx = Math.floor((i / n) * data.length);
+              var v = data[idx] / 255;
+              v = Math.max(0.08, Math.min(1, v));
+              bars[i].style.transform = 'scaleY(' + v + ')';
+            }
+          }
+          window._ssVizRaf = requestAnimationFrame(tick);
+        };
+        window._ssVizRaf = requestAnimationFrame(tick);
+      } catch (e) {
+        // Autoplay/CORS/no-audio — silently keep the decorative animation.
+        stopVizAudio();
+      }
+    }
+
+    function stopVizAudio() {
+      if (window._ssVizRaf) { cancelAnimationFrame(window._ssVizRaf); window._ssVizRaf = null; }
+      if (window._ssVizCtx) { try { window._ssVizCtx.close(); } catch (e) {} window._ssVizCtx = null; }
+      window._ssVizSrcEl = null;
     }
 
     function escapeHtml(s) {
