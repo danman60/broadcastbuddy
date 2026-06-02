@@ -1021,6 +1021,191 @@ function buildOverlayHTML(): string {
     100% { transform: scale(1); opacity: 1; }
   }
 
+  /* ── Starting Soon — cinematic atmosphere (ported from CompSync SSE) ──
+     Absolutely-positioned full-bleed layers behind the existing flex content.
+     The flex children (title/subtitle/countdown/etc.) are raised above via
+     '.starting-soon > *' z-index so these layers only paint the backdrop.
+     Themed off --ss-accent so the editor's accentColor still drives them. */
+  .starting-soon > * { position: relative; z-index: 2; }
+  .starting-soon > .ss-gradient-bg,
+  .starting-soon > .ss-bloom,
+  .starting-soon > .ss-grain,
+  .starting-soon > .ss-vignette,
+  .starting-soon > .ss-slideshow { z-index: 0; }
+
+  .ss-gradient-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(135deg,
+      var(--ss-bg, #0d0f1d) 0%,
+      color-mix(in srgb, var(--ss-accent, #667eea) 18%, var(--ss-bg, #0d0f1d)) 45%,
+      var(--ss-bg, #0d0f1d) 100%);
+    background-size: 400% 400%;
+    pointer-events: none;
+  }
+  .starting-soon.visible .ss-gradient-bg {
+    animation: ssGradientShift 18s ease infinite;
+  }
+  @keyframes ssGradientShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  /* Conic light bloom — soft accent-tinted halo upper-left */
+  .ss-bloom {
+    position: absolute; z-index: 0;
+    left: var(--ss-bloom-x, 22%); top: var(--ss-bloom-y, 18%);
+    width: 42vw; height: 42vw;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(from 220deg,
+      transparent 0%,
+      color-mix(in srgb, var(--ss-accent, #667eea) 40%, transparent) 22%,
+      color-mix(in srgb, var(--ss-accent, #667eea) 55%, transparent) 32%,
+      color-mix(in srgb, var(--ss-accent, #667eea) 30%, transparent) 50%,
+      transparent 72%);
+    filter: blur(60px);
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .starting-soon.visible .ss-bloom {
+    animation: ssBloomDrift 26s ease-in-out infinite;
+  }
+  @keyframes ssBloomDrift {
+    0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+    50%      { transform: translate(-46%, -54%) rotate(40deg); }
+  }
+  /* Subtle film grain via SVG fractal turbulence */
+  .ss-grain {
+    position: absolute; inset: 0; z-index: 0;
+    pointer-events: none;
+    opacity: 0.045;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size: 200px 200px;
+  }
+  /* Radial vignette pulls the eye to centre */
+  .ss-vignette {
+    position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at center,
+      transparent 0%, transparent 45%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+  }
+  .starting-soon.visible .ss-vignette { animation: ssVignetteFade 1.4s ease-out both; }
+  @keyframes ssVignetteFade { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+  /* Section identifier badge — top pill ("ACT TWO" + pulsing accent dot) */
+  .ss-section-badge {
+    position: absolute;
+    top: 56px; left: 50%; transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    z-index: 3;
+    color: #ffffff;
+    font-size: 22px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.30));
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .ss-section-badge.visible { display: inline-flex; }
+  .ss-section-badge .ss-sb-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--ss-accent, #667eea);
+    box-shadow: 0 0 10px var(--ss-accent, #667eea);
+  }
+  .starting-soon.visible .ss-section-badge .ss-sb-dot {
+    animation: ssBadgeDotPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes ssBadgeDotPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.35); opacity: 0.55; }
+  }
+  .starting-soon.visible .ss-section-badge.visible {
+    animation: ssBadgeEnter 0.7s ease-out 0.4s both;
+  }
+  @keyframes ssBadgeEnter {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(-4px) scale(0.92); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1.0); }
+  }
+
+  /* Final-30s digit-flip treatment — applied to the existing countdown when
+     ≤30s. Each digit is wrapped in a flip cell; JS re-renders on tick so the
+     incoming digit slides in. Escalates red at ≤5s. */
+  .ss-countdown.style-flipboard {
+    display: inline-flex !important;
+    gap: 10px;
+    align-items: baseline;
+    justify-content: center;
+    line-height: 1;
+    opacity: 1;
+  }
+  .ss-countdown.style-flipboard .ss-cd-digit-cell {
+    display: inline-block;
+    position: relative;
+    padding: 0.06em 0.20em;
+    border-radius: 14px;
+    overflow: hidden;
+    color: var(--ss-accent, #ffffff);
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg,
+      rgba(20,24,44,0.92) 0%,
+      rgba(20,24,44,0.92) 49%,
+      rgba(0,0,0,0.96) 50%,
+      rgba(20,24,44,0.92) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.12),
+      inset 0 -2px 0 rgba(0,0,0,0.6),
+      0 18px 48px rgba(0,0,0,0.55),
+      0 0 60px color-mix(in srgb, var(--ss-accent, #667eea) 22%, transparent);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+  }
+  .ss-countdown.style-flipboard .ss-cd-digit-cell::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 1px; background: rgba(0,0,0,0.6); pointer-events: none;
+  }
+  .ss-countdown.style-flipboard .ss-cd-digit {
+    display: inline-block;
+    transform-origin: center top;
+  }
+  .ss-countdown.style-flipboard .ss-cd-digit-cell.flip .ss-cd-digit {
+    animation: ssDigitFlip 0.45s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes ssDigitFlip {
+    0%   { transform: translateY(-65%) rotateX(72deg); opacity: 0; }
+    55%  { transform: translateY(0) rotateX(0deg); opacity: 1; }
+    100% { transform: translateY(0) rotateX(0deg); opacity: 1; }
+  }
+  .ss-countdown.style-flipboard .ss-cd-sep {
+    color: var(--ss-accent, #c5cae9);
+    opacity: 0.75;
+    padding: 0 2px;
+  }
+  .starting-soon.visible .ss-countdown.style-flipboard .ss-cd-sep {
+    animation: ssSepBlink 1.0s ease-in-out infinite;
+  }
+  @keyframes ssSepBlink { 0%, 100% { opacity: 0.75; } 52% { opacity: 0.35; } }
+  /* Last-5 escalation — cells go red */
+  .ss-countdown.style-flipboard.escalate .ss-cd-digit-cell {
+    color: #ffffff;
+    background: linear-gradient(180deg,
+      rgba(40,12,12,0.98) 0%, rgba(40,12,12,0.98) 49%,
+      rgba(0,0,0,1) 50%, rgba(40,12,12,0.98) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255,80,80,0.20),
+      inset 0 -2px 0 rgba(0,0,0,0.7),
+      0 18px 60px rgba(0,0,0,0.6),
+      0 0 70px rgba(239,68,68,0.5);
+  }
+  .ss-countdown.style-flipboard.escalate .ss-cd-sep { color: #ff6b6b; }
+
   /* ── Starting Soon — pre-show media stack ──
      Layered ambient elements driven entirely by pushed state. Each fades in
      only when its sub-element is enabled and the scene is visible. */
@@ -1312,6 +1497,81 @@ function buildOverlayHTML(): string {
   }
   .bb-fc-subtitle.empty { display: none; }
 
+  /* ── Feature card — deeper cinematic treatment (ported from CompSync) ── */
+  /* Rotating + pulsing accent glow ring behind the content. */
+  .bb-fc-glow-ring {
+    position: absolute; left: 50%; top: 50%;
+    width: 1200px; height: 1200px;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    pointer-events: none;
+    border-radius: 50%;
+    background:
+      conic-gradient(from 0deg,
+        transparent 0deg,
+        color-mix(in srgb, var(--fc-accent, #667eea) 55%, transparent) 60deg,
+        transparent 120deg,
+        transparent 240deg,
+        color-mix(in srgb, var(--fc-accent, #667eea) 45%, transparent) 300deg,
+        transparent 360deg);
+    -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%, #000 63%, transparent 66%);
+            mask: radial-gradient(circle, transparent 58%, #000 60%, #000 63%, transparent 66%);
+    filter: blur(2px);
+    opacity: 0;
+  }
+  .bb-feature-card.visible .bb-fc-glow-ring {
+    opacity: 0.85;
+    animation: bbFcRingSpin 14s linear infinite, bbFcRingPulse 3.2s ease-in-out infinite;
+  }
+  @keyframes bbFcRingSpin {
+    0%   { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  @keyframes bbFcRingPulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.9; }
+  }
+  /* UP-NEXT preview strip beneath the subtitle. */
+  .bb-fc-next-strip {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    margin-top: 18px;
+    padding: 10px 24px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.32);
+    border: 1px solid color-mix(in srgb, var(--fc-accent, #667eea) 32%, rgba(255,255,255,0.10));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+  }
+  .bb-fc-next-strip.visible { display: inline-flex; }
+  .bb-fc-next-label {
+    font-family: 'Bebas Neue', 'Anton', 'Arial Black', sans-serif;
+    font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--fc-accent, #667eea);
+    white-space: nowrap;
+  }
+  .bb-fc-next-sep {
+    width: 1px; height: 26px;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--fc-accent, #667eea) 60%, transparent), transparent);
+  }
+  .bb-fc-next-title {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-weight: 600; font-size: 30px;
+    color: rgba(255,255,255,0.92);
+    white-space: nowrap;
+  }
+  /* THAT-WAS variant — cooler, retrospective styling. */
+  .bb-feature-card[data-mode="thatWas"] .bb-fc-bg {
+    filter: saturate(0.82) brightness(0.92);
+  }
+  .bb-feature-card[data-mode="thatWas"] .bb-fc-kicker {
+    color: #c5cae9;
+    text-shadow: 0 0 24px rgba(0,0,0,0.5), 0 0 14px rgba(197,202,233,0.55);
+  }
+  .bb-feature-card[data-mode="thatWas"].visible .bb-fc-kicker { animation: none; }
+
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
@@ -1377,10 +1637,15 @@ function buildOverlayHTML(): string {
   </div>
 
   <div id="starting-soon" class="starting-soon">
+    <div class="ss-gradient-bg" id="ss-gradient-bg"></div>
+    <div class="ss-bloom" id="ss-bloom"></div>
+    <div class="ss-grain"></div>
+    <div class="ss-vignette"></div>
     <div class="ss-slideshow" id="ss-slideshow">
       <img class="ss-slide-front" />
       <img class="ss-slide-back" />
     </div>
+    <div class="ss-section-badge" id="ss-section-badge"></div>
     <div class="ss-welcome" id="ss-welcome" style="display:none"></div>
     <div class="ss-title" id="ss-title"></div>
     <div class="ss-accent-line" id="ss-accent"></div>
@@ -1405,12 +1670,18 @@ function buildOverlayHTML(): string {
 
   <div id="bb-feature-card" class="bb-feature-card">
     <div class="bb-fc-bg"></div>
+    <div class="bb-fc-glow-ring"></div>
     <div class="bb-fc-sparkles" id="bb-fc-sparkles"></div>
     <div class="bb-fc-content">
       <img class="bb-fc-logo empty" id="bb-fc-logo" src="" alt="">
       <div class="bb-fc-kicker" id="bb-fc-kicker"></div>
       <div class="bb-fc-title" id="bb-fc-title"></div>
       <div class="bb-fc-subtitle empty" id="bb-fc-subtitle"></div>
+      <div class="bb-fc-next-strip" id="bb-fc-next-strip">
+        <span class="bb-fc-next-label" id="bb-fc-next-label"></span>
+        <span class="bb-fc-next-sep"></span>
+        <span class="bb-fc-next-title" id="bb-fc-next-title"></span>
+      </div>
     </div>
   </div>
 
@@ -1731,6 +2002,25 @@ function buildOverlayHTML(): string {
         }
       }
 
+      // Mode — "THAT WAS" style kickers flip the card into the retrospective
+      // variant; anything else (UP NEXT / custom) reads as upNext.
+      var fcMode = /that\\s*was/i.test(fc.kicker || '') ? 'thatWas' : 'upNext';
+      fcEl.setAttribute('data-mode', fcMode);
+
+      // UP-NEXT preview strip (optional) — "THEN · Awards Ceremony".
+      var nextStripEl = document.getElementById('bb-fc-next-strip');
+      var nextLabelEl = document.getElementById('bb-fc-next-label');
+      var nextTitleEl = document.getElementById('bb-fc-next-title');
+      if (nextStripEl) {
+        if (fc.nextTitle || fc.nextLabel) {
+          if (nextLabelEl) nextLabelEl.textContent = fc.nextLabel || 'UP NEXT';
+          if (nextTitleEl) nextTitleEl.textContent = fc.nextTitle || '';
+          nextStripEl.classList.add('visible');
+        } else {
+          nextStripEl.classList.remove('visible');
+        }
+      }
+
       // Animation direction class — clear all, add chosen
       ['slide-up','slide-left','zoom','fade'].forEach(function(d){ fcEl.classList.remove(d); });
       fcEl.classList.add(anim);
@@ -1786,6 +2076,21 @@ function buildOverlayHTML(): string {
       ssSubEl.style.color = ss.textColor || '#ffffff';
       ssCountEl.style.color = ss.accentColor || '#667eea';
       ssAccent.style.background = ss.accentColor || '#667eea';
+      // Theme the cinematic layers off the editor's accent/background.
+      ssEl.style.setProperty('--ss-accent', ss.accentColor || '#667eea');
+      ssEl.style.setProperty('--ss-bg', ss.backgroundColor || '#0d0f1d');
+
+      // Section badge (cinematic) — optional "ACT TWO" style pill.
+      var ssBadgeEl = document.getElementById('ss-section-badge');
+      if (ssBadgeEl) {
+        if (ss.visible && ss.sectionLabel) {
+          ssBadgeEl.innerHTML = '<span class="ss-sb-dot"></span><span class="ss-sb-label">' + escapeHtml(ss.sectionLabel) + '</span>';
+          ssBadgeEl.classList.add('visible');
+        } else {
+          ssBadgeEl.classList.remove('visible');
+          ssBadgeEl.innerHTML = '';
+        }
+      }
 
       if (ss.visible) {
         ssEl.classList.add('visible');
@@ -1795,16 +2100,59 @@ function buildOverlayHTML(): string {
 
       // Countdown
       if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-      if (ss.visible && ss.showCountdown && ss.countdownTarget) {
+      // Resolve a target timestamp: prefer countdownTarget, else derive one from
+      // countdownSeconds (set once per (re)show so the digits tick down live).
+      var ssTargetMs = 0;
+      if (ss.countdownTarget) {
+        ssTargetMs = new Date(ss.countdownTarget).getTime();
+      } else if (ss.countdownSeconds && ss.countdownSeconds > 0) {
+        var ssShowKey = String(ss.countdownSeconds) + '|' + (ss.visible ? '1' : '0');
+        if (window._ssCdKey !== ssShowKey) {
+          window._ssCdKey = ssShowKey;
+          window._ssCdTargetMs = Date.now() + ss.countdownSeconds * 1000;
+        }
+        ssTargetMs = window._ssCdTargetMs || (Date.now() + ss.countdownSeconds * 1000);
+      }
+      if (ss.visible && ss.showCountdown && ssTargetMs) {
         ssCountEl.classList.add('active');
         var completionText = ss.completionText || '';
+        // Render a HH:MM:SS / MM:SS string as flip cells (digits + separators).
+        function ssRenderFlip(text) {
+          var prev = ssCountEl.dataset.flipBody || '';
+          if (ssCountEl.dataset.flipBody === undefined || prev.length !== text.length || !ssCountEl.querySelector('.ss-cd-digit-cell')) {
+            var html = '';
+            for (var i = 0; i < text.length; i++) {
+              var ch = text[i];
+              if (ch === ':') html += '<span class="ss-cd-sep">:</span>';
+              else html += '<span class="ss-cd-digit-cell"><span class="ss-cd-digit">' + ch + '</span></span>';
+            }
+            ssCountEl.innerHTML = html;
+            ssCountEl.dataset.flipBody = text;
+            return;
+          }
+          // Same layout — flip only the digits that changed.
+          var cells = ssCountEl.querySelectorAll('.ss-cd-digit-cell');
+          var cellIdx = 0;
+          for (var j = 0; j < text.length; j++) {
+            if (text[j] === ':') continue;
+            if (text[j] !== prev[j] && cells[cellIdx]) {
+              cells[cellIdx].innerHTML = '<span class="ss-cd-digit">' + text[j] + '</span>';
+              cells[cellIdx].classList.remove('flip');
+              void cells[cellIdx].offsetWidth;
+              cells[cellIdx].classList.add('flip');
+            }
+            cellIdx++;
+          }
+          ssCountEl.dataset.flipBody = text;
+        }
         function updateCountdown() {
-          var target = new Date(ss.countdownTarget).getTime();
           var now = Date.now();
-          var diff = Math.max(0, target - now);
+          var diff = Math.max(0, ssTargetMs - now);
           if (diff <= 0) {
             // Countdown complete — show completion text
+            ssCountEl.classList.remove('style-flipboard', 'escalate');
             ssCountEl.textContent = '';
+            ssCountEl.dataset.flipBody = '';
             if (completionText) {
               ssTitleEl.textContent = completionText;
               ssSubEl.textContent = '';
@@ -1815,19 +2163,32 @@ function buildOverlayHTML(): string {
             if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
             return;
           }
+          var totalSec = Math.ceil(diff / 1000);
           var h = Math.floor(diff / 3600000);
           var m = Math.floor((diff % 3600000) / 60000);
           var s = Math.floor((diff % 60000) / 1000);
+          var body;
           if (h > 0) {
-            ssCountEl.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            body = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
           } else {
-            ssCountEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            body = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+          }
+          // Final-30s digit-flip takeover.
+          if (totalSec <= 30) {
+            ssCountEl.classList.add('style-flipboard');
+            ssCountEl.classList.toggle('escalate', totalSec <= 5);
+            ssRenderFlip(body);
+          } else {
+            ssCountEl.classList.remove('style-flipboard', 'escalate');
+            ssCountEl.dataset.flipBody = '';
+            ssCountEl.textContent = body;
           }
         }
         updateCountdown();
         countdownInterval = setInterval(updateCountdown, 1000);
       } else {
-        ssCountEl.classList.remove('active');
+        ssCountEl.classList.remove('active', 'style-flipboard', 'escalate');
+        ssCountEl.dataset.flipBody = '';
         ssCountEl.textContent = '';
       }
 

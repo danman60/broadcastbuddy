@@ -128,6 +128,7 @@ export interface StartingSoonState {
   backgroundColor: string
   textColor: string
   accentColor: string
+  sectionLabel?: string // optional cinematic section badge text (e.g. "ACT TWO"); empty/absent = no badge
   media?: StartingSoonMedia // optional pre-show ambient media stack (all off by default)
 }
 
@@ -167,6 +168,8 @@ export interface FeatureCardState {
   logoDataUrl: string // base64 data URL or empty
   animateIn: FeatureCardAnim
   firedAt: number // epoch ms — bump to re-trigger the entrance animation
+  nextLabel?: string // optional UP-NEXT preview strip label (e.g. "THEN"); empty/absent = no strip
+  nextTitle?: string // optional UP-NEXT preview strip title (e.g. "Awards Ceremony")
 }
 
 // ── Overlay State (pushed to browser source) ─────────────────────
