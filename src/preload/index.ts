@@ -237,6 +237,8 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── CC→BB live relay ──────────────────────────────────────────
   ccRelayGetState: () => ipcRenderer.invoke(IPC.CC_RELAY_GET_STATE),
+  ccRelayApplyOverlayConfig: (cfg: Record<string, unknown>) =>
+    ipcRenderer.invoke(IPC.CC_RELAY_APPLY_OVERLAY_CONFIG, cfg),
 
   // ── Operator day checklist (start-of-day / end-of-day) ────────
   dayChecklistGet: (date: string, kind: 'start' | 'end') => ipcRenderer.invoke(IPC.DAY_CHECKLIST_GET, date, kind),

@@ -122,6 +122,47 @@ test('applying a package WITH a realtime block arms the relay (channel computed)
   expect(state.lowerThird.styling.fontSize).toBe(36)
 })
 
+// Live editor sync: an inbound 'overlay-config' broadcast (driven here via the
+// CC_RELAY_APPLY_OVERLAY_CONFIG test IPC, which runs the identical apply path as
+// ccRelay.setOnOverlayConfig) applies an OverlayStyling-shaped payload — incl
+// layout and 0/false-valued fields — to the live overlay styling.
+test('overlay-config relay broadcast applies a full styling payload (layout, 0/false fields)', async () => {
+  const cfg = {
+    backgroundColor: '#101820',
+    titleLetterSpacing: 0,        // 0 must apply (not just truthy)
+    textShadow: false,            // false must apply
+    subtitleFontSize: 0,          // 0 must apply
+    fontSize: 44,
+    accentColor: '#00ffcc',
+    layout: { lowerThird: { x: 12, y: 80, scale: 1.25 } },
+    elements: { lowerThird: { sub: { title: { fontWeight: 800 } } } },
+  }
+
+  const res = await win.evaluate(async (c) => window.api.ccRelayApplyOverlayConfig(c as any), cfg)
+  expect(res.success).toBe(true)
+
+  const state = await win.evaluate(async () => window.api.overlayGetState())
+  const styling = state.lowerThird.styling as any
+  expect(styling.backgroundColor).toBe('#101820')
+  expect(styling.titleLetterSpacing).toBe(0)
+  expect(styling.textShadow).toBe(false)
+  expect(styling.subtitleFontSize).toBe(0)
+  expect(styling.fontSize).toBe(44)
+  expect(styling.accentColor).toBe('#00ffcc')
+  expect(styling.layout?.lowerThird?.x).toBe(12)
+  expect(styling.layout?.lowerThird?.scale).toBe(1.25)
+  expect(styling.elements?.lowerThird?.sub?.title?.fontWeight).toBe(800)
+})
+
+test('overlay-config relay broadcast ignores a non-object payload (no throw)', async () => {
+  const before = await win.evaluate(async () => (await window.api.overlayGetState()).lowerThird.styling.fontSize)
+  // @ts-expect-error — deliberately malformed payload
+  const res = await win.evaluate(async () => window.api.ccRelayApplyOverlayConfig('not-an-object'))
+  expect(res.success).toBe(true)
+  const after = await win.evaluate(async () => (await window.api.overlayGetState()).lowerThird.styling.fontSize)
+  expect(after).toBe(before)
+})
+
 test('cleanup', async () => {
   await win.evaluate(() => window.api.settingsSet('ccConfig', { baseUrl: '', apiKey: '', tenantId: '' }))
   await win.evaluate(async () => window.api.triggerClearAll())

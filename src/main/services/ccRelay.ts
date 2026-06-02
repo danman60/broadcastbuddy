@@ -41,6 +41,9 @@ let onStateChange: (() => void) | null = null
 let onPackage: ((payload: unknown) => void) | null = null
 // Reserved for Phase D ad-hoc lower-thirds. Wired now; no consumer yet.
 let onAdhoc: ((payload: unknown) => void) | null = null
+// Fired when an 'overlay-config' broadcast arrives — live editor sync from CC.
+// Payload is an OverlayStyling-shaped object ({ ...styling, layout, elements }).
+let onOverlayConfig: ((payload: unknown) => void) | null = null
 
 export function setOnStateChange(cb: () => void): void {
   onStateChange = cb
@@ -52,6 +55,10 @@ export function setOnPackage(cb: (payload: unknown) => void): void {
 
 export function setOnAdhoc(cb: (payload: unknown) => void): void {
   onAdhoc = cb
+}
+
+export function setOnOverlayConfig(cb: (payload: unknown) => void): void {
+  onOverlayConfig = cb
 }
 
 function notify(): void {
@@ -115,6 +122,11 @@ function connectChannel(): void {
       .on('broadcast', { event: 'adhoc' }, ({ payload }) => {
         try { onAdhoc?.(payload) } catch (err) {
           logger.warn('onAdhoc handler threw:', err instanceof Error ? err.message : err)
+        }
+      })
+      .on('broadcast', { event: 'overlay-config' }, ({ payload }) => {
+        try { onOverlayConfig?.(payload) } catch (err) {
+          logger.warn('onOverlayConfig handler threw:', err instanceof Error ? err.message : err)
         }
       })
       .subscribe((status) => {

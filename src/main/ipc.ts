@@ -13,6 +13,7 @@ import * as wifiDisplay from './services/wifiDisplay'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
+import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
@@ -50,6 +51,20 @@ function pushState(): void {
 function pushLastAdhoc(): void {
   const win = getMainWindow()
   if (win) win.webContents.send(IPC.OVERLAY_LAST_ADHOC_UPDATE, overlay.getLastAdhoc())
+}
+
+/**
+ * Apply a relayed (or test-injected) overlay-config payload to the live overlay
+ * styling and push state. Guards non-object payloads. Shared by the ccRelay
+ * 'overlay-config' callback and the CC_RELAY_APPLY_OVERLAY_CONFIG test IPC.
+ */
+function applyRelayedOverlayConfig(payload: unknown): void {
+  if (!payload || typeof payload !== 'object') return
+  const updates = applyOverlayConfigToStyling(payload as Record<string, unknown>)
+  if (Object.keys(updates).length > 0) {
+    overlay.updateStyling(updates)
+    pushState()
+  }
 }
 
 function generateId(): string {
@@ -640,25 +655,9 @@ export function registerIpcHandlers(): void {
       overlay.updateStyling({ accentColor: pkg.company.primaryColor })
     }
 
-    // Apply saved overlay config if present
+    // Apply saved overlay config if present (lossless — see applyOverlayConfigToStyling).
     if (pkg.overlayConfig) {
-      const oc = pkg.overlayConfig as Record<string, unknown>
-      type OS = import('../shared/types').OverlayStyling
-      const stylingUpdates: Partial<OS> = {}
-      // Lossless apply of a web/BB-authored OverlayStyling. Use !== undefined so
-      // 0 / false / '' values (letterSpacing 0, subtitleFontSize 0, textShadow
-      // false) apply, not just truthy ones. Includes layout so editor-positioned
-      // elements actually move in OBS.
-      const copy = <K extends keyof OS>(k: K) => {
-        if (oc[k as string] !== undefined) stylingUpdates[k] = oc[k as string] as OS[K]
-      }
-      ;([
-        'fontFamily', 'fontSize', 'fontWeight', 'textColor', 'backgroundColor',
-        'backgroundStyle', 'accentColor', 'borderRadius', 'animation',
-        'animationDuration', 'animationEasing', 'autoHideSeconds', 'layout',
-        'titleTextTransform', 'titleLetterSpacing', 'subtitleFontSize',
-        'subtitleColor', 'textShadow', 'textGlow', 'labelColor', 'labelBackgroundColor',
-      ] as (keyof OS)[]).forEach(copy)
+      const stylingUpdates = applyOverlayConfigToStyling(pkg.overlayConfig as Record<string, unknown>)
       if (Object.keys(stylingUpdates).length > 0) {
         overlay.updateStyling(stylingUpdates)
       }
@@ -1259,6 +1258,13 @@ export function registerIpcHandlers(): void {
     broadcastState()
   })
 
+  // A relayed 'overlay-config' broadcast is a live editor sync from CC. Apply the
+  // OverlayStyling-shaped payload losslessly to the live overlay styling (incl
+  // layout + per-element styling) and push the new state to the browser source.
+  ccRelay.setOnOverlayConfig((payload) => {
+    applyRelayedOverlayConfig(payload)
+  })
+
   // Push relay connection-state changes to the renderer so the UI can show it.
   ccRelay.setOnStateChange(() => {
     const win = getMainWindow()
@@ -1267,6 +1273,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.CC_RELAY_GET_STATE, () => {
     return ccRelay.getState()
+  })
+
+  // Test/diagnostic: simulate an inbound 'overlay-config' relay broadcast. Drives
+  // the exact same apply path as ccRelay.setOnOverlayConfig with no network.
+  ipcMain.handle(IPC.CC_RELAY_APPLY_OVERLAY_CONFIG, (_e, cfg: Record<string, unknown>) => {
+    applyRelayedOverlayConfig(cfg)
+    return { success: true }
   })
 
   // ── Operator day checklist (start-of-day / end-of-day) ────────

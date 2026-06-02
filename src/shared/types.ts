@@ -910,6 +910,9 @@ export const IPC = {
   // CC→BB live relay (Supabase Realtime broadcast, dormant until a package arms it)
   CC_RELAY_GET_STATE: 'cc:relay-get-state',
   CC_RELAY_STATE_UPDATE: 'cc:relay-state', // main → renderer push
+  // Test/diagnostic hook: simulate an inbound 'overlay-config' relay broadcast,
+  // applying an OverlayStyling-shaped payload to the live overlay styling.
+  CC_RELAY_APPLY_OVERLAY_CONFIG: 'cc:relay-apply-overlay-config',
 
   // Operator day checklist (start-of-day / end-of-day)
   DAY_CHECKLIST_GET: 'day-checklist:get',          // (date, kind) → DayChecklistView

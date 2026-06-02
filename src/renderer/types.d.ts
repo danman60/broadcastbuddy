@@ -166,6 +166,7 @@ interface ElectronAPI {
 
   // CC→BB live relay
   ccRelayGetState: () => Promise<CcRelayState>
+  ccRelayApplyOverlayConfig: (cfg: Record<string, unknown>) => Promise<{ success: boolean }>
 
   // Operator day checklist (start-of-day / end-of-day)
   dayChecklistGet: (date: string, kind: DayChecklistKind) => Promise<DayChecklistView>
