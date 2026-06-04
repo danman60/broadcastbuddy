@@ -59,6 +59,7 @@
         "to": ".",
         "filter": [
           "wifi-display-server.exe",
+          "ffmpeg.exe",
           "driver-setup.exe",
           "VDDControl.exe",
           "libstdc++-6.dll",
