@@ -1,26 +1,33 @@
 /* ── CSS Variables (CompSync dark theme) ── */
 :root {
-  --bg-primary: #1e1e2e;
-  --bg-secondary: #252538;
-  --bg-tertiary: #2a2a40;
-  --bg-hover: #303050;
-  --bg-input: #1a1a2a;
+  /* ── CSE broadcast-console navy base ── */
+  --bg-primary: #0a0e1a;     /* app base — deep navy */
+  --bg-secondary: #141a2b;   /* panel fill */
+  --bg-tertiary: #1b2236;    /* elevated chrome (segments, toggles-off) */
+  --bg-hover: #232c45;       /* hover lift */
+  --bg-input: #0d1220;       /* recessed input wells */
 
-  --accent: #667eea;
-  --accent-hover: #7b93ff;
-  --accent-dim: rgba(102, 126, 234, 0.15);
+  /* Accent = CSE violet (active/stream). Used sparingly, not as default fill. */
+  --accent: #7c4dff;
+  --accent-hover: #916bff;
+  --accent-dim: rgba(124, 77, 255, 0.16);
+  --accent-purple: #7c4dff;
+  --accent-purple-hover: #916bff;
 
-  --danger: #e74c3c;
-  --danger-hover: #ff5f4f;
-  --success: #2ecc71;
-  --warning: #f39c12;
+  --danger: #b03a3a;         /* CSE muted record-red */
+  --danger-hover: #c94b4b;
+  --success: #3ecf6b;        /* CSE live-green */
+  --success-hover: #54dd7f;
+  --live-green: #3ecf6b;
+  --warning: #d99a30;
 
-  --text-primary: #e0e0f0;
-  --text-secondary: #8888a8;
-  --text-dim: #555570;
+  --text-primary: #e6eaf4;   /* bright near-white values */
+  --text-secondary: #6b7896; /* muted slate — micro-labels */
+  --text-dim: #4a5572;       /* dimmest — inert labels */
 
-  --border: #333350;
-  --border-focus: #667eea;
+  --border: #2a3350;         /* crisp thin low-contrast border */
+  --border-soft: #1f273e;    /* even softer internal dividers */
+  --border-focus: #7c4dff;
 
   --radius: 6px;
   --radius-lg: 10px;

@@ -17,9 +17,10 @@
 }
 
 .header-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
   -webkit-app-region: drag;
 }
 
@@ -87,33 +88,42 @@
 }
 
 
-/* Record toggle button */
+/* Record toggle button — CSE ghost pill when idle, red when live */
 .header-rec-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.header-rec-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .header-rec-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--text-muted, #6b7280);
+  background: var(--text-dim);
   display: inline-block;
   flex-shrink: 0;
 }
 
 .header-rec-btn.recording {
-  border-color: #ef4444;
-  color: #ef4444;
+  background: rgba(176, 58, 58, 0.14);
+  border-color: var(--danger);
+  color: var(--danger-hover);
   font-weight: 700;
 }
 
 .header-rec-btn.recording .header-rec-dot {
-  background: #ef4444;
-  box-shadow: 0 0 6px #ef4444;
+  background: var(--danger-hover);
+  box-shadow: 0 0 6px var(--danger);
   animation: headerRecBlink 1s steps(1, end) infinite;
 }
 

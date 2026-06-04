@@ -34,6 +34,7 @@
   border-radius: var(--radius-lg);
   padding: 16px;
   border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 /* Section grouping for the right panel — gives the long panel stack a clear
@@ -42,8 +43,8 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--accent);
+  letter-spacing: 1.2px;
+  color: var(--text-secondary);
   padding-bottom: 6px;
   margin-top: 8px;
   border-bottom: 1px solid var(--border);
