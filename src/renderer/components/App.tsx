@@ -56,19 +56,23 @@ export function App() {
           <OverlayPreview />
         </div>
         <div className="right-panel">
+          <div className="panel-group-label">Live Control</div>
           <OverlayControls />
           <AdhocPanel />
           <TriggerEditor />
+          <div className="panel-group-label">Content &amp; Styling</div>
           <AnimationPanel />
           <StartingSoonPanel />
           <TemplateGallery />
           <StylingPanel />
           <LogoManager />
           <TickerControls />
+          <div className="panel-group-label">Broadcast &amp; Delivery</div>
           <StreamInfoPanel />
           <NotesPanel />
           <BroadcastPackagePanel />
           <RecordingUploadPanel />
+          <div className="panel-group-label">Monitoring</div>
           <AudioMeters />
           <SystemStats />
           <GalleryPanel />

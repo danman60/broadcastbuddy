@@ -307,7 +307,7 @@ export function OverlayControls() {
               className={`btn-sm ${gridVisible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
               onClick={handleGridToggle}
               title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
-              style={{ marginLeft: 'auto' }}
+              style={{ marginLeft: 8 }}
             >
               Grid {gridVisible ? 'ON' : 'OFF'}
             </button>
@@ -334,7 +334,7 @@ export function OverlayControls() {
               className={`btn-sm ${transitionRevert ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
               onClick={handleTransitionRevertToggle}
               title="Auto-snap OBS back to Cut transition 500ms after any non-Cut transition fires"
-              style={{ marginLeft: 'auto' }}
+              style={{ marginLeft: 8 }}
             >
               Revert: {transitionRevert ? 'ON' : 'OFF'}
             </button>
@@ -426,7 +426,7 @@ export function OverlayControls() {
               onClick={handleFeatureHide}
               disabled={!featureCard?.visible}
               title="Hide the full-screen feature card"
-              style={{ marginLeft: 'auto' }}
+              style={{ marginLeft: 8 }}
             >
               Hide Card
             </button>

@@ -143,7 +143,10 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
 }
 
 export function start(port: number): void {
-  wss = new WebSocketServer({ port, host: '127.0.0.1' })
+  // Bind 0.0.0.0 (not 127.0.0.1) so remote clients — the CSController tablet's
+  // control WS and a remote OBS browser source — can reach the hub, not just
+  // same-machine clients. Matches the overlay HTTP server (also 0.0.0.0).
+  wss = new WebSocketServer({ port, host: '0.0.0.0' })
 
   wss.on('connection', (ws) => {
     (ws as unknown as { isAlive: boolean }).isAlive = true
@@ -201,7 +204,7 @@ export function start(port: number): void {
     })
   }, 30000)
 
-  logger.info(`WebSocket hub listening on ws://127.0.0.1:${port}`)
+  logger.info(`WebSocket hub listening on ws://0.0.0.0:${port}`)
 }
 
 export function stop(): void {

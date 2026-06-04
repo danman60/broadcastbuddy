@@ -12,3 +12,6 @@ sessions/
 test-results/
 graphify-out/
 .claude-crash-transcript.md
+
+# ffmpeg.exe (75MB) provided out-of-band, not committed (matches CSE resources/ffmpeg/)
+resources/ffmpeg.exe

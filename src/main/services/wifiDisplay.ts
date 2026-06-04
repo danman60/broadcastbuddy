@@ -32,7 +32,10 @@ let topologyRestartTimer: NodeJS.Timeout | null = null
 
 // Capture-error frequency watchdog: 5 capture-errors within 7s → auto-restart.
 // Cap: 3 per session — past that, leave to operator.
-const CAPTURE_ERR_NEEDLE = 'capture: Capture error: invalid data'
+// Match any capture error (e.g. "invalid data", "connection reset" = DXGI
+// access-lost after a display-topology change) so the auto-restart actually
+// fires instead of looping a dead duplication session forever.
+const CAPTURE_ERR_NEEDLE = 'capture: Capture error:'
 const CAPTURE_ERR_THRESHOLD = 5
 const CAPTURE_ERR_WINDOW_MS = 7000
 const MAX_CAPTURE_RESTART_ATTEMPTS = 3

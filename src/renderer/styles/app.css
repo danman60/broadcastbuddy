@@ -36,6 +36,27 @@
   border: 1px solid var(--border);
 }
 
+/* Section grouping for the right panel — gives the long panel stack a clear
+   scannable hierarchy (Live Control / Content / Broadcast / Monitoring). */
+.panel-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  padding-bottom: 6px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-group-label:first-child {
+  margin-top: 0;
+}
+.compact .panel-group-label {
+  font-size: 10px;
+  margin-top: 2px;
+  padding-bottom: 3px;
+}
+
 .panel-section-title {
   font-size: 12px;
   font-weight: 600;
