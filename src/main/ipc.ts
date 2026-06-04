@@ -23,6 +23,7 @@ import { getLastStartupReport } from './services/startup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
 import * as streamDeckPlugin from './services/streamDeckPlugin'
+import * as overlayPanels from './services/overlayPanels'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
@@ -1466,6 +1467,65 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.BACKUP_RESTORE, (_e, file: string) => {
     return backup.restoreBackup(file)
+  })
+
+  // ── Overlay Mode (frameless always-on-top panels over OBS) ────
+  // Toggled from the Tools ▼ menu. Open hides the main window and spawns the
+  // panel windows; close/exit destroys the panels and restores the main window.
+  // Uses ipcMain.handle directly because OPEN needs event.sender to find the
+  // caller (the main window) to hide + restore.
+
+  ipcMain.handle(IPC.OVERLAY_MODE_OPEN, (event) => {
+    const caller = BrowserWindow.fromWebContents(event.sender)
+    if (!caller) return { error: 'No caller window' }
+    try {
+      overlayPanels.openAll(caller)
+      return { ok: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`overlay-mode:open failed: ${msg}`)
+      return { error: msg }
+    }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_MODE_CLOSE, () => {
+    try {
+      overlayPanels.closeAll()
+      return { ok: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`overlay-mode:close failed: ${msg}`)
+      return { error: msg }
+    }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_MODE_TOGGLE, (event) => {
+    try {
+      if (overlayPanels.isOpen()) {
+        overlayPanels.closeAll()
+      } else {
+        const caller = BrowserWindow.fromWebContents(event.sender)
+        if (!caller) return { error: 'No caller window' }
+        overlayPanels.openAll(caller)
+      }
+      return { ok: true, open: overlayPanels.isOpen() }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`overlay-mode:toggle failed: ${msg}`)
+      return { error: msg }
+    }
+  })
+
+  ipcMain.handle(IPC.OVERLAY_MODE_HIDE_PANEL, (_e, panelId: unknown) => {
+    try {
+      if (typeof panelId !== 'string') return { error: 'Invalid panel id' }
+      overlayPanels.hidePanel(panelId as Parameters<typeof overlayPanels.hidePanel>[0])
+      return { ok: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`overlay-mode:hide-panel failed: ${msg}`)
+      return { error: msg }
+    }
   })
 
   logger.info('IPC handlers registered')

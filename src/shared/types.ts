@@ -938,6 +938,13 @@ export const IPC = {
   BACKUP_NOW: 'backup:now',
   BACKUP_LIST: 'backup:list',
   BACKUP_RESTORE: 'backup:restore',
+
+  // Overlay Mode — frameless always-on-top floating panels over OBS.
+  // (Distinct from the streaming "overlay" / lower-thirds — shared word only.)
+  OVERLAY_MODE_OPEN: 'overlay-mode:open',
+  OVERLAY_MODE_CLOSE: 'overlay-mode:close',
+  OVERLAY_MODE_TOGGLE: 'overlay-mode:toggle',
+  OVERLAY_MODE_HIDE_PANEL: 'overlay-mode:hide-panel',
 } as const
 
 // ── WebSocket Protocol ───────────────────────────────────────────

@@ -1,132 +1,86 @@
-.overlay-controls {
+/* ════════════════════════════════════════════════════════════════
+   Playlist Controls — broadcast control surface
+   Hero Fire/Hide · labeled row groups · segmented controls
+   ON = filled accent + bold · OFF = subtle ghost
+   ════════════════════════════════════════════════════════════════ */
+
+.ctl {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Hero: Fire / Hide + status ───────────────────────────────── */
+.ctl-hero {
+  display: flex;
   align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
-.overlay-controls .btn-fire {
-  background: var(--success);
+.ctl-hero-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ctl-hero .btn-fire,
+.ctl-hero .btn-hide {
   color: #fff;
-  font-weight: 600;
-  padding: 10px 24px;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  padding: 12px 34px;
   border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: filter var(--transition), transform var(--transition);
 }
-.overlay-controls .btn-fire:hover {
-  opacity: 0.85;
-}
+.ctl-hero .btn-fire { background: var(--success); }
+.ctl-hero .btn-hide { background: var(--danger); }
+.ctl-hero .btn-fire:hover,
+.ctl-hero .btn-hide:hover { filter: brightness(1.1); }
+.ctl-hero .btn-fire:active,
+.ctl-hero .btn-hide:active { transform: translateY(1px); }
 
-.overlay-controls .btn-hide {
-  background: var(--danger);
-  color: #fff;
-  font-weight: 600;
-  padding: 10px 24px;
-  font-size: 14px;
-  border-radius: var(--radius);
-}
-.overlay-controls .btn-hide:hover {
-  opacity: 0.85;
-}
-
-.overlay-controls .btn-nav {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  padding: 10px 16px;
-  font-size: 14px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-}
-.overlay-controls .btn-nav:hover {
-  background: var(--bg-hover);
-}
-
-.controls-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--border);
-  margin: 0 4px;
-}
-
-.overlay-controls .btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-}
-
-.btn-auto-fire-on {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border-color: var(--accent) !important;
-  font-weight: 600;
-}
-
-.btn-auto-fire-off {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-}
-.btn-auto-fire-off:hover {
-  background: var(--bg-hover);
-}
-
-/* Loop mode button */
-.btn-loop-active {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border-color: var(--accent) !important;
-  font-weight: 600;
-}
-
-.btn-loop-off {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-}
-.btn-loop-off:hover {
-  background: var(--bg-hover);
-}
-
-.controls-info-row {
+.ctl-hero-status {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
   font-size: 12px;
   color: var(--text-secondary);
 }
 
-.controls-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.ctl-live-label {
+  font-weight: 700;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
-  font-weight: 600;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--text-dim);
 }
 .status-dot.live {
   background: var(--success);
-  box-shadow: 0 0 6px var(--success);
+  box-shadow: 0 0 8px var(--success);
 }
 
 .controls-playlist-pos {
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .controls-played-badge {
   font-size: 11px;
   color: var(--success);
   font-weight: 600;
-  background: rgba(46, 204, 113, 0.1);
-  padding: 1px 8px;
+  background: rgba(46, 204, 113, 0.12);
+  padding: 2px 9px;
   border-radius: 10px;
 }
 
@@ -135,47 +89,241 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 300px;
+  max-width: 320px;
 }
-
 .controls-up-next-name {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* Bulk operations row */
-.controls-bulk-row {
+/* ── Row groups with subtle left label ─────────────────────────── */
+.ctl-group {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: start;
+  column-gap: 12px;
+  row-gap: 6px;
+}
+
+.ctl-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-dim);
+  padding-top: 9px;
+  user-select: none;
+}
+
+.ctl-row {
+  grid-column: 2;
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ctl-group .ctl-row + .ctl-row { margin-top: 0; }
+
+.ctl-spacer { flex: 1 1 auto; min-width: 8px; }
+
+.ctl-bulk-cluster {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.btn-bulk {
-  padding: 4px 10px;
-  font-size: 11px;
+/* ── Segmented control: connected pills, shared radius on ends ─── */
+.seg {
+  display: inline-flex;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.seg-btn {
+  appearance: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+  line-height: 1;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.seg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Segment that is the "active accent" action (e.g. Next + Fire) */
+.seg-btn.seg-accent {
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+.seg-btn.seg-accent:hover:not(:disabled) {
+  background: var(--accent-dim);
+  color: #fff;
+}
+
+.seg-btn.seg-danger {
+  color: var(--danger);
+}
+.seg-btn.seg-danger:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 0.12);
+  color: var(--danger-hover);
+}
+
+/* ON state inside a segment (toggle pills + zoom) */
+.seg-btn.on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.seg-btn.on:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+/* Numeric stepper buttons inside the counter segment */
+.seg-btn.seg-step {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 7px 13px;
+  min-width: 34px;
+}
+
+/* Inline input embedded in a segment (counter value) */
+.seg-input {
+  width: 54px;
+  text-align: center;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: none;
+  border-right: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 7px 4px;
+  outline: none;
+}
+.seg-input:focus { background: #20203a; }
+
+/* ── Standalone toggle pill (ON = filled accent, OFF = ghost) ──── */
+.toggle {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  white-space: nowrap;
+  line-height: 1;
 }
-.btn-bulk:hover {
+.toggle:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+.toggle.on {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.toggle.on:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* ── Secondary / bulk buttons ─────────────────────────────────── */
+.btn-bulk {
+  padding: 7px 13px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.btn-bulk:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.btn-bulk:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .btn-bulk-danger {
   color: var(--danger);
   border-color: rgba(231, 76, 60, 0.3);
 }
-.btn-bulk-danger:hover {
+.btn-bulk-danger:hover:not(:disabled) {
   background: rgba(231, 76, 60, 0.1);
-  color: var(--danger);
+  color: var(--danger-hover);
+  border-color: var(--danger);
 }
 
+.btn-bulk-accent {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn-bulk-accent:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.btn-bulk-accent:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+/* ── Free-text inputs (counter label, feature card composer) ──── */
+.ctl-text-input {
+  flex: 1 1 120px;
+  min-width: 90px;
+  padding: 7px 11px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.ctl-text-input::placeholder { color: var(--text-dim); }
+.ctl-text-input:focus { border-color: var(--border-focus); }
+
+.ctl-kicker {
+  flex: 0 0 110px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+/* ── Shortcuts hint ───────────────────────────────────────────── */
 .controls-shortcuts-hint {
-  margin-top: 6px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 0.02em;

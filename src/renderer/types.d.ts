@@ -239,6 +239,12 @@ interface ElectronAPI {
   wifiDisplaySetMonitor: (monitorIndex: number | null) => Promise<WifiDisplayState>
   wifiDisplayPingTablet: () => Promise<{ ok: boolean }>
 
+  // Overlay Mode (frameless floating panels over OBS)
+  overlayModeOpen: () => Promise<{ ok?: boolean; error?: string }>
+  overlayModeClose: () => Promise<{ ok?: boolean; error?: string }>
+  overlayModeToggle: () => Promise<{ ok?: boolean; open?: boolean; error?: string }>
+  overlayModeHidePanel: (panelId: string) => Promise<{ ok?: boolean; error?: string }>
+
   // Events
   on: (channel: string, cb: (...args: unknown[]) => void) => void
   removeAllListeners: (channel: string) => void

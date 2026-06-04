@@ -438,6 +438,17 @@ export function Header() {
                 Compact Mode {compactMode ? 'ON' : 'OFF'}
               </button>
               <button
+                onClick={() => { void window.api.overlayModeToggle(); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+                title="Hide the main window and float always-on-top control panels over OBS"
+              >
+                Overlay Mode
+              </button>
+              <button
                 onClick={() => { setShowSettings(true); setShowToolsMenu(false) }}
                 style={{
                   display: 'block', width: '100%', padding: '8px 12px',

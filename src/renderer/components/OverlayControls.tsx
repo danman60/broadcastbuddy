@@ -213,263 +213,285 @@ export function OverlayControls() {
         <span className="chevron">{collapsed ? '\u25B8' : '\u25BE'}</span>
       </div>
       {!collapsed && (
-        <>
-          <div className="overlay-controls">
-            <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
-              Fire
-            </button>
-            <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
-              Hide
-            </button>
-            <div className="controls-divider" />
-            <button className="btn-nav" onClick={() => window.api.triggerPrev()}>
-              Prev
-            </button>
-            <button className="btn-nav" onClick={() => window.api.triggerNext()}>
-              Next
-            </button>
-            <button
-              className="btn-nav"
-              onClick={() => window.api.triggerNextFull()}
-              title="Advance + Fire (Ctrl+Enter or Shift+Right)"
-              style={{ fontWeight: 700 }}
-            >
-              Next+Fire
-            </button>
-            <div className="controls-divider" />
-            <button
-              className={`btn-sm ${autoFire ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleAutoFireToggle}
-              title="Auto-fire on Next/Prev"
-            >
-              Auto {autoFire ? 'ON' : 'OFF'}
-            </button>
-            <button
-              className={`btn-sm ${loopActive ? 'btn-loop-active' : 'btn-loop-off'}`}
-              onClick={handleLoopCycle}
-              title="Cycle loop mode: Off → Loop → Ping-Pong"
-            >
-              {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
-            </button>
-          </div>
-          <div className="controls-info-row">
-            <div className="controls-status">
-              <span className={`status-dot ${isVisible ? 'live' : ''}`} />
-              {isVisible ? 'LIVE' : 'OFF'}
+        <div className="ctl">
+          {/* ── Hero: Fire / Hide + status ── */}
+          <div className="ctl-hero">
+            <div className="ctl-hero-actions">
+              <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
+                Fire
+              </button>
+              <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
+                Hide
+              </button>
             </div>
-            {total > 0 && (
-              <div className="controls-playlist-pos">
-                {current} / {total}
+            <div className="ctl-hero-status">
+              <span className={`status-dot ${isVisible ? 'live' : ''}`} />
+              <span className="ctl-live-label">{isVisible ? 'LIVE' : 'OFF'}</span>
+              {total > 0 && <span className="controls-playlist-pos">{current} / {total}</span>}
+              {playedCount > 0 && <span className="controls-played-badge">{playedCount} played</span>}
+              {upNext && (
+                <span className="controls-up-next">
+                  Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Playlist navigation ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">Playlist</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button className="seg-btn" onClick={() => window.api.triggerPrev()}>Prev</button>
+                <button className="seg-btn" onClick={() => window.api.triggerNext()}>Next</button>
+                <button
+                  className="seg-btn seg-accent"
+                  onClick={() => window.api.triggerNextFull()}
+                  title="Advance + Fire (Ctrl+Enter or Shift+Right)"
+                >
+                  Next + Fire
+                </button>
               </div>
-            )}
-            {playedCount > 0 && (
-              <div className="controls-played-badge">
-                {playedCount} played
+              <button
+                className={`toggle ${autoFire ? 'on' : ''}`}
+                onClick={handleAutoFireToggle}
+                title="Auto-fire on Next/Prev"
+              >
+                Auto {autoFire ? 'ON' : 'OFF'}
+              </button>
+              <button
+                className={`toggle ${loopActive ? 'on' : ''}`}
+                onClick={handleLoopCycle}
+                title="Cycle loop mode: Off → Loop → Ping-Pong"
+              >
+                {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
+              </button>
+              <span className="ctl-spacer" />
+              <div className="ctl-bulk-cluster">
+                <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
+                  Reset Pos
+                </button>
+                <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
+                  Clear Played
+                </button>
+                <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
+                  Clear All
+                </button>
               </div>
-            )}
-            {upNext && (
-              <div className="controls-up-next">
-                Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
+            </div>
+          </div>
+
+          {/* ── Lower-third graphics ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">Graphics</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button
+                  className="seg-btn"
+                  onClick={handleUpNext}
+                  disabled={!hasNext}
+                  title="Fire the NEXT trigger as a lower-third labelled UP NEXT (does not advance position)"
+                >
+                  Up Next
+                </button>
+                <button
+                  className="seg-btn"
+                  onClick={handleThatWas}
+                  disabled={!hasPrev}
+                  title="Fire the PREVIOUS trigger as a lower-third labelled THAT WAS (does not advance position)"
+                >
+                  That Was
+                </button>
               </div>
-            )}
+              <button
+                className={`toggle ${gridVisible ? 'on' : ''}`}
+                onClick={handleGridToggle}
+                title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
+              >
+                Grid {gridVisible ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
-          {/* Bulk operations */}
-          <div className="controls-bulk-row">
-            <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
-              Reset Pos
-            </button>
-            <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
-              Clear Played
-            </button>
-            <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
-              Clear All
-            </button>
+
+          {/* ── OBS camera ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">OBS Camera</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button
+                  className={`seg-btn ${slowZoom.wideZoomedIn ? 'on' : ''}`}
+                  onClick={handleSlowZoomWide}
+                  disabled={zoomBusy !== null}
+                  title="Toggle slow zoom on the Wide camera (Move Transition in OBS)"
+                >
+                  {zoomBusy === 'wide' ? 'Wide…' : `Wide Zoom ${slowZoom.wideZoomedIn ? 'OUT' : 'IN'}`}
+                </button>
+                <button
+                  className={`seg-btn ${slowZoom.tightZoomedIn ? 'on' : ''}`}
+                  onClick={handleSlowZoomTight}
+                  disabled={zoomBusy !== null}
+                  title="Toggle slow zoom on the Tight camera (Move Transition in OBS)"
+                >
+                  {zoomBusy === 'tight' ? 'Tight…' : `Tight Zoom ${slowZoom.tightZoomedIn ? 'OUT' : 'IN'}`}
+                </button>
+              </div>
+              <button
+                className={`toggle ${transitionRevert ? 'on' : ''}`}
+                onClick={handleTransitionRevertToggle}
+                title="Auto-snap OBS back to Cut transition 500ms after any non-Cut transition fires"
+              >
+                Revert: {transitionRevert ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
-          {/* Graphics — Up Next / That Was + leveling grid */}
-          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
-            <button
-              className="btn-bulk"
-              onClick={handleUpNext}
-              disabled={!hasNext}
-              title="Fire the NEXT trigger as a lower-third labelled UP NEXT (does not advance position)"
-            >
-              Up Next
-            </button>
-            <button
-              className="btn-bulk"
-              onClick={handleThatWas}
-              disabled={!hasPrev}
-              title="Fire the PREVIOUS trigger as a lower-third labelled THAT WAS (does not advance position)"
-            >
-              That Was
-            </button>
-            <button
-              className={`btn-sm ${gridVisible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleGridToggle}
-              title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
-              style={{ marginLeft: 8 }}
-            >
-              Grid {gridVisible ? 'ON' : 'OFF'}
-            </button>
+
+          {/* ── On-air clock ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">Clock</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button
+                  className={`seg-btn seg-toggle ${clock?.visible ? 'on' : ''}`}
+                  onClick={handleClockToggle}
+                  title="Show/hide the on-air wall clock"
+                >
+                  Clock {clock?.visible ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  className="seg-btn"
+                  onClick={() => handleClockFormat(clock?.format === '24h' ? '12h' : '24h')}
+                  title="Toggle 12h / 24h time format"
+                >
+                  {clock?.format === '24h' ? '24h' : '12h'}
+                </button>
+                <button
+                  className={`seg-btn seg-toggle ${clock?.showSeconds ? 'on' : ''}`}
+                  onClick={handleClockSeconds}
+                  title="Toggle seconds display"
+                >
+                  Secs {clock?.showSeconds ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
           </div>
-          {/* OBS camera helpers — slow zoom + transition auto-revert */}
-          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
-            <button
-              className={`btn-bulk ${slowZoom.wideZoomedIn ? 'btn-loop-active' : ''}`}
-              onClick={handleSlowZoomWide}
-              disabled={zoomBusy !== null}
-              title="Toggle slow zoom on the Wide camera (Move Transition in OBS)"
-            >
-              {zoomBusy === 'wide' ? 'Wide…' : `Wide Zoom ${slowZoom.wideZoomedIn ? 'OUT' : 'IN'}`}
-            </button>
-            <button
-              className={`btn-bulk ${slowZoom.tightZoomedIn ? 'btn-loop-active' : ''}`}
-              onClick={handleSlowZoomTight}
-              disabled={zoomBusy !== null}
-              title="Toggle slow zoom on the Tight camera (Move Transition in OBS)"
-            >
-              {zoomBusy === 'tight' ? 'Tight…' : `Tight Zoom ${slowZoom.tightZoomedIn ? 'OUT' : 'IN'}`}
-            </button>
-            <button
-              className={`btn-sm ${transitionRevert ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleTransitionRevertToggle}
-              title="Auto-snap OBS back to Cut transition 500ms after any non-Cut transition fires"
-              style={{ marginLeft: 8 }}
-            >
-              Revert: {transitionRevert ? 'ON' : 'OFF'}
-            </button>
+
+          {/* ── Counter badge ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">Counter</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button
+                  className={`seg-btn seg-toggle ${counter?.visible ? 'on' : ''}`}
+                  onClick={handleCounterToggle}
+                  title="Show/hide the numeric counter badge"
+                >
+                  Counter {counter?.visible ? 'ON' : 'OFF'}
+                </button>
+                <button className="seg-btn seg-step" onClick={() => handleCounterBump(-1)} title="Decrement counter">
+                  −
+                </button>
+                <input
+                  type="number"
+                  className="seg-input"
+                  value={counter?.value ?? 1}
+                  onChange={(e) => handleCounterSetValue(parseInt(e.target.value, 10))}
+                  title="Counter value"
+                />
+                <button className="seg-btn seg-step" onClick={() => handleCounterBump(1)} title="Increment counter">
+                  +
+                </button>
+              </div>
+              <input
+                type="text"
+                className="ctl-text-input"
+                value={counterLabel}
+                onChange={(e) => setCounterLabel(e.target.value)}
+                onBlur={handleCounterSetLabel}
+                placeholder="Label (e.g. ENTRY)"
+                title="Counter label"
+              />
+              <button
+                className="btn-bulk"
+                onClick={handleCounterSyncTrigger}
+                disabled={selectedIndex < 0}
+                title="Set counter to the selected trigger's order number"
+              >
+                Sync #{selectedIndex >= 0 ? selectedIndex + 1 : '-'}
+              </button>
+            </div>
           </div>
-          {/* Broadcast chrome — on-air clock */}
-          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
-            <button
-              className={`btn-sm ${clock?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleClockToggle}
-              title="Show/hide the on-air wall clock"
-            >
-              Clock {clock?.visible ? 'ON' : 'OFF'}
-            </button>
-            <button
-              className="btn-bulk"
-              onClick={() => handleClockFormat(clock?.format === '24h' ? '12h' : '24h')}
-              title="Toggle 12h / 24h time format"
-            >
-              {clock?.format === '24h' ? '24h' : '12h'}
-            </button>
-            <button
-              className={`btn-sm ${clock?.showSeconds ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleClockSeconds}
-              title="Toggle seconds display"
-            >
-              Secs {clock?.showSeconds ? 'ON' : 'OFF'}
-            </button>
+
+          {/* ── Full-screen feature card ── */}
+          <div className="ctl-group">
+            <span className="ctl-label">Feature Card</span>
+            <div className="ctl-row">
+              <div className="seg">
+                <button
+                  className="seg-btn"
+                  onClick={handleFeatureUpNext}
+                  disabled={!hasNext}
+                  title="Show the NEXT trigger as a full-screen UP NEXT feature card (does not advance position)"
+                >
+                  Up Next
+                </button>
+                <button
+                  className="seg-btn"
+                  onClick={handleFeatureThatWas}
+                  disabled={!hasPrev}
+                  title="Show the PREVIOUS trigger as a full-screen THAT WAS feature card (does not advance position)"
+                >
+                  That Was
+                </button>
+                <button
+                  className="seg-btn seg-danger"
+                  onClick={handleFeatureHide}
+                  disabled={!featureCard?.visible}
+                  title="Hide the full-screen feature card"
+                >
+                  Hide Card
+                </button>
+              </div>
+            </div>
+            <div className="ctl-row">
+              <input
+                type="text"
+                className="ctl-text-input ctl-kicker"
+                value={fcKicker}
+                onChange={(e) => setFcKicker(e.target.value)}
+                placeholder="Kicker"
+                title="Feature card kicker (UP NEXT / THAT WAS / custom)"
+              />
+              <input
+                type="text"
+                className="ctl-text-input"
+                value={fcTitle}
+                onChange={(e) => setFcTitle(e.target.value)}
+                placeholder="Title"
+                title="Feature card title"
+              />
+              <input
+                type="text"
+                className="ctl-text-input"
+                value={fcSubtitle}
+                onChange={(e) => setFcSubtitle(e.target.value)}
+                placeholder="Subtitle"
+                title="Feature card subtitle"
+              />
+              <button
+                className="btn-bulk btn-bulk-accent"
+                onClick={handleFeatureShow}
+                disabled={!fcTitle.trim()}
+                title="Show a custom full-screen feature card"
+              >
+                Show
+              </button>
+            </div>
           </div>
-          {/* Broadcast chrome — counter badge */}
-          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
-            <button
-              className={`btn-sm ${counter?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleCounterToggle}
-              title="Show/hide the numeric counter badge"
-            >
-              Counter {counter?.visible ? 'ON' : 'OFF'}
-            </button>
-            <button className="btn-bulk" onClick={() => handleCounterBump(-1)} title="Decrement counter">
-              −
-            </button>
-            <input
-              type="number"
-              value={counter?.value ?? 1}
-              onChange={(e) => handleCounterSetValue(parseInt(e.target.value, 10))}
-              title="Counter value"
-              style={{ width: 56, textAlign: 'center', padding: '4px 6px', fontSize: 12 }}
-            />
-            <button className="btn-bulk" onClick={() => handleCounterBump(1)} title="Increment counter">
-              +
-            </button>
-            <input
-              type="text"
-              value={counterLabel}
-              onChange={(e) => setCounterLabel(e.target.value)}
-              onBlur={handleCounterSetLabel}
-              placeholder="Label (e.g. ENTRY)"
-              title="Counter label"
-              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
-            />
-            <button
-              className="btn-bulk"
-              onClick={handleCounterSyncTrigger}
-              disabled={selectedIndex < 0}
-              title="Set counter to the selected trigger's order number"
-            >
-              Sync #{selectedIndex >= 0 ? selectedIndex + 1 : '-'}
-            </button>
-          </div>
-          {/* Broadcast chrome — full-screen feature card */}
-          <div className="controls-bulk-row" style={{ marginTop: 8, alignItems: 'center', gap: 6 }}>
-            <button
-              className="btn-bulk"
-              onClick={handleFeatureUpNext}
-              disabled={!hasNext}
-              title="Show the NEXT trigger as a full-screen UP NEXT feature card (does not advance position)"
-            >
-              Feature: Up Next
-            </button>
-            <button
-              className="btn-bulk"
-              onClick={handleFeatureThatWas}
-              disabled={!hasPrev}
-              title="Show the PREVIOUS trigger as a full-screen THAT WAS feature card (does not advance position)"
-            >
-              Feature: That Was
-            </button>
-            <button
-              className={`btn-sm ${featureCard?.visible ? 'btn-auto-fire-on' : 'btn-auto-fire-off'}`}
-              onClick={handleFeatureHide}
-              disabled={!featureCard?.visible}
-              title="Hide the full-screen feature card"
-              style={{ marginLeft: 8 }}
-            >
-              Hide Card
-            </button>
-          </div>
-          {/* Feature card composer */}
-          <div className="controls-bulk-row" style={{ marginTop: 6, alignItems: 'center', gap: 6 }}>
-            <input
-              type="text"
-              value={fcKicker}
-              onChange={(e) => setFcKicker(e.target.value)}
-              placeholder="Kicker"
-              title="Feature card kicker (UP NEXT / THAT WAS / custom)"
-              style={{ width: 90, padding: '4px 6px', fontSize: 12 }}
-            />
-            <input
-              type="text"
-              value={fcTitle}
-              onChange={(e) => setFcTitle(e.target.value)}
-              placeholder="Title"
-              title="Feature card title"
-              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
-            />
-            <input
-              type="text"
-              value={fcSubtitle}
-              onChange={(e) => setFcSubtitle(e.target.value)}
-              placeholder="Subtitle"
-              title="Feature card subtitle"
-              style={{ flex: 1, minWidth: 80, padding: '4px 6px', fontSize: 12 }}
-            />
-            <button
-              className="btn-bulk"
-              onClick={handleFeatureShow}
-              disabled={!fcTitle.trim()}
-              title="Show a custom full-screen feature card"
-            >
-              Show
-            </button>
-          </div>
+
           <div className="controls-shortcuts-hint">
             Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
           </div>
-        </>
+        </div>
       )}
     </div>
   )

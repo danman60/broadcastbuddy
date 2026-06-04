@@ -265,6 +265,12 @@ contextBridge.exposeInMainWorld('api', {
   backupList: () => ipcRenderer.invoke(IPC.BACKUP_LIST),
   backupRestore: (file: string) => ipcRenderer.invoke(IPC.BACKUP_RESTORE, file),
 
+  // ── Overlay Mode (frameless floating panels over OBS) ─────────
+  overlayModeOpen: () => ipcRenderer.invoke(IPC.OVERLAY_MODE_OPEN),
+  overlayModeClose: () => ipcRenderer.invoke(IPC.OVERLAY_MODE_CLOSE),
+  overlayModeToggle: () => ipcRenderer.invoke(IPC.OVERLAY_MODE_TOGGLE),
+  overlayModeHidePanel: (panelId: string) => ipcRenderer.invoke(IPC.OVERLAY_MODE_HIDE_PANEL, panelId),
+
   // ── Event listeners (main → renderer) ─────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void) => {
     ipcRenderer.on(channel, (_event, ...args) => cb(...args))
