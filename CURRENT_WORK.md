@@ -19,7 +19,9 @@
 - Skipped: S1 (false positive — 2 settingsSet in different handlers, both needed), S9 (httpPort already correct, no 9878 literal). Deferred: F4 (half-day UI), F5 (needs gallery data), S8 (overlay.ts split, half-day).
 - Bug caught in review: F1b used `pkg.client.name` (nonexistent) → fixed to `.organization`.
 - **Suite 285/285 green** (also fixed 2 pre-existing stale overlay-controls selectors).
-- **DEPLOYING to DART** (bg) → then cast reset + live re-verify. After restart, live BB will auto-load the March session (34 triggers) + auto-save now active.
+- Deployed `a1e0aea` → **auto-save VERIFIED LIVE end-to-end**: boot auto-loaded March session (idx22, 34 triggers); `nextTrigger` → session file rewrote (mtime today, idx23) → restored to 22. Cast reset, decoder errs=0.
+- **Adversarial review of the shipped code** → 2 real fixes (`ba5f359`): (HIGH) `obsConnection.connect()` now guards OPEN|CONNECTING so a manual Connect racing F3 auto-connect can't close the good socket; (MED) CC apply only adopts+saves a session when none loaded (was overwriting a manually-loaded session's file every apply). Suite 285/285. **Redeploying to DART.**
+- Remaining 5and5 deferred (judged poor autonomous picks): S8 (overlay.ts split — risky refactor of critical overlay path, low value), F4 (now largely redundant w/ F1b auto-session), F5 (needs real gallery data).
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
 
