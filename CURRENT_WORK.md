@@ -35,7 +35,10 @@
 - **Cast watchdog respawn VERIFIED LIVE**: killed wifi-display twice → 2.2s / 2.6s respawn (was ~20s).
 - **Operator runbook** written: `docs/operator-walkthrough.md` — precise checklist for the eyes-only items (overlay-in-OBS, audio meters, slow-zoom scene config, stream/replay, Overlay Mode, tablet).
 - **Review pass 5** (crashRecovery + wsHub): wsHub clean (crash-hardened vs malformed LAN msgs); crashRecovery main flow clean; found 1 MED (`a5fe8dd`) — recovery-restore FALLBACK (snapshot's session file gone) left currentSession on the boot-auto-loaded session → next auto-save corrupted it (regression from F1). Fixed: adopt a fresh `(recovered)` session before loading. Suite 290/290.
-- All pushed `1db3bff`→`a5fe8dd`. Suite 273→290. **Final consolidating deploy → DART = main** (OBS-reconnect + recovery-fix + docs). 6 real bugs caught via 5 review passes.
+- DART consolidated → `a5fe8dd` (all reliability fixes live). 6 real bugs caught via 5 review passes.
+- **Regression tests for reliability fixes** (`6c6dfd6`): recovery-fallback (4) + OBS reconnect via mock obs-ws handshake (2). Suite 290→296.
+- **Full operator-lifecycle integration test** (`9dfe65a`): boot→CC apply→fire/navigate→feature card→toggles→ad-hoc→edit→auto-save→restart→restore, 9 cases, cross-feature invariants hold, no bugs. Suite 296→**305**. Proves "everything in this flow works + activates" end-to-end.
+- All pushed `1db3bff`→`9dfe65a`. **Suite 273→305.** Test-only commits since `a5fe8dd` (no redeploy needed — DART app code current).
 - Truly operator-only remaining (in the runbook): audio meters (visual), slow-zoom (needs OBS scene/transition names), stream control (won't broadcast), overlay-in-OBS visual confirm.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
