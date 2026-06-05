@@ -28,7 +28,10 @@
 - **F5 done** (`6a88fdf`): gallery matchPhotos half-open boundary + parseHMS clamp/validate (no more wild Gemini offsets) + slug random suffix. Logic validated via synthetic cases.
 - **Adversarial review of 4 prior unreviewed shipped commits** (CSE visual-system/overlay-mode/HEVC/ffmpeg) → found 1 HIGH + fixed (`e144daf`): **Overlay Mode floating panels were frozen** — renderer state pushes only hit `getAllWindows()[0]` (main window); panels share the same IPC store but got no live updates. New `sendToAllWindows()` broadcasts to every window + main-window-restore safety net. Suite 290/290. (MED: WS 0.0.0.0 unauth = by-design for CSController on trusted LAN, left; LOW panel-close handled.)
 - **Final redeploy to DART** consolidating F5 + Overlay Mode fix + all tonight's work.
-- All work pushed `1db3bff`→`e144daf`. Suite 273→290. **Remaining needs hardware** (live OBS walkthrough) — nothing else autonomously actionable.
+- **Live OBS verified** (OBS runs on DART): F3 auto-connect connected on boot; OBS record control start/stop confirmed via RecordStateChanged; replay fail-soft correct. (`763fa2c`)
+- **Cast watchdog hardened** (`461d87a`) after review of observed slow/missing respawn: 'error'/no-PID spawn paths now auto-restart (was: cast could die and never recover mid-show); restart cap reset gated on 30s stability (not spawn-time); pre-spawn taskkill 5s→1.5s; intentionalStop latch. Build+suite 290/290, restart logic correctness-reviewed. **Deploying.**
+- All work pushed `1db3bff`→`461d87a`. Suite 273→290. After this deploy: live-test watchdog respawn timing.
+- Truly operator-only remaining: audio meters (visual), slow-zoom (needs scene/transition config — won't flip live OBS scenes blindly), stream control (won't broadcast), overlay-in-OBS-scene visual confirm.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
 
