@@ -31,7 +31,11 @@
 - **Live OBS verified** (OBS runs on DART): F3 auto-connect connected on boot; OBS record control start/stop confirmed via RecordStateChanged; replay fail-soft correct. (`763fa2c`)
 - **Cast watchdog hardened** (`461d87a`) after review of observed slow/missing respawn: 'error'/no-PID spawn paths now auto-restart (was: cast could die and never recover mid-show); restart cap reset gated on 30s stability (not spawn-time); pre-spawn taskkill 5s→1.5s; intentionalStop latch. Build+suite 290/290, restart logic correctness-reviewed. **Deploying.**
 - All work pushed `1db3bff`→`461d87a`. Suite 273→290. After this deploy: live-test watchdog respawn timing.
-- Truly operator-only remaining: audio meters (visual), slow-zoom (needs scene/transition config — won't flip live OBS scenes blindly), stream control (won't broadcast), overlay-in-OBS-scene visual confirm.
+- **OBS auto-reconnect** (`594bc76`): ws 'close' now reconnects a dropped OBS connection (3s retry, scoped to post-Identified). Build+suite 290/290, correctness-reviewed. NOT yet deployed to DART (DART=`461d87a`; OBS-reconnect only matters if OBS drops mid-show — ships next operator deploy, not worth another cast disruption tonight).
+- **Cast watchdog respawn VERIFIED LIVE**: killed wifi-display twice → 2.2s / 2.6s respawn (was ~20s).
+- **Operator runbook** written: `docs/operator-walkthrough.md` — precise checklist for the eyes-only items (overlay-in-OBS, audio meters, slow-zoom scene config, stream/replay, Overlay Mode, tablet).
+- All pushed `1db3bff`→`594bc76`. Suite 273→290. DART live=`461d87a` (all critical fixes); one commit behind (OBS-reconnect, non-urgent).
+- Truly operator-only remaining (in the runbook): audio meters (visual), slow-zoom (needs OBS scene/transition names), stream control (won't broadcast), overlay-in-OBS visual confirm.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
 
