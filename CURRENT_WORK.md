@@ -1,5 +1,43 @@
 # Current Work - BroadcastBuddy
 
+## PUNCH LIST 2026-06-05 (user flurry — operator session on DART)
+
+1. **[ROOT CAUSE FOUND] Stream Deck plugin disabled on DART → no menu options.** Plugin IS installed (`%APPDATA%\Elgato\StreamDeck\Plugins\com.broadcastbuddy.streamdeck.sdPlugin`, manifest valid, 19 actions, SD 7.4.2). But `bin/plugin.js` crashes every launch: `ERR_MODULE_NOT_FOUND: Cannot find package 'ws'`. SD looped restart ×9 → `"Plugin is unstable and was disabled."` **Cause:** `streamdeck-plugin/rollup.config.mjs` has `external: ['ws']` → ws never bundled, no node_modules beside the plugin. **Fix:** drop `external: ['ws']` + add `@rollup/plugin-commonjs` to inline ws (or switch `connection.ts` to Node 20 global `WebSocket`, dropping the ws dep). Rebuild plugin → rebuild BB (extraResources rebundles) → redeploy DART → re-run in-app installer → restart Stream Deck app.
+2. **Slow Zoom "doesn't work or fire anything"** — if triggered from Stream Deck = same as #1 (plugin disabled). If from UI/tablet = separate, verify path.
+3. **Tablet buttons L3 / count / clock / trans / trans don't work** (CSController tablet → BB host). Separate from #1. Needs investigation: WS command names tablet sends vs BB wsHub handlers.
+4. **Electron app still doesn't require elevation on startup** as requested. LaunchBroadcastBuddy task was set Highest+Interactive — verify task actually used / shortcut points to it.
+5. **Live chat not ported from CSE app at all.** Port chat moderation feature from CompSyncElectronApp. (Note: ChatPanel.tsx exists in BB — verify whether it's wired/functional vs CSE's version.)
+6. **No critical logo option for graphics overlay.** Missing logo control on the graphics/overlay path. Locate vs LogoManager/per-entry logos.
+7. **Overlay editor not ported from CSE.** (BB has VisualEditor.tsx — verify parity vs CSE overlay editor.)
+8. **CC event sync must populate saved STREAM KEY + STREAM URL.** On CC apply, persist streamKey/streamUrl into saved StreamConfig (ties to CLAUDE.md auto-reflection: CC_APPLY_PACKAGE handles livestreamUrl/embedCode — extend to streamKey/rtmpUrl population + save).
+9. **Playlist sidebar (left-panel) draggable/resizable; right side responsive to sizing.** Left-panel fixed 300px → add drag handle + width state. Right-panel already made responsive grid this session (reflows on width).
+
+10. **Operator chat Supabase link pullable via CC.** If operator chat needs a Supabase URL/key, deliver it through the CC→BB broadcast-package channel (same path as livestream source / #8), not manual entry. Ties to #5.
+
+11. **Audio meters + System stats → top bar** like CSE app. Currently AudioMeters + SystemStats in right-panel "Monitoring" group (App.tsx:76-77). Move into Header (top bar) per CSE layout.
+
+12. **Load menu should merge CC upcoming events.** VERIFIED: HANOVER ("KMSD HANOVER", id dc0b2b1c-…, status=confirmed, load_in 2026-06-06 17:00, tenant …0001) passes all `/api/v1/broadcast-package` filters → fetchable via BroadcastPackagePanel "Fetch Events". But Header "Load" menu (Header.tsx:302) lists LOCAL saved sessions only, not CC events — that's why HANOVER absent there. Fix: merge CC upcoming events into the Load dropdown (or relabel + add a CC section). CC route filter = status∈{confirmed,scheduled,in_progress,booked} AND load_in_time≥now, tenantId match.
+
+### ALL 12 RESOLVED THIS SESSION (code-complete, NOT committed/pushed — user gated deploy)
+Each verified: tsc clean + electron-vite build + screenshot (UI) or headless-WS/DB (backend). Correctness reviewer pass = no critical/high. Screenshots DM'd to Telegram.
+
+- **#1 Stream Deck** — root cause: `rollup.config.mjs external:['ws']` → ws unbundled → plugin.js `ERR_MODULE_NOT_FOUND` → SD disabled it. Fix: removed external, added `@rollup/plugin-commonjs`, ws inlined (plugin.js 168→307KB). DEPLOY-GATED: rebuild BB → redeploy DART → re-run in-app installer → restart Stream Deck.
+- **#2 Slow zoom** — no code bug. Command path fully wired (SD `slowZoomWide/Tight` → wsHub:135/141 → slowZoom.ts). Was dead because plugin disabled (#1). Live needs #1 deploy + OBS scenes ("Wide/Wide Zoomed/Tight/Tight Zoomed" + "Slow Zoom" Move transition).
+- **#3 Tablet buttons** — action-vocab mismatch (tablet `toggleOverlay`+element / `cycleTransition` vs BB flat names). Fix wsHub.ts: `toggleOverlay` case threads top-level `msg.element` → LT/counter/clock; `cycleTransition` advances styling.animation. WS test 5/5.
+- **#4 Elevation** — exe manifest was `asInvoker` + shortcuts launch exe directly + "(Admin)" shortcut never existed on DART + scheduled task last-run FAILED (0x8007000B). Fix: package.json win `requestedExecutionLevel: requireAdministrator` (removed `signAndEditExecutable:false`). DEPLOY-GATED: rebuild+reinstall on DART.
+- **#5+#10 Live chat** — was fully built but dormant. Fix: CC_APPLY_PACKAGE now arms `chatBridge.init()` from `pkg.realtime` block (supabaseUrl/anonKey) — Supabase link delivered via CC channel, no manual entry.
+- **#6 Feature-card logo** — added dedicated persistent graphics-card logo slot (LogoManager 3rd slot + OVERLAY_SET/GET_FC_LOGO IPC); overlay resolves fc logo = featureCardLogo || trigger logo || existing.
+- **#7 Starting Soon scene editor** — ported CSE editor: live /overlay iframe preview, drag-positioning (8 supported elements), 6 design packs, per-element styling → real overlay state (overlaySource applyStartingSoonDesign/Layout). DEFERRED: logo/timeDate/eventCard/upNext/pinnedChat on SS scene (BB overlay doesn't render those as SS elements — no dead controls).
+- **#8 Stream key/url** — persistence bug (setStreamConfig in-memory only). Fix: apply handler now `settings.set('streamConfig', cfg)` + setStreamConfig calls notifyChange(). CC already sends all 4 fields.
+- **#9 Sidebar resize** — left-panel JS-driven width + `.panel-resizer` drag handle (clamp 220–600, persisted), compact preserved.
+- **#11 Meters → top bar** — HeaderAudioMeter + HeaderSystemStats compact widgets in Header (shared hooks extracted from full panels); removed from right-panel Monitoring.
+- **#12 Load menu CC events** — Header Load dropdown now fetches CC events (ccFetchEvents) under "Command Center Events" section; click = fetch+apply. HANOVER will appear when ccConfig set.
+- **Layout tweaks** — Edit Entry above Ad-hoc; half-width grid (now minmax 480px = 2-col).
+
+**Reviewer mediums (non-blocking):** chat init lacks tenantId guard (chat is tenant-agnostic — harmless); grid 2-col needs ≥1040px viewport.
+
+**REMAINING = DEPLOY ONLY (user-gated):** rebuild BB on Windows + reinstall on DART → picks up #1 (SD plugin via extraResources), #4 (UAC manifest). Then live-verify #1/#2/#3 on DART hardware. No code left.
+
 ## Session 2026-06-05 — Overnight live E2E (StageCoach) + auto-save shipped + 5and5 (IN PROGRESS)
 
 **Auto-save shipped** (`1db3bff`): `overlay.ts notifyChange()` → debounced 800ms `saveSession`, guarded on loaded session. Built/pushed/deployed to DART, cast reset (decoder errs=0).

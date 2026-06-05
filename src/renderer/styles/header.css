@@ -45,6 +45,117 @@
   -webkit-app-region: no-drag;
 }
 
+/* ── Inline monitoring widgets (CSE-style always-visible meters) ── */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  -webkit-app-region: no-drag;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.header-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-meter-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.header-meter-label {
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  min-width: 22px;
+  text-align: right;
+}
+
+.header-meter-track {
+  width: 30px;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.header-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.header-meter-value {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: left;
+}
+
+.header-meter-group.disk-warn .header-meter-track {
+  box-shadow: 0 0 5px var(--danger);
+}
+
+/* Audio level bar — horizontal, mirrors the panel meter colour zones. */
+.header-audio-bar {
+  position: relative;
+  width: 70px;
+  height: 8px;
+  background: rgba(45, 45, 66, 0.6);
+  border: 1px solid rgba(80, 80, 120, 0.4);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.header-audio-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  transition: width 0.08s linear;
+}
+
+.header-audio-fill.good { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.header-audio-fill.medium { background: linear-gradient(90deg, #22c55e, #fbbf24); }
+.header-audio-fill.hot { background: linear-gradient(90deg, #22c55e, #fbbf24, #ef4444); }
+.header-audio-fill.silent { background: var(--text-muted); opacity: 0.3; }
+
+.header-audio-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+  transition: left 0.12s linear;
+}
+
+/* Compact app mode: tighten / hide the system stats to keep the bar short. */
+.compact .header-center {
+  gap: 8px;
+}
+.compact .header-audio-bar {
+  width: 44px;
+}
+.compact .header-stats .header-meter-group.disk-warn,
+.compact .header-stats {
+  gap: 6px;
+}
+
 .header-toast {
   position: absolute;
   top: 52px;

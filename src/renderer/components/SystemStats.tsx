@@ -28,15 +28,11 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-export function SystemStats() {
-  const compactMode = useStore((s) => s.compactMode)
-  const [collapsed, setCollapsed] = useState(false)
+// Shared system-stats subscription (one-shot seed + ~5s push) and disk alert.
+// Consumed by both the full panel and the compact header widget.
+function useSystemStats(): { stats: Stats | null; alert: DiskAlert | null } {
   const [stats, setStats] = useState<Stats | null>(null)
   const [alert, setAlert] = useState<DiskAlert | null>(null)
-
-  useEffect(() => {
-    if (compactMode) setCollapsed(true)
-  }, [compactMode])
 
   useEffect(() => {
     window.api.systemGetStats().then(setStats).catch(() => {})
@@ -52,6 +48,58 @@ export function SystemStats() {
       window.api.removeAllListeners(IPC.SYSTEM_DISK_ALERT)
     }
   }, [])
+
+  return { stats, alert }
+}
+
+/**
+ * Compact always-visible CPU / RAM / Disk readout for the top bar. Mirrors
+ * CSE's inline header meters (label · mini track · value). Reuses
+ * useSystemStats — no duplicate IPC.
+ */
+export function HeaderSystemStats() {
+  const { stats, alert } = useSystemStats()
+  if (!stats) return null
+
+  const diskPct = stats.diskTotalGB > 0 ? (1 - stats.diskFreeGB / stats.diskTotalGB) * 100 : 0
+  const diskLost = stats.driveLost || stats.diskFreeGB < 0
+  const diskBad = !diskLost && (stats.diskFreeGB < 10)
+
+  return (
+    <div className="header-stats" title={alert ? alert.message : 'System CPU / RAM / Disk'}>
+      <div className="header-meter-group" title={`CPU ${stats.cpuPercent}%`}>
+        <span className="header-meter-label">CPU</span>
+        <div className="header-meter-track">
+          <div className="header-meter-fill" style={{ width: `${Math.min(100, stats.cpuPercent)}%`, background: cpuColor(stats.cpuPercent) }} />
+        </div>
+        <span className="header-meter-value">{stats.cpuPercent}%</span>
+      </div>
+      <div className="header-meter-group" title={`RAM ${stats.memPercent}%`}>
+        <span className="header-meter-label">RAM</span>
+        <div className="header-meter-track">
+          <div className="header-meter-fill" style={{ width: `${Math.min(100, stats.memPercent)}%`, background: cpuColor(stats.memPercent) }} />
+        </div>
+        <span className="header-meter-value">{stats.memPercent}%</span>
+      </div>
+      <div className={`header-meter-group${diskBad ? ' disk-warn' : ''}`} title={diskLost ? 'Drive lost' : `${stats.diskFreeGB} GB free`}>
+        <span className="header-meter-label">DSK</span>
+        <div className="header-meter-track">
+          <div className="header-meter-fill" style={{ width: `${diskLost ? 0 : Math.min(100, diskPct)}%`, background: diskColor(stats.diskFreeGB) }} />
+        </div>
+        <span className="header-meter-value">{diskLost ? '—' : `${stats.diskFreeGB}G`}</span>
+      </div>
+    </div>
+  )
+}
+
+export function SystemStats() {
+  const compactMode = useStore((s) => s.compactMode)
+  const [collapsed, setCollapsed] = useState(false)
+  const { stats, alert } = useSystemStats()
+
+  useEffect(() => {
+    if (compactMode) setCollapsed(true)
+  }, [compactMode])
 
   const diskPct = stats && stats.diskTotalGB > 0 ? (1 - stats.diskFreeGB / stats.diskTotalGB) * 100 : 0
   const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, marginBottom: 6 }

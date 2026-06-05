@@ -609,10 +609,31 @@ export function bumpCounter(delta: number): number {
 
 let featureCardTimer: NodeJS.Timeout | null = null
 
+// Persistent graphics/feature-card logo. When non-empty this overrides whatever
+// per-trigger logoDataUrl a fire would otherwise carry; when empty the card
+// falls back to the selected trigger's logo (original behavior). Persisted to
+// settings (featureCardLogoPath) and restored at startup.
+let featureCardLogoDataUrl = ''
+
+export function getFeatureCardLogo(): string {
+  return featureCardLogoDataUrl
+}
+
+export function setFeatureCardLogo(dataUrl: string): void {
+  featureCardLogoDataUrl = dataUrl || ''
+  // Apply immediately to the live card so an already-visible card updates and
+  // the preview/browser-source reflect the change without a re-fire.
+  overlayState.featureCard.logoDataUrl = featureCardLogoDataUrl || overlayState.featureCard.logoDataUrl
+  notifyChange()
+  logger.info(`Feature-card logo ${featureCardLogoDataUrl ? 'set' : 'cleared'}`)
+}
+
 export function showFeatureCard(data: Partial<Omit<FeatureCardState, 'visible' | 'firedAt'>>): void {
   overlayState.featureCard = {
     ...overlayState.featureCard,
     ...data,
+    // Persistent feature-card logo wins; fall back to the incoming/per-trigger logo.
+    logoDataUrl: featureCardLogoDataUrl || data.logoDataUrl || overlayState.featureCard.logoDataUrl,
     visible: true,
     firedAt: Date.now(),
   }
@@ -636,6 +657,8 @@ export function setFeatureCardContent(
   overlayState.featureCard = {
     ...overlayState.featureCard,
     ...data,
+    // Persistent feature-card logo wins; fall back to the incoming/per-trigger logo.
+    logoDataUrl: featureCardLogoDataUrl || data.logoDataUrl || overlayState.featureCard.logoDataUrl,
   }
   notifyChange()
 }
@@ -699,6 +722,9 @@ export function getStreamConfig(): StreamConfig {
 
 export function setStreamConfig(config: StreamConfig): void {
   streamConfig = config
+  // Notify so the debounced session auto-save also captures stream-config edits
+  // (e.g. when applied via a CC package onto an already-loaded session).
+  notifyChange()
 }
 
 // ── Reset for new session ────────────────────────────────────────

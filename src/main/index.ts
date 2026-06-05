@@ -104,6 +104,10 @@ app.whenReady().then(() => {
   // 2. Initialize overlay with saved styling
   overlay.updateStyling(overlayStyling)
 
+  // 2b. Restore persistent graphics/feature-card logo (data URL or '').
+  const savedFcLogo = settings.get('featureCardLogoPath')
+  if (savedFcLogo) overlay.setFeatureCardLogo(savedFcLogo)
+
   // 3. Register IPC handlers
   registerIpcHandlers()
 

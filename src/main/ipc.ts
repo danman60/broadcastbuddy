@@ -185,6 +185,14 @@ export function registerIpcHandlers(): void {
     pushState()
   })
 
+  ipcMain.handle(IPC.OVERLAY_SET_FC_LOGO, (_e, dataUrl: string) => {
+    overlay.setFeatureCardLogo(dataUrl)
+    settings.set('featureCardLogoPath', dataUrl || '')
+    pushState()
+  })
+
+  ipcMain.handle(IPC.OVERLAY_GET_FC_LOGO, () => overlay.getFeatureCardLogo())
+
   // ── Trigger management ────────────────────────────────────────
 
   ipcMain.handle(IPC.TRIGGER_LIST, () => {
@@ -680,13 +688,18 @@ export function registerIpcHandlers(): void {
 
     // Apply stream config if any streaming field is present
     if (pkg.streaming.streamKey || pkg.streaming.rtmpUrl || pkg.streaming.livestreamUrl || pkg.streaming.embedCode) {
-      overlay.setStreamConfig({
+      const streamConfig: StreamConfig = {
         streamKey: pkg.streaming.streamKey || '',
         rtmpUrl: pkg.streaming.rtmpUrl || '',
         viewingLink: pkg.streaming.livestreamUrl || '',
         embedCode: pkg.streaming.embedCode || '',
         chatLink: '',
-      })
+      }
+      overlay.setStreamConfig(streamConfig)
+      // Persist too — setStreamConfig alone only sets the in-memory variable, so
+      // without this the applied stream key/url is lost on restart (matches the
+      // manual STREAM_CONFIG_SET handler which also writes to settings).
+      settings.set('streamConfig', streamConfig)
     }
 
     // Apply company logo if available
@@ -767,6 +780,24 @@ export function registerIpcHandlers(): void {
         tenantId,
         eventId: resolvedEventId,
       })
+    }
+
+    // Arm the operator chat bridge from the SAME realtime block. It was fully
+    // built but never initialized from the package, so chat stayed dormant.
+    // chatBridge.init() disconnects any prior channel first, so a double-apply
+    // does not leak a second subscription. Preserve any persisted banned authors
+    // and re-persist the resolved config so it survives a restart.
+    if (rt && rt.supabaseUrl && rt.supabaseAnonKey && resolvedEventId) {
+      const prevChatCfg = settings.get('chatConfig') as ChatConfig | undefined
+      const chatCfg: ChatConfig = {
+        supabaseUrl: rt.supabaseUrl,
+        supabaseAnonKey: rt.supabaseAnonKey,
+        eventId: resolvedEventId,
+        enabled: true,
+        bannedAuthors: prevChatCfg?.bannedAuthors ?? [],
+      }
+      settings.set('chatConfig', chatCfg)
+      chatBridge.init(chatCfg)
     }
 
     return { success: true, triggerCount: newTriggers.length }

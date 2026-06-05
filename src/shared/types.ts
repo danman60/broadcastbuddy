@@ -168,6 +168,50 @@ export interface StartingSoonMedia {
   showVisualizer?: boolean // toggle the bottom audio/decorative bar visualizer
 }
 
+// ── Starting-Soon Scene Editor (ported from CompSync StartingSoonEditor) ──
+// The simple StartingSoonPanel stays the form-based config. This optional layer
+// gives the operator a drag-positioned, designed scene. ALL fields optional —
+// when `layout`/`design` are absent the overlay renders the original centered
+// flex column unchanged (non-breaking).
+
+// Elements BB's starting-soon overlay actually renders and can position/style.
+// (No logo/eventCard/upNext/pinnedChat/timeDate/ticker — those are NOT part of
+// BB's SS scene today; see DEFERRED note in the editor. Adding a control for an
+// element the overlay can't render would be a dead control.)
+export type SSElementKey =
+  | 'title'
+  | 'subtitle'
+  | 'countdown'
+  | 'welcome'
+  | 'sponsors'
+  | 'social'
+  | 'slideshow'
+  | 'visualizer'
+
+// Per-element placement + visibility override. When present for an element the
+// renderer switches it from the centered flex flow to absolute positioning at
+// (x%, y%) and honours `show`. Absent → element keeps its default flex position.
+export interface SSElementPlacement {
+  x: number // % from left (0-100), anchor = element center
+  y: number // % from top (0-100)
+  show?: boolean // false hides the element entirely (default: shown)
+  fontSize?: number // px override (title/subtitle/countdown/welcome/social)
+  color?: string // hex override
+  fontWeight?: number // 100..900 override
+}
+
+export type SSElementLayout = Partial<Record<SSElementKey, SSElementPlacement>>
+
+// One-tap designed identity (gradient + typography + countdown weight + colors).
+export interface SSDesign {
+  presetId?: string // id of the applied gradient/pro-pack (informational)
+  gradientColors?: string[] // 2-4 hex stops; absent = use accentColor-derived gradient
+  gradientAngle?: number // deg (default 135)
+  titleFont?: string // CSS font-family for the title line
+  subtitleFont?: string // CSS font-family for the subtitle/welcome/social
+  countdownWeight?: number // 100..900 for the countdown digits
+}
+
 export interface StartingSoonState {
   visible: boolean
   title: string
@@ -181,6 +225,8 @@ export interface StartingSoonState {
   accentColor: string
   sectionLabel?: string // optional cinematic section badge text (e.g. "ACT TWO"); empty/absent = no badge
   media?: StartingSoonMedia // optional pre-show ambient media stack (all off by default)
+  layout?: SSElementLayout // optional per-element drag placement/style (scene editor)
+  design?: SSDesign // optional one-tap design (gradient/fonts/weights)
 }
 
 // ── On-air Clock ─────────────────────────────────────────────────
@@ -317,11 +363,13 @@ export interface AppSettings {
   }
   overlay: OverlayStyling
   companyLogoPath: string
+  featureCardLogoPath: string // persistent graphics/feature-card logo (data URL); empty = fall back to per-trigger logo
   deepseekApiKey: string
   geminiApiKey: string
   sessionsDir: string
   mappingPresets?: MappingPreset[]
   compactMode?: boolean
+  leftPanelWidth?: number
   streamConfig?: StreamConfig
   obsConnection?: {
     host: string
@@ -712,6 +760,8 @@ export const IPC = {
   OVERLAY_GET_STATE: 'overlay:get-state',
   OVERLAY_UPDATE_STYLING:'overlay:update-styling',
   OVERLAY_SET_LOGOS: 'overlay:set-logos',
+  OVERLAY_SET_FC_LOGO: 'overlay:set-fc-logo', // persistent graphics/feature-card logo (data URL or '')
+  OVERLAY_GET_FC_LOGO: 'overlay:get-fc-logo',
 
   // Trigger management
   TRIGGER_LIST: 'trigger:list',

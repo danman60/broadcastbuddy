@@ -73,6 +73,14 @@ export function StartingSoonPanel() {
       </div>
       {!collapsed && (
         <div className="starting-soon-panel">
+          <button
+            className="btn btn-ghost btn-sm ss-open-editor"
+            onClick={() => useStore.getState().setShowStartingSoonEditor(true)}
+            title="Open the full-screen drag-and-design scene editor"
+          >
+            🎬 Open Scene Editor
+          </button>
+
           {/* Title + Subtitle */}
           <div className="ss-field">
             <label>Title</label>

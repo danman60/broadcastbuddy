@@ -18,14 +18,22 @@ import {
   toggleCounter,
   fireFeatureUpNext,
   fireFeatureThatWas,
+  getStyling,
+  updateStyling,
 } from './overlay'
 import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
-import { WsStateMessage } from '../../shared/types'
+import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 
 const logger = createLogger('wsHub')
+
+// Lower-third entrance animations the tablet's `cycleTransition` advances
+// through, in order. 'random' is excluded so cycling stays deterministic.
+const CYCLE_ANIMATIONS: AnimationType[] = [
+  'slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce', 'split', 'blur', 'sparkle',
+]
 
 let wss: WebSocketServer | null = null
 const clients = new Map<WebSocket, string>()
@@ -57,6 +65,26 @@ export function broadcastState(): void {
   }
 }
 
+// Shared toggle bodies — reused by both the flat BB commands (toggleLT etc.)
+// and the tablet's CompSync-style `toggleOverlay` + `element` form, so the two
+// entry points can never diverge.
+function doToggleLT(): void {
+  const state = getOverlayState()
+  if (state.lowerThird.visible) hideLowerThird()
+  else fireLowerThird()
+}
+
+// Advance the lower-third entrance animation to the next style in CYCLE_ANIMATIONS,
+// wrapping around. Drives the tablet's transition button (BB has no separate
+// "transition" concept — the lower-third animation IS the transition).
+function doCycleTransition(): void {
+  const current = getStyling().animation
+  const idx = CYCLE_ANIMATIONS.indexOf(current)
+  const next = CYCLE_ANIMATIONS[(idx + 1) % CYCLE_ANIMATIONS.length]
+  updateStyling({ animation: next })
+  logger.info(`cycleTransition: ${current} → ${next}`)
+}
+
 function handleCommand(action: string, data?: Record<string, unknown>): void {
   switch (action) {
     case 'fireLT':
@@ -65,12 +93,9 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     case 'hideLT':
       hideLowerThird()
       break
-    case 'toggleLT': {
-      const state = getOverlayState()
-      if (state.lowerThird.visible) hideLowerThird()
-      else fireLowerThird()
+    case 'toggleLT':
+      doToggleLT()
       break
-    }
     case 'nextTrigger':
       nextTrigger()
       break
@@ -142,6 +167,29 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
         .then((status) => (status.streaming ? obs.stopStreaming() : obs.startStreaming()))
         .catch((err) => logger.warn(`toggleStream failed: ${err instanceof Error ? err.message : err}`))
       break
+    case 'toggleOverlay': {
+      // CompSync-style command from the CSController tablet. The tablet puts the
+      // target `element` at the TOP LEVEL of the message; the dispatch site
+      // forwards it into `data.element`. Route to the matching flat-command body.
+      const element = data?.element as string | undefined
+      switch (element) {
+        case 'lowerThird':
+          doToggleLT()
+          break
+        case 'counter':
+          toggleCounter()
+          break
+        case 'clock':
+          toggleClock()
+          break
+        default:
+          logger.warn(`toggleOverlay: unknown element "${element}"`)
+      }
+      break
+    }
+    case 'cycleTransition':
+      doCycleTransition()
+      break
     case 'getStatus':
       // No-op — state is broadcast automatically
       break
@@ -177,7 +225,10 @@ export function start(port: number): void {
         }
 
         if (msg.type === 'command') {
-          handleCommand(msg.action, msg.data)
+          // The CSController tablet puts `element` at the TOP LEVEL of the
+          // message (not inside `data`), so merge it into the data object the
+          // handler receives. Flat BB commands (toggleLT etc.) ignore it.
+          handleCommand(msg.action, { ...msg.data, element: msg.element })
         }
 
         // Handle broadcast_package pushed from CC's pushToApp mutation

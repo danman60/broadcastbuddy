@@ -238,6 +238,15 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     text-align: center;
   }
   .starting-soon.visible { opacity: 1; }
+  /* Scene-editor placement: an element with an explicit layout entry is pulled
+     out of the centered flex flow and positioned absolutely (translate centers
+     it on its x/y point). Non-breaking: only applied when JS adds .ss-placed. */
+  .starting-soon .ss-placed {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    z-index: 3;
+  }
   .ss-title {
     font-size: 72px;
     font-weight: 700;
@@ -1502,6 +1511,10 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       ssEl.style.setProperty('--ss-accent', ss.accentColor || '#667eea');
       ssEl.style.setProperty('--ss-bg', ss.backgroundColor || '#0d0f1d');
 
+      // ── Scene-editor: per-element placement + style + one-tap design ──
+      applyStartingSoonDesign(ss, ssEl, ssTitleEl, ssSubEl, ssCountEl);
+      applyStartingSoonLayout(ss);
+
       // Section badge (cinematic) — optional "ACT TWO" style pill.
       var ssBadgeEl = document.getElementById('ss-section-badge');
       if (ssBadgeEl) {
@@ -1618,6 +1631,83 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       applyStartingSoonMedia(ss);
     }
 
+    // One-tap design: gradient background (preset colors + angle), title/subtitle
+    // fonts, countdown weight. Absent design → derived gradient stays driven by
+    // --ss-accent/--ss-bg (unchanged look).
+    function applyStartingSoonDesign(ss, ssEl, titleEl, subEl, countEl) {
+      var d = (ss && ss.design) || null;
+      var gradEl = document.getElementById('ss-gradient-bg');
+      if (gradEl) {
+        if (d && d.gradientColors && d.gradientColors.length >= 2) {
+          var angle = (typeof d.gradientAngle === 'number') ? d.gradientAngle : 135;
+          gradEl.style.background = 'linear-gradient(' + angle + 'deg, ' + d.gradientColors.join(', ') + ')';
+        } else {
+          gradEl.style.background = ''; // fall back to the CSS default (accent-derived)
+        }
+      }
+      if (titleEl) titleEl.style.fontFamily = (d && d.titleFont) ? d.titleFont : '';
+      if (subEl) subEl.style.fontFamily = (d && d.subtitleFont) ? d.subtitleFont : '';
+      if (countEl) countEl.style.fontWeight = (d && d.countdownWeight) ? String(d.countdownWeight) : '';
+    }
+
+    // Per-element drag placement + style overrides. For each element with a
+    // layout entry we add .ss-placed and set left/top (% of the scene); we also
+    // apply optional fontSize/color/fontWeight, and hide when show===false.
+    // Elements WITHOUT an entry are reset to their default flex flow.
+    function applyStartingSoonLayout(ss) {
+      var layout = (ss && ss.layout) || {};
+      var map = {
+        title: document.getElementById('ss-title'),
+        subtitle: document.getElementById('ss-subtitle'),
+        countdown: document.getElementById('ss-countdown'),
+        welcome: document.getElementById('ss-welcome'),
+        sponsors: document.getElementById('ss-sponsors'),
+        social: document.getElementById('ss-social'),
+        slideshow: document.getElementById('ss-slideshow'),
+        visualizer: document.getElementById('ss-visualizer')
+      };
+      Object.keys(map).forEach(function(key) {
+        var el = map[key];
+        if (!el) return;
+        var p = layout[key];
+        // Reset any prior placement first (so removing an entry restores flow).
+        el.classList.remove('ss-placed');
+        el.style.left = '';
+        el.style.top = '';
+        if (!p) {
+          // No placement: clear our per-element style overrides + force-hide flag.
+          if (key !== 'sponsors' && key !== 'slideshow' && key !== 'visualizer') {
+            el.style.fontSize = '';
+            el.style.fontWeight = '';
+          }
+          el.removeAttribute('data-ss-hide');
+          if (key === 'title' || key === 'subtitle' || key === 'countdown') el.style.display = '';
+          return;
+        }
+        if (p.show === false) {
+          el.setAttribute('data-ss-hide', '1');
+          el.style.display = 'none';
+          return;
+        } else {
+          el.removeAttribute('data-ss-hide');
+          // restore display for text elements (media elements manage their own).
+          if (key === 'title' || key === 'subtitle' || key === 'countdown') {
+            el.style.display = '';
+          }
+        }
+        if (typeof p.x === 'number' && typeof p.y === 'number') {
+          el.classList.add('ss-placed');
+          el.style.left = p.x + '%';
+          el.style.top = p.y + '%';
+        }
+        if (key !== 'sponsors' && key !== 'slideshow' && key !== 'visualizer') {
+          el.style.fontSize = p.fontSize ? (p.fontSize + 'px') : '';
+          el.style.fontWeight = p.fontWeight ? String(p.fontWeight) : '';
+          if (p.color) el.style.color = p.color;
+        }
+      });
+    }
+
     // Drives the optional ambient media layered on the starting-soon scene.
     // Stateless: reads the pushed arrays/flags, rebuilds rotation intervals only
     // when the relevant config changes (hash-guarded), and tears everything down
@@ -1630,9 +1720,14 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       var slideEl = document.getElementById('ss-slideshow');
       var socialEl = document.getElementById('ss-social');
 
+      // Scene-editor force-hide: layout.show===false marks data-ss-hide on an
+      // element; media must respect it (the media pass owns these elements'
+      // display, so it has the final word).
+      function ssForceHidden(el) { return !!(el && el.getAttribute('data-ss-hide') === '1'); }
+
       // Welcome / venue line ------------------------------------------------
       if (welcomeEl) {
-        if (on && media && media.showWelcome && (media.welcomeLine || media.venueName)) {
+        if (!ssForceHidden(welcomeEl) && on && media && media.showWelcome && (media.welcomeLine || media.venueName)) {
           var wHtml = '';
           if (media.welcomeLine) wHtml += escapeHtml(media.welcomeLine);
           if (media.venueName) wHtml += '<span class="ss-venue">' + escapeHtml(media.venueName) + '</span>';
@@ -1647,7 +1742,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
 
       // Social bar ----------------------------------------------------------
       if (socialEl) {
-        if (on && media && media.showSocialBar && media.socialBar) {
+        if (!ssForceHidden(socialEl) && on && media && media.showSocialBar && media.socialBar) {
           socialEl.textContent = media.socialBar;
           socialEl.style.color = ss.textColor || '#ffffff';
           socialEl.classList.add('visible');
@@ -1660,7 +1755,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       // Sponsor logo carousel ----------------------------------------------
       if (sponsorsEl) {
         var sponsorLogos = (media && media.sponsorLogos) || [];
-        var sponsorActive = !!(on && media && media.showSponsors && sponsorLogos.length > 0);
+        var sponsorActive = !!(!ssForceHidden(sponsorsEl) && on && media && media.showSponsors && sponsorLogos.length > 0);
         if (sponsorActive) {
           var sponsorHash = JSON.stringify(sponsorLogos) + '|' + (media.sponsorIntervalSec || 6);
           if (window._ssSponsorHash !== sponsorHash) {
@@ -1696,7 +1791,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       // Photo slideshow (cross-fade) ---------------------------------------
       if (slideEl) {
         var photos = (media && media.slideshowPhotos) || [];
-        var slideActive = !!(on && media && media.showSlideshow && photos.length > 0);
+        var slideActive = !!(!ssForceHidden(slideEl) && on && media && media.showSlideshow && photos.length > 0);
         var frontImg = slideEl.querySelector('.ss-slide-front');
         var backImg = slideEl.querySelector('.ss-slide-back');
         if (slideActive) {
@@ -1769,7 +1864,8 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       }
 
       // ── Visualizer ──
-      var wantViz = !!(on && media && media.showVisualizer);
+      var vizForceHidden = !!(vizEl && vizEl.getAttribute('data-ss-hide') === '1');
+      var wantViz = !!(!vizForceHidden && on && media && media.showVisualizer);
       if (!vizEl) return;
       if (!wantViz) {
         vizEl.classList.remove('visible', 'decorative');

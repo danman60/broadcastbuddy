@@ -16,20 +16,13 @@ interface InputMeter {
 // Peak-hold decay (dB/sec) once a channel falls below its held peak.
 const PEAK_DECAY_DB_PER_SEC = 20
 
-export function AudioMeters() {
-  const compactMode = useStore((s) => s.compactMode)
-  const [collapsed, setCollapsed] = useState(false)
+// Shared OBS audio-level subscription + peak-hold/stall logic. Both the
+// full panel and the compact header widget consume this — single IPC wiring.
+function useAudioMeters(): { meters: InputMeter[]; hasLevels: boolean } {
   const [meters, setMeters] = useState<InputMeter[]>([])
-  // Per-input peak-hold value + the wall-clock time it was last updated.
   const peakHoldRef = useRef<Map<string, { db: number; ts: number }>>(new Map())
-  // Last time a level frame arrived — drives the "OBS not connected / silent"
-  // empty state when meters stop flowing.
   const lastFrameRef = useRef<number>(0)
   const [hasLevels, setHasLevels] = useState(false)
-
-  useEffect(() => {
-    if (compactMode) setCollapsed(true)
-  }, [compactMode])
 
   useEffect(() => {
     const onLevels = (payload: unknown) => {
@@ -58,8 +51,7 @@ export function AudioMeters() {
     return () => window.api.removeAllListeners(IPC.OBS_AUDIO_LEVELS)
   }, [])
 
-  // Detect a stall: if no frame in ~1.5s, treat meters as inactive so the
-  // operator sees "no audio" rather than a frozen bar.
+  // Stall detection: no frame in ~1.5s → treat meters as inactive.
   useEffect(() => {
     const id = setInterval(() => {
       if (Date.now() - lastFrameRef.current > 1500) {
@@ -70,6 +62,53 @@ export function AudioMeters() {
     }, 1000)
     return () => clearInterval(id)
   }, [])
+
+  return { meters, hasLevels }
+}
+
+/**
+ * Compact always-visible audio readout for the top bar. Shows a single
+ * combined level bar (loudest input) + peak tick + dB, mirroring CSE's inline
+ * header meters. Reuses useAudioMeters — no duplicate IPC.
+ */
+export function HeaderAudioMeter() {
+  const { meters, hasLevels } = useAudioMeters()
+  // Collapse all inputs into the single loudest channel for the bar; show the
+  // input count when more than one input is reporting.
+  const loud = hasLevels && meters.length > 0
+    ? meters.reduce((a, b) => (b.dB > a.dB ? b : a))
+    : null
+
+  return (
+    <div className="header-meter-group" title={loud ? `Audio: ${loud.inputName} ${formatDB(loud.dB)}` : 'No audio levels'}>
+      <span className="header-meter-label">AUD</span>
+      <div className="header-audio-bar">
+        {loud && (
+          <>
+            <div
+              className={`header-audio-fill ${dBToClass(loud.dB)}`}
+              style={{ width: `${dBToPercent(loud.dB)}%` }}
+            />
+            <div
+              className="header-audio-peak"
+              style={{ left: `${dBToPercent(loud.peakDb)}%` }}
+            />
+          </>
+        )}
+      </div>
+      <span className="header-meter-value">{loud ? formatDB(loud.dB) : '—'}</span>
+    </div>
+  )
+}
+
+export function AudioMeters() {
+  const compactMode = useStore((s) => s.compactMode)
+  const [collapsed, setCollapsed] = useState(false)
+  const { meters, hasLevels } = useAudioMeters()
+
+  useEffect(() => {
+    if (compactMode) setCollapsed(true)
+  }, [compactMode])
 
   return (
     <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>

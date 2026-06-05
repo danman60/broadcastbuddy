@@ -16,7 +16,9 @@ interface AppStore {
   showImport: boolean
   mappingPresets: MappingPreset[]
   compactMode: boolean
+  leftPanelWidth: number
   showVisualEditor: boolean
+  showStartingSoonEditor: boolean
   showDayChecklist: DayChecklistKind | null
 
   // Setters
@@ -31,7 +33,9 @@ interface AppStore {
   setMappingPresets: (presets: MappingPreset[]) => void
   addMappingPreset: (preset: MappingPreset) => void
   setCompactMode: (compact: boolean) => void
+  setLeftPanelWidth: (width: number) => void
   setShowVisualEditor: (show: boolean) => void
+  setShowStartingSoonEditor: (show: boolean) => void
   setShowDayChecklist: (kind: DayChecklistKind | null) => void
 }
 
@@ -49,7 +53,9 @@ export const useStore = create<AppStore>((set) => ({
   showImport: false,
   mappingPresets: [],
   compactMode: false,
+  leftPanelWidth: 300,
   showVisualEditor: false,
+  showStartingSoonEditor: false,
   showDayChecklist: null,
 
   setOverlayState: (s) => set({ overlayState: s }),
@@ -78,7 +84,13 @@ export const useStore = create<AppStore>((set) => ({
       window.api.windowResize(1100, 800)
     }
   },
+  setLeftPanelWidth: (width) => {
+    const clamped = Math.max(220, Math.min(600, Math.round(width)))
+    set({ leftPanelWidth: clamped })
+    window.api.settingsSet('leftPanelWidth', clamped)
+  },
   setShowVisualEditor: (show) => set({ showVisualEditor: show }),
+  setShowStartingSoonEditor: (show) => set({ showStartingSoonEditor: show }),
   setShowDayChecklist: (kind) => set({ showDayChecklist: kind }),
 }))
 
@@ -126,6 +138,10 @@ export async function loadInitialState(): Promise<void> {
   store.setSettings(settings)
   if (settings.compactMode) {
     useStore.setState({ compactMode: true })
+  }
+  const savedWidth = (settings as { leftPanelWidth?: number }).leftPanelWidth
+  if (typeof savedWidth === 'number' && savedWidth > 0) {
+    useStore.setState({ leftPanelWidth: Math.max(220, Math.min(600, savedWidth)) })
   }
   store.setCurrentSession(currentSession)
   store.setSessionList(sessionList)

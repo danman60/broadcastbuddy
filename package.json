@@ -82,7 +82,7 @@
         "nsis",
         "dir"
       ],
-      "signAndEditExecutable": false
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "electronLanguages": [
       "en-US"

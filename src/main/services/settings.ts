@@ -12,6 +12,7 @@ const store = new Store<AppSettings>({
     },
     overlay: { ...DEFAULT_STYLING },
     companyLogoPath: '',
+    featureCardLogoPath: '',
     deepseekApiKey: '',
     geminiApiKey: '',
     sessionsDir: '',

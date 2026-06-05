@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.OVERLAY_UPDATE_STYLING, updates),
   overlaySetLogos: (company: string, client: string) =>
     ipcRenderer.invoke(IPC.OVERLAY_SET_LOGOS, company, client),
+  overlaySetFeatureCardLogo: (dataUrl: string) =>
+    ipcRenderer.invoke(IPC.OVERLAY_SET_FC_LOGO, dataUrl),
+  overlayGetFeatureCardLogo: (): Promise<string> =>
+    ipcRenderer.invoke(IPC.OVERLAY_GET_FC_LOGO),
 
   // ── Trigger management ────────────────────────────────────────
   triggerList: () => ipcRenderer.invoke(IPC.TRIGGER_LIST),

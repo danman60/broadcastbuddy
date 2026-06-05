@@ -285,3 +285,13 @@
   border-color: var(--accent);
   outline: none;
 }
+
+/* Scene-editor launcher button */
+.ss-open-editor {
+  width: 100%;
+  margin-bottom: 10px;
+  justify-content: center;
+  border: 1px solid var(--accent, #667eea);
+  color: var(--accent, #667eea);
+}
+.ss-open-editor:hover { background: rgba(102, 126, 234, 0.14); }

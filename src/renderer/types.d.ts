@@ -9,6 +9,8 @@ interface ElectronAPI {
   overlayGetState: () => Promise<OverlayState>
   overlayUpdateStyling: (updates: Partial<OverlayStyling>) => Promise<void>
   overlaySetLogos: (company: string, client: string) => Promise<void>
+  overlaySetFeatureCardLogo: (dataUrl: string) => Promise<void>
+  overlayGetFeatureCardLogo: () => Promise<string>
 
   // Triggers
   triggerList: () => Promise<{ triggers: Trigger[]; selectedIndex: number }>

@@ -1,12 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store/useStore'
-import type { RecordState } from '../../shared/types'
+import type { RecordState, CCEvent, BroadcastPackage } from '../../shared/types'
 import { IPC } from '../../shared/types'
+import { HeaderAudioMeter } from './AudioMeters'
+import { HeaderSystemStats } from './SystemStats'
 import '../styles/header.css'
 
 export function Header() {
-  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings, setShowBrandKit, setShowImport, compactMode, setCompactMode, setShowDayChecklist } = useStore()
+  const { currentSession, sessionList, setCurrentSession, setSessionList, setShowSettings, setShowBrandKit, setShowImport, compactMode, setCompactMode, setShowDayChecklist, setShowStartingSoonEditor } = useStore()
+  const settings = useStore((s) => s.settings)
   const [showLoadMenu, setShowLoadMenu] = useState(false)
+  // Command Center upcoming events, merged into the Load dropdown.
+  const [ccEvents, setCcEvents] = useState<CCEvent[]>([])
+  const [ccLoading, setCcLoading] = useState(false)
+  const [ccError, setCcError] = useState('')
+  const [ccApplyingId, setCcApplyingId] = useState<string | null>(null)
   const [showToolsMenu, setShowToolsMenu] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [wifiDisplayRunning, setWifiDisplayRunning] = useState(false)
@@ -217,6 +225,63 @@ export function Header() {
     setShowLoadMenu(false)
   }
 
+  // Fetch CC upcoming events when the Load dropdown opens (only if connected).
+  const ccConfig = settings?.ccConfig
+  const ccConnected = !!(ccConfig?.baseUrl && ccConfig?.apiKey && ccConfig?.tenantId)
+  useEffect(() => {
+    if (!showLoadMenu || !ccConnected) return
+    let cancelled = false
+    setCcLoading(true)
+    setCcError('')
+    window.api
+      .ccFetchEvents(ccConfig!.baseUrl, ccConfig!.apiKey, ccConfig!.tenantId)
+      .then((res) => {
+        if (cancelled) return
+        if (!res.success) {
+          setCcError(res.error || 'Failed to fetch events')
+          setCcEvents([])
+        } else {
+          setCcEvents(res.events || [])
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setCcError((err as Error).message)
+      })
+      .finally(() => {
+        if (!cancelled) setCcLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [showLoadMenu, ccConnected, ccConfig?.baseUrl, ccConfig?.apiKey, ccConfig?.tenantId])
+
+  // Apply a CC event — mirrors BroadcastPackagePanel.applyPackage exactly:
+  // ccFetchPackage → ccApplyPackage.
+  async function handleLoadCCEvent(eventId: string) {
+    if (!ccConnected) return
+    setCcApplyingId(eventId)
+    setCcError('')
+    try {
+      const result = await window.api.ccFetchPackage(
+        ccConfig!.baseUrl, ccConfig!.apiKey, ccConfig!.tenantId, eventId,
+      )
+      if (!result.success) {
+        setCcError(result.error || 'Failed to fetch package')
+        return
+      }
+      const pkg = result.package as BroadcastPackage
+      const applyResult = await window.api.ccApplyPackage(pkg, eventId)
+      if (applyResult.success) {
+        showToast(`Loaded ${applyResult.triggerCount} triggers from "${pkg.event.eventName}"`)
+        setShowLoadMenu(false)
+      } else {
+        setCcError('Failed to apply package')
+      }
+    } catch (err) {
+      setCcError((err as Error).message)
+    } finally {
+      setCcApplyingId(null)
+    }
+  }
+
   return (
     <div className="header">
       <div className="header-left">
@@ -230,6 +295,12 @@ export function Header() {
             {currentSession.name}
           </span>
         )}
+      </div>
+
+      {/* Always-visible inline monitoring (CSE-style): audio level + system. */}
+      <div className="header-center">
+        <HeaderAudioMeter />
+        <HeaderSystemStats />
       </div>
 
       <div className="header-right">
@@ -293,12 +364,26 @@ export function Header() {
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius)',
-                minWidth: 200,
-                maxHeight: 300,
+                minWidth: 240,
+                maxHeight: 360,
                 overflowY: 'auto',
                 zIndex: 50,
               }}
             >
+              {/* ── Local saved sessions ── */}
+              <div
+                style={{
+                  padding: '6px 12px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  color: 'var(--text-secondary)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Saved Sessions
+              </div>
               {sessionList.length === 0 ? (
                 <div style={{ padding: 12, color: 'var(--text-dim)', fontSize: 12 }}>
                   No saved sessions
@@ -320,6 +405,66 @@ export function Header() {
                     }}
                   >
                     {s.name}
+                  </button>
+                ))
+              )}
+
+              {/* ── Command Center upcoming events ── */}
+              <div
+                style={{
+                  padding: '6px 12px',
+                  marginTop: 2,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  color: 'var(--text-secondary)',
+                  borderTop: '1px solid var(--border)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Command Center Events
+              </div>
+              {!ccConnected ? (
+                <div style={{ padding: 12, color: 'var(--text-dim)', fontSize: 11 }}>
+                  Connect Command Center in Settings
+                </div>
+              ) : ccLoading ? (
+                <div style={{ padding: 12, color: 'var(--text-dim)', fontSize: 11 }}>
+                  Loading events…
+                </div>
+              ) : ccError ? (
+                <div style={{ padding: 12, color: 'var(--danger)', fontSize: 11 }}>
+                  {ccError}
+                </div>
+              ) : ccEvents.length === 0 ? (
+                <div style={{ padding: 12, color: 'var(--text-dim)', fontSize: 11 }}>
+                  No upcoming events
+                </div>
+              ) : (
+                ccEvents.map((ev) => (
+                  <button
+                    key={ev.id}
+                    onClick={() => handleLoadCCEvent(ev.id)}
+                    disabled={ccApplyingId !== null}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: 'none',
+                      color: 'var(--text-primary)',
+                      textAlign: 'left',
+                      fontSize: 13,
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>
+                      {ccApplyingId === ev.id ? 'Applying…' : ev.eventName}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      {ev.client?.organization}
+                      {ev.venueName ? ` · ${ev.venueName}` : ''}
+                    </div>
                   </button>
                 ))
               )}
@@ -406,6 +551,16 @@ export function Header() {
                 }}
               >
                 Import
+              </button>
+              <button
+                onClick={() => { setShowStartingSoonEditor(true); setShowToolsMenu(false) }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px',
+                  background: 'none', color: 'var(--text-primary)',
+                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
+                }}
+              >
+                Starting Soon Editor
               </button>
               <button
                 onClick={() => { setShowDayChecklist('start'); setShowToolsMenu(false) }}
