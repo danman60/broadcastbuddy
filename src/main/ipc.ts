@@ -714,22 +714,24 @@ export function registerIpcHandlers(): void {
     }
 
     // Ensure a session backs the applied package so operator edits auto-persist
-    // (overlay auto-save is guarded on a loaded session). If none is loaded,
-    // adopt one named from the client, then persist the applied state immediately.
+    // (overlay auto-save is guarded on a loaded session). Only adopt+save when
+    // NO session is loaded — if one already is, the debounced auto-save persists
+    // the applied content into it; force-saving here would silently overwrite a
+    // manually-loaded session's saved file the moment a package is applied.
     if (!session.getCurrentSession()) {
       session.newSession(pkg.client?.organization ? `${pkg.client.organization} (live)` : 'CC Package')
+      session.saveSession(
+        overlay.getTriggers(),
+        overlay.getStyling(),
+        overlay.getOverlayState().companyLogo.dataUrl,
+        overlay.getOverlayState().clientLogo.dataUrl,
+        overlay.getSelectedIndex(),
+        overlay.getPlayedSet(),
+        overlay.getLoopMode(),
+        overlay.getNotes(),
+        overlay.getStreamConfig(),
+      )
     }
-    session.saveSession(
-      overlay.getTriggers(),
-      overlay.getStyling(),
-      overlay.getOverlayState().companyLogo.dataUrl,
-      overlay.getOverlayState().clientLogo.dataUrl,
-      overlay.getSelectedIndex(),
-      overlay.getPlayedSet(),
-      overlay.getLoopMode(),
-      overlay.getNotes(),
-      overlay.getStreamConfig(),
-    )
 
     pushState()
 

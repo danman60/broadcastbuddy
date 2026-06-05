@@ -110,7 +110,11 @@ export function getCutTransitionName(): string | null {
 
 export function connect(host: string, port: number, password?: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    // Short-circuit if a socket is already OPEN *or* still CONNECTING. Without
+    // the CONNECTING guard, a manual Connect racing the startup auto-connect
+    // would reassign the module `ws` to a second socket; the first call's
+    // timeout would then close the wrong (good) socket and leak the other.
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       resolve()
       return
     }
