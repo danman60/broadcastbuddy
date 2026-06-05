@@ -366,8 +366,11 @@ export function matchPhotos(
   return photos.map((photo) => {
     const adjustedTime = photo.captureTime.getTime() + totalOffset
 
-    // Exact match — within routine window
-    const exact = windows.find((w) => adjustedTime >= w.start && adjustedTime <= w.end)
+    // Exact match — within routine window. Half-open [start, end): a photo
+    // captured exactly on a boundary belongs to the routine that STARTS then,
+    // not the one that just ended — removes the both-ends-inclusive ambiguity
+    // for back-to-back routines (A.end === B.start).
+    const exact = windows.find((w) => adjustedTime >= w.start && adjustedTime < w.end)
     if (exact) {
       return {
         filePath: photo.path,
@@ -625,11 +628,28 @@ Example format:
   return boundaries
 }
 
-function parseHMS(hms: string): number {
-  const parts = hms.split(':').map(Number)
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-  if (parts.length === 2) return parts[0] * 60 + parts[1]
-  return parts[0] || 0
+// Parse an HH:MM:SS / MM:SS / SS video-relative offset into seconds, with range
+// validation. Gemini occasionally hallucinates malformed stamps (e.g. "99:99:99")
+// which, unbounded, produced wild boundary timestamps that corrupt photo matching.
+// Non-numeric components → 0; out-of-range components are clamped (min/sec to 0-59,
+// hours to a generous 12h video cap) and logged so the bad value is visible.
+export function parseHMS(hms: string): number {
+  const parts = (hms || '').split(':').map(Number)
+  if (parts.some((n) => !Number.isFinite(n))) {
+    logger.warn(`parseHMS: non-numeric timestamp "${hms}" → 0`)
+    return 0
+  }
+  let h = 0, m = 0, s = 0
+  if (parts.length >= 3) [h, m, s] = parts
+  else if (parts.length === 2) [m, s] = parts
+  else s = parts[0]
+  const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max)
+  if (h < 0 || h > 12 || m < 0 || m > 59 || s < 0 || s > 59) {
+    const total = clamp(h, 12) * 3600 + clamp(m, 59) * 60 + clamp(s, 59)
+    logger.warn(`parseHMS: out-of-range timestamp "${hms}" clamped to ${total}s`)
+    return total
+  }
+  return h * 3600 + m * 60 + s
 }
 
 // ── Full Pipeline ───────────────────────────────────────────────
@@ -716,7 +736,8 @@ export async function uploadToCC(
     'Content-Type': 'application/json',
   }
 
-  const gallerySlug = slugify(title) + '-' + Date.now().toString(36)
+  // Date.now() alone collides on same-ms + same-title; add a short random suffix.
+  const gallerySlug = slugify(title) + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 
   // 1. Create gallery — BB provides the slug and R2 base path
   emitProgress('uploading', 'Creating gallery...', 0, galleryConfig.photoMatches.length)
