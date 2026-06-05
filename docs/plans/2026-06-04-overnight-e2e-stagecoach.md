@@ -54,6 +54,7 @@ Initially scoped as "hardware-only / can't do remotely" — but OBS runs on DART
 - **OBS record control** (Wave 5, was "never hardware-verified") — `toggleRecord` via WS: `RecordStateChanged OBS_WEBSOCKET_OUTPUT_STARTED active=true` (01:01:40) → stop → `OBS_WEBSOCKET_OUTPUT_STOPPED active=false` (01:02:09). Both transitions confirmed against real OBS. (~29s test clip left in OBS output dir.)
 - **OBS replay buffer** (`saveReplay`) — correct fail-soft when the buffer is off: `saveReplay failed: OBS request failed` (warn, no crash). Success path needs the operator to enable Replay Buffer in OBS.
 - **wifi-display cast** — log confirms steady live stream to tablet (~26.4 fps, 132-135 frames/5s).
+- **Cast watchdog respawn (after the `461d87a` fix)** — killed `wifi-display-server.exe` twice on DART: respawned in **2.2s** then **2.6s** (was ~20s pre-fix, and once never recovered). Cap not exhausted across the kills (the stability-reset fix). Confirms the supervisor now recovers a killed/crashed cast quickly and reliably — the fix closed a real "cast dies mid-show and never comes back" risk.
 Still needs operator eyes (can't observe remotely): audio meters (renderer-only visual), slow-zoom (needs configured wide/tight scene + Move transition names), stream control (won't broadcast to a real RTMP endpoint), and confirming the overlay browser source is added + visible in the OBS scene.
 
 ## Cleanup (end of run)
