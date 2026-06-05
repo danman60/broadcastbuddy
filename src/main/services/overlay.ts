@@ -21,6 +21,7 @@ import {
 import { buildGoogleFontsUrl } from '../../shared/fonts'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
+import * as session from './session'
 
 const logger = createLogger('overlay')
 
@@ -56,6 +57,37 @@ export function setOnStateChange(cb: () => void): void {
 
 function notifyChange(): void {
   onChangeCallback?.()
+  scheduleAutoSave()
+}
+
+// ── Debounced session auto-save ──────────────────────────────────
+// Styling/color/playlist edits mutate live state via notifyChange() but were
+// never persisted — saveSession ran only from the Header "Save" button, so
+// edits reset to the last SAVED session on BB restart. Debounce a session save
+// off every state change. Guarded: only persists when a session is loaded, and
+// mirrors the exact getters used by IPC.SESSION_SAVE (ipc.ts:300-309), reading
+// overlay's own module-local state directly.
+let autoSaveTimer: NodeJS.Timeout | null = null
+const AUTO_SAVE_DEBOUNCE_MS = 800
+
+function scheduleAutoSave(): void {
+  if (!session.getCurrentSession()) return
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null
+    if (!session.getCurrentSession()) return
+    session.saveSession(
+      triggers,
+      overlayState.lowerThird.styling,
+      overlayState.companyLogo.dataUrl,
+      overlayState.clientLogo.dataUrl,
+      selectedIndex,
+      Array.from(playedSet),
+      loopMode,
+      notes,
+      streamConfig,
+    )
+  }, AUTO_SAVE_DEBOUNCE_MS)
 }
 
 // ── Getters ──────────────────────────────────────────────────────
