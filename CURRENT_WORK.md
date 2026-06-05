@@ -1,5 +1,59 @@
 # Current Work - BroadcastBuddy
 
+## Session 2026-06-05 — Overnight live E2E (StageCoach) + auto-save shipped + 5and5 (IN PROGRESS)
+
+**Auto-save shipped** (`1db3bff`): `overlay.ts notifyChange()` → debounced 800ms `saveSession`, guarded on loaded session. Built/pushed/deployed to DART, cast reset (decoder errs=0).
+
+**Overnight live E2E vs DART (tailscale 100.90.103.121):** report `docs/plans/2026-06-04-overnight-e2e-stagecoach.md`. Driver `_overnight-driver.mjs` (gitignored) pushes synthetic StageCoach package over WS + screenshots live overlay.
+- CC→BB apply 3/3 · 9/9 lower-third animations · 14/14 overlay elements — all PASS live. Montages DM'd.
+- **Finding 1 (HIGH):** live BB boots with NO session loaded; startup doesn't auto-load; CC-apply creates no session → auto-save guard skips → operator edits still don't persist in the real workflow. Fix: auto-load most-recent session on startup AND/OR auto-create session on CC_APPLY_PACKAGE.
+- **Finding 2 (minor):** CC apply leaves selectedIndex=-1 → empty lower-third until a trigger selected; consider auto-select idx0.
+- Headless: **273/273 suite PASS**, auto-save persistence 2/2 PASS, 11 UI panels captured (montage DM'd). UI verdict: coherent navy/violet system.
+
+**Five-and-five implemented** (`a1e0aea`, doc `docs/five-and-five-2026-06-04.md`):
+- F1 — auto-load most-recent session on startup (`index.ts`) → makes auto-save actually engage (fixes Finding 1). + CC_APPLY adopts/saves a session.
+- F2 — auto-select trigger idx0 on CC apply (fixes Finding 2 empty-card).
+- F3 — OBS auto-connect on startup, fail-soft.
+- S2 — `fetchAsDataUrl()` helper collapses 3 dup logo-fetch blocks.
+- S10 — pdf-lib → devDependency (app bundle drops it; test fixture keeps it).
+- Skipped: S1 (false positive — 2 settingsSet in different handlers, both needed), S9 (httpPort already correct, no 9878 literal). Deferred: F4 (half-day UI), F5 (needs gallery data), S8 (overlay.ts split, half-day).
+- Bug caught in review: F1b used `pkg.client.name` (nonexistent) → fixed to `.organization`.
+- **Suite 285/285 green** (also fixed 2 pre-existing stale overlay-controls selectors).
+- **DEPLOYING to DART** (bg) → then cast reset + live re-verify. After restart, live BB will auto-load the March session (34 triggers) + auto-save now active.
+
+## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
+
+**Reason for refresh:** Session extremely long (DART deploy, HEVC cast debug, adb tablet control, many rebuilds, UI passes). Context rot risk. Fresh start for the auto-save task.
+
+### ACTIVE TASK (do in fresh session)
+**Add debounced auto-save of overlay styling on every edit.**
+Root cause (verified): `src/main/services/overlay.ts` `notifyChange()` (~L57) broadcasts every styling change but NEVER persists. `session.saveSession()` (session.ts:47) only called from `IPC.SESSION_SAVE` (ipc.ts:299 — Header "Save" button). So styling edits (animation, colors) are live-only and reset to last SAVED session on BB restart (DART's session file is from March: animation=zoom/1.5s).
+**Fix:** debounced `saveSession` (~500-1000ms) from `notifyChange()`/`updateStyling`, passing all getters like ipc.ts:300-309 (getTriggers/getStyling/logos/getSelectedIndex/getPlayedSet/getLoopMode/getNotes/getStreamConfig). Guard: only if a session is loaded. Then rebuild+deploy DART + reset cast.
+
+### DONE THIS SESSION (committed+pushed main, HEAD ~5ace501)
+- DART deployed: BB ELEVATED via LaunchBroadcastBuddy task (Highest+Interactive, no trigger) + "BroadcastBuddy (Admin)" desktop shortcut (mirrors CSE LaunchCompSyncMedia).
+- HEVC cast→tablet FLAWLESS (132/132, 0 err). Needed: ffmpeg.exe bundled, VDD monitor extended, codec match (BB hevc-nvenc ↔ tablet H.265).
+- Ports 19080 (overlay HTTP) / 19081 (WS hub, now 0.0.0.0). OBS-ws 127.0.0.1:4455 pw `123456`.
+- CSController dual-source APK → Drive. Stream Deck plugin installed.
+- UI: CSE visual-system pass (navy #0a0e1a/#141a2b, violet #7c4dff, button tiers ON=filled/OFF=ghost, segmented controls, row labels, status dots, REC pill) + playlist-controls redesign.
+- Overlay Mode ported from CSE (overlayPanels.ts + panel.html 2nd renderer entry + PanelApp/PanelChrome + 4 IPC + Tools▼ trigger). Built+deployed. NOT toggled on live (needs 1 click; couldn't auto-click over SSH).
+- Installer bundles (package.json filter): wifi-display-server.exe, ffmpeg.exe (gitignored 75MB, out-of-band), driver-setup.exe, VDDControl.exe. wifiDisplay capture-watchdog needle broadened ("connection reset").
+
+### KEY PROCEDURES
+- DART: `ssh dart` (Win cmd). adb `C:\platform-tools\adb.exe`, tablet G001LT06236607M3 authorized over USB. Tablet 192.168.0.131, DART LAN .133 / tailscale 100.90.103.121.
+- Launch elevated: `ssh dart 'schtasks /run /tn LaunchBroadcastBuddy'`.
+- **Build on DART uses cmd not powershell** (`npx` via PS `&` fails). Pattern: `ssh dart 'cd /d C:\Users\User\projects\BroadcastBuddy && (git fetch origin && git reset --hard origin/main & copy /Y "C:\Program Files\BroadcastBuddy\resources\ffmpeg.exe" resources\ffmpeg.exe >nul 2>&1 & npx electron-vite build && npx electron-builder --win nsis && powershell -nop -File C:\Users\User\deploy.ps1) > C:\Users\User\bb-deploy.log 2>&1'`. **ALWAYS git fetch before reset.** deploy.ps1: kill BB+wifi-display-server, install /S, launch elevated, verify.
+- Reset cast after BB restart (decoder poisons): adb force-stop com.compsync.controller → relaunch (monkey) → `adb shell input tap 958 418` → kill wifi-display-server (BB respawns). Verify decoder errors=0.
+- SSH AllScreens = session-0 phantom (WinDisc 1024x768), not real. Read live overlay: node+ws `{type:'identify'}` → state `{type,overlay,playlist}`, lowerThird under `.overlay`.
+- Overlay verified working (Playwright fired live overlay → DOM anim-typewriter, --anim-dur 2s). "animation doesn't apply" = it's on "random" + not persisted (this task).
+
+### PENDING (not blocking)
+- Overlay Mode: 1 click Tools▼→Overlay Mode to turn on (or add global hotkey for SSH trigger).
+- OBS: click Connect (pw 123456, no auto-connect).
+- Latent: opening Settings+Save writes httpPort=9878 stale default (reset to 19080 this session).
+- CC↔BB Hanover bootstrap incomplete.
+- Memory: project_dart_cast_hevc.md, project_bb_cse_parity_gaps.md.
+
 ## Session 2026-06-01 — BB edit suite + realtime + ad-hoc + trigger type + preview (CC↔BB)
 
 **State: GREEN.** BB 272 Playwright tests pass · CC `npm run type-check` 0 errors · prod migration applied. All committed + pushed both repos. Plan: `CommandCentered/docs/plans/2026-06-01-bb-edit-suite-and-realtime.md`.

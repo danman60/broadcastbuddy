@@ -37,7 +37,18 @@ Live overlay verified by screenshot (montages DM'd): lower-thirds render StageCo
 - `CC_APPLY_PACKAGE` → `clearAllTriggers()` sets `selectedIndex = -1`; apply loop only `addTrigger`. Firing the lower-third before selecting shows an empty card (correct styling/animation, no text).
 - Operator normally clicks a trigger first, so low impact. Consider auto-selecting index 0 on apply so the preview/overlay has content immediately.
 
+## Five-and-five — implemented (`a1e0aea`)
+Acting on the verified findings + a grounded 5+5 (`docs/five-and-five-2026-06-04.md`):
+- **F1** auto-load most-recent session on startup (`index.ts`) — the shipped auto-save now engages on a normal boot (closes Finding 1). CC apply also adopts/saves a session.
+- **F2** auto-select trigger idx0 on CC apply (closes Finding 2 — no empty card / disabled chips).
+- **F3** OBS auto-connect on startup from saved settings, fire-and-forget fail-soft.
+- **S2** `fetchAsDataUrl()` helper replaces 3 duplicated logo-fetch blocks in CC apply.
+- **S10** `pdf-lib` → devDependency (app bundle drops it; a test fixture still imports it).
+- Skipped after verification: **S1** (false positive — the two `settingsSet('wifiDisplay')` are in different handlers, both required) and **S9** (httpPort defaults already correct, no `9878` literal remains). Deferred: **F4** (half-day UI), **F5** (needs real gallery data), **S8** (overlay.ts split, half-day).
+- Review caught a real bug in the new code: F1b referenced `pkg.client.name` (nonexistent field) → fixed to `pkg.client.organization`.
+- Verification: electron-vite EXIT 0; **headless suite 285/285 PASS** (also repaired 2 pre-existing stale `overlay-controls` selectors from the playlist redesign).
+
 ## Cleanup (end of run)
 - No CC DB writes were made (synthetic in-memory package). Nothing to delete in CC.
-- Live BB holds the 16 synthetic test triggers in memory (not persisted — no session loaded). Clear them / restore on next operator session load.
-- Re-verify cast decoder errors = 0.
+- After the 5and5 redeploy, live BB auto-loads the most-recent saved session (the March one, 34 triggers) and auto-save is now active — the synthetic test triggers are gone (they were never persisted).
+- Re-verify cast decoder errors = 0 after redeploy.
