@@ -12,8 +12,9 @@ Machine: DART. BB launches elevated via `schtasks /run /tn LaunchBroadcastBuddy`
 - Verdict: overlay HTML renders correctly (verified headless); this confirms it's wired into the OBS scene.
 
 ## 2. Audio meters
+- DATA PATH VERIFIED: BB's OBS Identify subscribes to InputVolumeMeters (bitmask 65613 = General|Scenes|Transitions|Outputs|InputVolumeMeters) and the DART connection is Identified, so level events flow to the renderer. Only the visual bars need your eyes.
 - BB right column → audio meters. Speak / play audio through an OBS audio input.
-- Confirm the dBFS bars move and peak-hold behaves. (Renderer-only visual — couldn't verify remotely.)
+- Confirm the dBFS bars move and peak-hold behaves.
 
 ## 3. Slow zoom + transition revert  (needs OBS scene config)
 - Requires two scenes (a WIDE and a TIGHT framing) and a **Move** transition, with their names set in BB's slowZoom settings (electron-store `slowZoom`: scene/transition names). Confirm those names match your OBS.
