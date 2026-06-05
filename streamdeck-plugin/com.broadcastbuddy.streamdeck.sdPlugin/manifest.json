@@ -7,18 +7,33 @@
   "Icon": "imgs/plugin-icon",
   "CodePath": "bin/plugin.js",
   "SDKVersion": 2,
-  "Software": { "MinimumVersion": "6.5" },
-  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
-  "Nodejs": { "Version": "20", "Debug": "enabled" },
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
   "Actions": [
     {
       "UUID": "com.broadcastbuddy.streamdeck.fire",
       "Name": "Fire LT",
       "Tooltip": "Fire the lower third overlay",
       "Icon": "imgs/actions/fire",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/fire", "Title": "FIRE" }
+        {
+          "Image": "imgs/actions/fire",
+          "Title": "FIRE"
+        }
       ]
     },
     {
@@ -26,9 +41,14 @@
       "Name": "Hide LT",
       "Tooltip": "Hide the lower third overlay",
       "Icon": "imgs/actions/hide",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/hide", "Title": "HIDE" }
+        {
+          "Image": "imgs/actions/hide",
+          "Title": "HIDE"
+        }
       ]
     },
     {
@@ -36,10 +56,18 @@
       "Name": "Toggle LT",
       "Tooltip": "Toggle lower third on/off",
       "Icon": "imgs/actions/toggle-lt",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/toggle-lt", "Title": "LT" },
-        { "Image": "imgs/actions/toggle-lt-active", "Title": "LT" }
+        {
+          "Image": "imgs/actions/toggle-lt",
+          "Title": "LT"
+        },
+        {
+          "Image": "imgs/actions/toggle-lt-active",
+          "Title": "LT"
+        }
       ]
     },
     {
@@ -47,9 +75,14 @@
       "Name": "Next",
       "Tooltip": "Advance to next trigger in playlist",
       "Icon": "imgs/actions/next",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/next", "Title": "Next" }
+        {
+          "Image": "imgs/actions/next",
+          "Title": "Next"
+        }
       ]
     },
     {
@@ -57,9 +90,14 @@
       "Name": "Prev",
       "Tooltip": "Go to previous trigger in playlist",
       "Icon": "imgs/actions/prev",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/prev", "Title": "Prev" }
+        {
+          "Image": "imgs/actions/prev",
+          "Title": "Prev"
+        }
       ]
     },
     {
@@ -67,9 +105,14 @@
       "Name": "Next + Fire",
       "Tooltip": "Advance to next trigger and fire lower third",
       "Icon": "imgs/actions/next-full",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/next-full", "Title": "NEXT" }
+        {
+          "Image": "imgs/actions/next-full",
+          "Title": "NEXT"
+        }
       ]
     },
     {
@@ -77,10 +120,18 @@
       "Name": "Toggle Ticker",
       "Tooltip": "Toggle the ticker crawl on/off",
       "Icon": "imgs/actions/ticker",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/ticker", "Title": "TICK" },
-        { "Image": "imgs/actions/ticker-active", "Title": "TICK" }
+        {
+          "Image": "imgs/actions/ticker",
+          "Title": "TICK"
+        },
+        {
+          "Image": "imgs/actions/ticker-active",
+          "Title": "TICK"
+        }
       ]
     },
     {
@@ -89,9 +140,14 @@
       "Tooltip": "Fire the UP NEXT lower third",
       "Icon": "imgs/actions/up-next",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/up-next", "Title": "UP NEXT" }
+        {
+          "Image": "imgs/actions/up-next",
+          "Title": "UP NEXT"
+        }
       ]
     },
     {
@@ -100,9 +156,14 @@
       "Tooltip": "Fire the THAT WAS lower third",
       "Icon": "imgs/actions/that-was",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/that-was", "Title": "THAT WAS" }
+        {
+          "Image": "imgs/actions/that-was",
+          "Title": "THAT WAS"
+        }
       ]
     },
     {
@@ -111,10 +172,18 @@
       "Tooltip": "Toggle the operator leveling grid (rule-of-thirds, never on the live feed)",
       "Icon": "imgs/actions/grid",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/grid", "Title": "GRID" },
-        { "Image": "imgs/actions/grid-active", "Title": "GRID" }
+        {
+          "Image": "imgs/actions/grid",
+          "Title": "GRID"
+        },
+        {
+          "Image": "imgs/actions/grid-active",
+          "Title": "GRID"
+        }
       ]
     },
     {
@@ -123,9 +192,14 @@
       "Tooltip": "Trigger the OBS Move-Transition slow zoom on the Wide scene",
       "Icon": "imgs/actions/slow-zoom",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/slow-zoom", "Title": "ZOOM W" }
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": "ZOOM W"
+        }
       ]
     },
     {
@@ -134,9 +208,14 @@
       "Tooltip": "Trigger the OBS Move-Transition slow zoom on the Tight scene",
       "Icon": "imgs/actions/slow-zoom",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/slow-zoom", "Title": "ZOOM T" }
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": "ZOOM T"
+        }
       ]
     },
     {
@@ -145,9 +224,14 @@
       "Tooltip": "Toggle OBS recording",
       "Icon": "imgs/actions/fire",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/fire", "Title": "REC" }
+        {
+          "Image": "imgs/actions/fire",
+          "Title": "REC"
+        }
       ]
     },
     {
@@ -156,9 +240,14 @@
       "Tooltip": "Toggle OBS streaming (start/stop live)",
       "Icon": "imgs/actions/fire",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/fire", "Title": "STREAM" }
+        {
+          "Image": "imgs/actions/fire",
+          "Title": "STREAM"
+        }
       ]
     },
     {
@@ -167,9 +256,14 @@
       "Tooltip": "Save the OBS replay-buffer clip",
       "Icon": "imgs/actions/slow-zoom",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/slow-zoom", "Title": "REPLAY" }
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": "REPLAY"
+        }
       ]
     },
     {
@@ -178,9 +272,14 @@
       "Tooltip": "Toggle the on-air clock overlay",
       "Icon": "imgs/actions/ticker",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/ticker", "Title": "CLK" }
+        {
+          "Image": "imgs/actions/ticker",
+          "Title": "CLK"
+        }
       ]
     },
     {
@@ -189,9 +288,14 @@
       "Tooltip": "Toggle the counter overlay",
       "Icon": "imgs/actions/ticker",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/ticker", "Title": "CTR" }
+        {
+          "Image": "imgs/actions/ticker",
+          "Title": "CTR"
+        }
       ]
     },
     {
@@ -200,9 +304,14 @@
       "Tooltip": "Fire the full-screen UP NEXT feature card",
       "Icon": "imgs/actions/up-next",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/up-next", "Title": "UP NEXT" }
+        {
+          "Image": "imgs/actions/up-next",
+          "Title": "UP NEXT"
+        }
       ]
     },
     {
@@ -211,10 +320,17 @@
       "Tooltip": "Fire the full-screen THAT WAS feature card",
       "Icon": "imgs/actions/that-was",
       "PropertyInspectorPath": "pi/connection.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
-        { "Image": "imgs/actions/that-was", "Title": "THAT WAS" }
+        {
+          "Image": "imgs/actions/that-was",
+          "Title": "THAT WAS"
+        }
       ]
     }
-  ]
+  ],
+  "Category": "BroadcastBuddy",
+  "CategoryIcon": "imgs/plugin-icon"
 }
