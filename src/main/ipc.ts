@@ -1436,6 +1436,12 @@ export function registerIpcHandlers(): void {
     }
     if (!restored && snap.triggers?.length) {
       const st = snap.overlayState.lowerThird.styling
+      // The saved session file is gone — adopt a FRESH session to hold the
+      // recovered triggers BEFORE loading them, so the debounced auto-save
+      // persists them into their own file. Without this, currentSession would
+      // still point at the session auto-loaded on boot (index.ts step 12b) and
+      // the next edit would overwrite that unrelated session with recovered data.
+      session.newSession(snap.currentSessionName ? `${snap.currentSessionName} (recovered)` : 'Recovered session')
       overlay.loadSessionState(
         snap.triggers, st,
         snap.overlayState.companyLogo.dataUrl, snap.overlayState.clientLogo.dataUrl,
