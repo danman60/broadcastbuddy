@@ -35,23 +35,32 @@ function getMainWindow(): BrowserWindow | null {
   return windows.length > 0 ? windows[0] : null
 }
 
-function pushState(): void {
-  const win = getMainWindow()
-  if (win) {
-    win.webContents.send(IPC.OVERLAY_STATE_UPDATE, overlay.getOverlayState())
-    win.webContents.send(
-      IPC.TRIGGERS_UPDATED,
-      overlay.getTriggers(),
-      overlay.getSelectedIndex(),
-      overlay.getPlayedSet(),
-      overlay.getLoopMode(),
-    )
+/**
+ * Broadcast a renderer-facing push to EVERY live BrowserWindow, not just the
+ * main one. Overlay Mode floating panels (panel.tsx) are additional renderers
+ * that share the same Zustand store + IPC listeners; single-window sends froze
+ * them after their initial snapshot. Used for all shared overlay/playlist/obs/
+ * record/stream/system/chat/event-log/recovery/startup state pushes.
+ */
+function sendToAllWindows(channel: string, ...args: unknown[]): void {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed()) w.webContents.send(channel, ...args)
   }
 }
 
+function pushState(): void {
+  sendToAllWindows(IPC.OVERLAY_STATE_UPDATE, overlay.getOverlayState())
+  sendToAllWindows(
+    IPC.TRIGGERS_UPDATED,
+    overlay.getTriggers(),
+    overlay.getSelectedIndex(),
+    overlay.getPlayedSet(),
+    overlay.getLoopMode(),
+  )
+}
+
 function pushLastAdhoc(): void {
-  const win = getMainWindow()
-  if (win) win.webContents.send(IPC.OVERLAY_LAST_ADHOC_UPDATE, overlay.getLastAdhoc())
+  sendToAllWindows(IPC.OVERLAY_LAST_ADHOC_UPDATE, overlay.getLastAdhoc())
 }
 
 /**
@@ -518,35 +527,29 @@ export function registerIpcHandlers(): void {
   // arrives on the Outputs subscription; InputVolumeMeters on the high-volume
   // subscription (both OR-ed into the Identify bitmask in obsConnection.ts).
   obsConnection.setOnRecordStateChanged((state) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.OBS_RECORD_STATE_UPDATE, state)
+    sendToAllWindows(IPC.OBS_RECORD_STATE_UPDATE, state)
   })
 
   obsConnection.setOnAudioLevels((levels) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.OBS_AUDIO_LEVELS, levels)
+    sendToAllWindows(IPC.OBS_AUDIO_LEVELS, levels)
   })
 
   // Push live stream state + replay-saved notices to the renderer.
   obsConnection.setOnStreamStateChanged((state) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.OBS_STREAM_STATE_UPDATE, state)
+    sendToAllWindows(IPC.OBS_STREAM_STATE_UPDATE, state)
   })
 
   obsConnection.setOnReplaySaved((replayPath) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.OBS_REPLAY_SAVED, { path: replayPath })
+    sendToAllWindows(IPC.OBS_REPLAY_SAVED, { path: replayPath })
   })
 
   // System monitor → renderer (stats ~5s + disk alerts).
   systemMonitor.setOnStats((stats) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.SYSTEM_STATS, stats)
+    sendToAllWindows(IPC.SYSTEM_STATS, stats)
   })
 
   systemMonitor.setOnDiskAlert((alert) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.SYSTEM_DISK_ALERT, alert)
+    sendToAllWindows(IPC.SYSTEM_DISK_ALERT, alert)
   })
 
   ipcMain.handle(IPC.OBS_START_RECORD, async () => {
@@ -1224,8 +1227,7 @@ export function registerIpcHandlers(): void {
 
   // Push chat-state changes to the renderer.
   chatBridge.setOnStateChange(() => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.CHAT_STATE_UPDATE, chatBridge.getState())
+    sendToAllWindows(IPC.CHAT_STATE_UPDATE, chatBridge.getState())
   })
 
   // Pinning a message fires it as a lower-third broadcast.
@@ -1311,8 +1313,7 @@ export function registerIpcHandlers(): void {
   // forward it to the renderer as cc:package-pushed, which auto-applies via the
   // same BroadcastPackagePanel path as a manual pull.
   ccRelay.setOnPackage((payload) => {
-    const win = getMainWindow()
-    if (win && payload) win.webContents.send('cc:package-pushed', payload)
+    if (payload) sendToAllWindows('cc:package-pushed', payload)
   })
 
   // A relayed 'adhoc' broadcast fires a one-off lower-third identically to the
@@ -1337,8 +1338,7 @@ export function registerIpcHandlers(): void {
 
   // Push relay connection-state changes to the renderer so the UI can show it.
   ccRelay.setOnStateChange(() => {
-    const win = getMainWindow()
-    if (win) win.webContents.send(IPC.CC_RELAY_STATE_UPDATE, ccRelay.getState())
+    sendToAllWindows(IPC.CC_RELAY_STATE_UPDATE, ccRelay.getState())
   })
 
   ipcMain.handle(IPC.CC_RELAY_GET_STATE, () => {

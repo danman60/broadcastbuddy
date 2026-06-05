@@ -24,6 +24,18 @@ const logger = createLogger('main')
 
 let mainWindow: BrowserWindow | null = null
 
+/**
+ * Broadcast a renderer-facing push to EVERY live BrowserWindow. Mirrors
+ * ipc.ts sendToAllWindows — Overlay Mode floating panels share the same store
+ * + IPC listeners, so shared state pushes must reach them too, not only the
+ * main window (BrowserWindow.getAllWindows()[0]).
+ */
+function sendToAllWindows(channel: string, ...args: unknown[]): void {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed()) w.webContents.send(channel, ...args)
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -129,8 +141,7 @@ app.whenReady().then(() => {
   //     only fires while a live OBS connection exists.
   slowZoom.register()
   slowZoom.setOnStatusChanged((status) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) win.webContents.send(IPC.OBS_SLOW_ZOOM_STATUS_UPDATE, status)
+    sendToAllWindows(IPC.OBS_SLOW_ZOOM_STATUS_UPDATE, status)
   })
 
   // 11. Restore transition auto-revert preference. The flag is read by the
@@ -151,8 +162,7 @@ app.whenReady().then(() => {
 
   // 12. Operator event log → renderer live fanout.
   events.setOnEvent((record) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) win.webContents.send(IPC.EVENTS_NEW, record)
+    sendToAllWindows(IPC.EVENTS_NEW, record)
   })
   events.recordEvent('system', 'BroadcastBuddy started')
 
@@ -198,8 +208,7 @@ app.whenReady().then(() => {
   const recovery = crashRecovery.checkAndRecover() // (re)arms the dirty marker for this run
   crashRecovery.startSnapshots()
   if (recovery.available) {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) win.webContents.send(IPC.RECOVERY_CHECK, recovery)
+    sendToAllWindows(IPC.RECOVERY_CHECK, recovery)
   }
 
   // 14. Settings backup — once now + hourly.
@@ -207,8 +216,7 @@ app.whenReady().then(() => {
 
   // 15. Startup sanity checks (non-blocking) → renderer.
   runStartupChecks().then((report) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) win.webContents.send(IPC.STARTUP_REPORT, report)
+    sendToAllWindows(IPC.STARTUP_REPORT, report)
   }).catch((err) => logger.warn(`Startup checks failed: ${err instanceof Error ? err.message : err}`))
 
   // 16. Global hotkeys (fire/hide/next/prev/record/replay — work unfocused).

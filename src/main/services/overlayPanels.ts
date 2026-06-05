@@ -128,6 +128,17 @@ function createPanel(spec: PanelSpec): BrowserWindow {
 
   win.on('closed', () => {
     panels.delete(spec.id)
+    // Safety net: if the last panel went away via a non-button path
+    // (render-process-gone / OS close / app quit), restore the main window so
+    // it can't be left hidden with no panels and no way back. Mirrors the
+    // restore done in closeAll() / hidePanel().
+    if (panels.size === 0 && mainWindowRef && !mainWindowRef.isDestroyed()) {
+      try {
+        mainWindowRef.show()
+        mainWindowRef.focus()
+      } catch { /* best-effort */ }
+      mainWindowRef = null
+    }
   })
 
   return win
