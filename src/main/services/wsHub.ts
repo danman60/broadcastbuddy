@@ -21,6 +21,7 @@ import {
 } from './overlay'
 import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
+import * as overlayPanels from './overlayPanels'
 import { WsStateMessage } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -91,6 +92,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     case 'toggleGrid':
       toggleGrid()
       break
+    case 'toggleOverlayMode': {
+      // Toggle the always-on-top Overlay Mode floating panels remotely (Stream
+      // Deck / script / SSH) — the panels otherwise require a Tools-menu click,
+      // which can't be driven over SSH. The main window is always the first
+      // created window; toggle() shows/hides it as it closes/opens the panels.
+      const mainWin = BrowserWindow.getAllWindows()[0]
+      if (mainWin) overlayPanels.toggle(mainWin)
+      break
+    }
     case 'upNext':
       fireUpNext((data?.label as string) || 'UP NEXT')
       break

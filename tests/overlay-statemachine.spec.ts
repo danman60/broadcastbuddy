@@ -204,6 +204,31 @@ test('WS command: featureUpNext drives the feature card from a neighbour', async
   await overlay.waitForTimeout(950)
 })
 
+// ── Overlay Mode panels via WS (Stream Deck / script / SSH) ───────────────────
+// {type:'command', action:'toggleOverlayMode'} routes to overlayPanels.toggle(),
+// which spawns 4 frameless always-on-top panel windows (and hides the main
+// window) on open, then destroys them and restores the main window on close.
+// We assert via BrowserWindow count: open ADDS the panels, close REMOVES them
+// and returns to the original count.
+
+test('WS command: toggleOverlayMode opens then closes the Overlay Mode panels', async () => {
+  const baseline = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+
+  // Open: panels spawn, window count increases. Panels load panel.html; give
+  // them room to be created (ready-to-show not required — getAllWindows counts
+  // created-but-hidden windows too).
+  await sendCommand('toggleOverlayMode')
+  await win.waitForTimeout(800)
+  const opened = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+  expect(opened).toBeGreaterThan(baseline)
+
+  // Close: panels destroyed, main window restored — count returns to baseline.
+  await sendCommand('toggleOverlayMode')
+  await win.waitForTimeout(800)
+  const closed = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+  expect(closed).toBe(baseline)
+})
+
 test('WS command: OBS-backed commands fail soft (hub stays alive, OBS down)', async () => {
   // toggleRecord/saveReplay/toggleStream have no OBS in the test env — they must
   // not throw or wedge the hub. Send all three, then prove the hub still routes
