@@ -11,13 +11,18 @@ function generateId(): string {
 
 const SYSTEM_PROMPT = `You are a document parser for a video production overlay system. Given raw text from a document (PDF, DOCX, or TXT), extract a list of overlay triggers.
 
-Each trigger should represent one person, act, routine, or speaker that would appear as a lower-third overlay on a broadcast.
+Each trigger represents ONE ANNOUNCED ITEM — a routine, act, segment, or speaker that the announcer introduces and that appears as a single lower-third. It is NOT one trigger per person. A routine performed by several dancers is ONE trigger; the dancers are metadata ON that trigger, never separate triggers.
 
 Return ONLY a valid JSON array of objects. Each object should contain these fields extracted from the document:
-- "name": A short display label (what shows in the trigger list)
-- "title": The main text line for the overlay (person/act name)
-- "subtitle": Secondary text (role, description, song title, etc.)
-- "category": A grouping label if apparent (e.g., "Solo", "Group", "Panel 1")
+- "name": A short display label (what shows in the trigger list) — the ANNOUNCED item (routine/act/song/segment title), NOT a person's name.
+- "title": The main overlay line — the same announced item title.
+- "subtitle": The performer(s) — dancer/performer names for this item, comma-separated if several. (For a speaker list this is the speaker's role/company instead.)
+- "category": Secondary metadata — the choreographer/teacher if present, else a grouping label ("Solo", "Group", "Act 1").
+
+CRITICAL — do NOT split a routine into multiple triggers. A program line like
+"#2 - IF THEY COULD SEE ME NOW | KEIRA GUPPY | TIFFANY CARON" is ONE trigger:
+  { "name": "IF THEY COULD SEE ME NOW", "title": "IF THEY COULD SEE ME NOW", "subtitle": "KEIRA GUPPY", "category": "TIFFANY CARON" }
+A solo titled with the dancer's name is still ONE trigger for that routine — never emit a dancer name as its own trigger. The announcer says routine titles, not dancer names, so the count of triggers must equal the count of routines/acts, not the count of people.
 
 Additionally, include any other fields you find in the document that might be useful for mapping. Common field patterns you might encounter:
 - FirstName, LastName (or first_name, last_name)
