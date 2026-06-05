@@ -48,6 +48,14 @@ Acting on the verified findings + a grounded 5+5 (`docs/five-and-five-2026-06-04
 - Review caught a real bug in the new code: F1b referenced `pkg.client.name` (nonexistent field) → fixed to `pkg.client.organization`.
 - Verification: electron-vite EXIT 0; **headless suite 285/285 PASS** (also repaired 2 pre-existing stale `overlay-controls` selectors from the playlist redesign).
 
+## Live OBS verification (real OBS on DART, obs64.exe PID 12752)
+Initially scoped as "hardware-only / can't do remotely" — but OBS runs on DART and the WS hub drives it, so verified live over tailscale:
+- **F3 OBS auto-connect** — WORKED on boot: log `OBS auto-connected: 127.0.0.1:4455` + `OBS WebSocket identified`. (The F3 feature shipped tonight, now hardware-verified.)
+- **OBS record control** (Wave 5, was "never hardware-verified") — `toggleRecord` via WS: `RecordStateChanged OBS_WEBSOCKET_OUTPUT_STARTED active=true` (01:01:40) → stop → `OBS_WEBSOCKET_OUTPUT_STOPPED active=false` (01:02:09). Both transitions confirmed against real OBS. (~29s test clip left in OBS output dir.)
+- **OBS replay buffer** (`saveReplay`) — correct fail-soft when the buffer is off: `saveReplay failed: OBS request failed` (warn, no crash). Success path needs the operator to enable Replay Buffer in OBS.
+- **wifi-display cast** — log confirms steady live stream to tablet (~26.4 fps, 132-135 frames/5s).
+Still needs operator eyes (can't observe remotely): audio meters (renderer-only visual), slow-zoom (needs configured wide/tight scene + Move transition names), stream control (won't broadcast to a real RTMP endpoint), and confirming the overlay browser source is added + visible in the OBS scene.
+
 ## Cleanup (end of run)
 - No CC DB writes were made (synthetic in-memory package). Nothing to delete in CC.
 - After the 5and5 redeploy, live BB auto-loads the most-recent saved session (the March one, 34 triggers) and auto-save is now active — the synthetic test triggers are gone (they were never persisted).
