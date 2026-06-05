@@ -25,7 +25,10 @@
 - **S8 done** (`37d19a2`): extracted `buildOverlayHTML` → `overlaySource.ts`, overlay.ts 2668→800 lines, byte-identical template, suite 290/290. NOT redeployed (pure refactor; DART `ba5f359` is functionally identical — avoid needless cast disruption).
 - **5and5 fully addressed**: implemented F1/F2/F3/S2/S8/S10 (+F1b); skipped S1 (false-positive) + S9 (already correct); deferred F4 (redundant w/ F1b) + F5 (needs real gallery data to validate).
 - **DART live `ba5f359`** (= functionally current), BB running, cast healthy, decoder errs=0. All work pushed `1db3bff`→`37d19a2`.
-- Remaining work needs things unavailable autonomously: live OBS walkthrough (hardware), F5 (gallery data). Overnight: periodic DART health heartbeat.
+- **F5 done** (`6a88fdf`): gallery matchPhotos half-open boundary + parseHMS clamp/validate (no more wild Gemini offsets) + slug random suffix. Logic validated via synthetic cases.
+- **Adversarial review of 4 prior unreviewed shipped commits** (CSE visual-system/overlay-mode/HEVC/ffmpeg) → found 1 HIGH + fixed (`e144daf`): **Overlay Mode floating panels were frozen** — renderer state pushes only hit `getAllWindows()[0]` (main window); panels share the same IPC store but got no live updates. New `sendToAllWindows()` broadcasts to every window + main-window-restore safety net. Suite 290/290. (MED: WS 0.0.0.0 unauth = by-design for CSController on trusted LAN, left; LOW panel-close handled.)
+- **Final redeploy to DART** consolidating F5 + Overlay Mode fix + all tonight's work.
+- All work pushed `1db3bff`→`e144daf`. Suite 273→290. **Remaining needs hardware** (live OBS walkthrough) — nothing else autonomously actionable.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
 
