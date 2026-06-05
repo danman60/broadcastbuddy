@@ -279,6 +279,9 @@
   display: flex;
   align-items: center;
   overflow: hidden;
+  /* Mirror overlaySource.ts: ticker draws above the full-screen feature card
+     and the Starting Soon scene so the crawl stays visible on top of both. */
+  z-index: 10;
 }
 
 .preview-ticker-text {
@@ -357,6 +360,8 @@
     linear-gradient(135deg, #0d0f1d 0%, #14172a 45%, #1c1f3a 100%);
   border-top: 1px solid var(--p-accent, #667eea);
   animation: preview-fc-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Below the ticker (z-index 10), above the SS scene/media (5/6). */
+  z-index: 7;
 }
 .preview-fc-logo {
   max-width: 30%;

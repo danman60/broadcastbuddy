@@ -915,6 +915,10 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     transition: opacity 0.4s ease;
     display: flex;
     align-items: center;
+    /* Ticker draws above the full-screen feature card (z-index 60) and the
+       Starting Soon scene (z-index 50) so the crawl stays visible on top of
+       both. Still below the operator leveling grid (z-index 100). */
+    z-index: 70;
   }
   .ticker-bar.visible { opacity: 1; }
 
