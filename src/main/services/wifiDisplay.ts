@@ -29,6 +29,16 @@ let topologyListenersAttached = false
 let unexpectedExitAttempts = 0
 const MAX_UNEXPECTED_EXIT_RESTARTS = 3
 let topologyRestartTimer: NodeJS.Timeout | null = null
+// Zeroes the unexpected-exit counter after the child proves stable for a window,
+// so well-spaced crashes across a long show each get a fresh restart budget
+// instead of permanently exhausting the cap.
+let stabilityTimer: NodeJS.Timeout | null = null
+const STABILITY_RESET_MS = 30_000
+// Set true while stop() intentionally tears the child down, so the exit/error
+// handlers don't auto-restart a deliberate stop. Cleared at the top of start().
+let intentionalStop = false
+// Guards against exit + error both scheduling a restart for the same dead child.
+let restartPending = false
 
 // Capture-error frequency watchdog: 5 capture-errors within 7s → auto-restart.
 // Cap: 3 per session — past that, leave to operator.
@@ -318,7 +328,11 @@ function freeWifiDisplayPorts(): void {
     const out = execFileSync(
       'taskkill',
       ['/F', '/T', '/IM', BINARY_NAME],
-      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 5000 },
+      // 1.5s: this blocks the main process on EVERY (re)spawn. taskkill of a
+      // single image is near-instant; the old 5s budget needlessly stretched
+      // each auto-restart cycle. If it genuinely stalls past 1.5s we proceed to
+      // spawn anyway (the catch below treats a timeout as non-fatal).
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 1500 },
     )
       .toString()
       .trim()
@@ -353,11 +367,41 @@ export function getMonitors(): MonitorInfo[] {
   }))
 }
 
+/**
+ * Schedule a capped, 2s-delayed auto-restart of the wifi-display child. Shared by
+ * the exit handler, the 'error' handler, and the no-PID spawn path so a crash at
+ * ANY of those points recovers — previously only a clean unexpected `exit` after
+ * a successful spawn restarted, leaving a spawn-level failure (no PID / 'error')
+ * with the cast dead until the operator toggled Settings. Deduped via
+ * restartPending so exit+error can't double-spawn; gated by intentionalStop.
+ */
+function scheduleAutoRestart(reason: string): void {
+  if (intentionalStop || restartPending) return
+  if (unexpectedExitAttempts >= MAX_UNEXPECTED_EXIT_RESTARTS) {
+    logger.error(
+      `Wifi display exceeded ${MAX_UNEXPECTED_EXIT_RESTARTS} restart attempts — giving up until user re-enables in Settings`,
+    )
+    return
+  }
+  unexpectedExitAttempts++
+  restartPending = true
+  logger.warn(
+    `Wifi display ${reason} — restart attempt ${unexpectedExitAttempts}/${MAX_UNEXPECTED_EXIT_RESTARTS} in 2s`,
+  )
+  setTimeout(() => {
+    restartPending = false
+    start().catch((err) => logger.error(`Auto-restart failed: ${err}`))
+  }, 2000)
+}
+
 export async function start(): Promise<void> {
   if (running && childProc) {
     logger.warn('Wifi display already running')
     return
   }
+  // Fresh start (or auto-restart) — clear any intentional-stop latch so the
+  // exit/error handlers registered below will recover this child if it dies.
+  intentionalStop = false
 
   const settings = getSettings()
   const wd = settings.wifiDisplay!
@@ -413,11 +457,22 @@ export async function start(): Promise<void> {
     writePid(childProc.pid)
     running = true
     activeMonitorIndex = effectiveIndex
-    unexpectedExitAttempts = 0
+    restartPending = false
     captureErrorTimes = []
     captureRestartAttempts = 0
     captureRestartInFlight = false
     driftAdoptedThisSession = false
+    // Reset the unexpected-exit counter only after the child proves STABLE for
+    // STABILITY_RESET_MS — not immediately at spawn. An immediate reset let a
+    // fast crash-loop (spawn→die→spawn) keep zeroing the counter so the cap
+    // never engaged; conversely, well-spaced crashes never got a fresh budget.
+    if (stabilityTimer) clearTimeout(stabilityTimer)
+    stabilityTimer = setTimeout(() => {
+      if (running) {
+        unexpectedExitAttempts = 0
+        logger.info('Wifi display stable — restart counter reset')
+      }
+    }, STABILITY_RESET_MS)
     logger.info(`Wifi display started (PID ${childProc.pid}, monitor index ${effectiveIndex})`)
     recordEvent('wifi', 'Wifi display started', { monitorIndex: effectiveIndex })
     // Operator hierarchy: OBS HIGH > Wifi-display ABOVENORMAL > app NORMAL >
@@ -435,6 +490,14 @@ export async function start(): Promise<void> {
       }
     }
     startDiscoveryListener()
+  } else {
+    // Spawn produced no PID (binary lock, AV block, transient OS failure).
+    // Schedule recovery, then FALL THROUGH so the exit/error handlers below
+    // still attach to the pid-less child object — an unhandled 'error' event
+    // would otherwise crash the main process. restartPending dedups the case
+    // where the 'error' handler also fires, so we recover exactly once.
+    logger.error('Wifi display spawn produced no PID — scheduling restart')
+    scheduleAutoRestart('spawn produced no PID')
   }
 
   childProc.stderr?.on('data', (data: Buffer) => {
@@ -499,20 +562,14 @@ export async function start(): Promise<void> {
     activeMonitorIndex = null
     childProc = null
     clearPid()
+    if (stabilityTimer) { clearTimeout(stabilityTimer); stabilityTimer = null }
 
+    // SIGTERM/SIGKILL are how stop() tears down; intentionalStop is the primary
+    // gate (scheduleAutoRestart no-ops when it's set). Recover any other exit —
+    // including one where running was never set (no-PID/early-death respawn).
     const wasIntentional = signal === 'SIGTERM' || signal === 'SIGKILL'
-    if (wasRunning && !wasIntentional && unexpectedExitAttempts < MAX_UNEXPECTED_EXIT_RESTARTS) {
-      unexpectedExitAttempts++
-      logger.warn(
-        `Unexpected wifi display exit (code=${code}) — restart attempt ${unexpectedExitAttempts}/${MAX_UNEXPECTED_EXIT_RESTARTS} in 2s`,
-      )
-      setTimeout(() => {
-        start().catch((err) => logger.error(`Auto-restart failed: ${err}`))
-      }, 2000)
-    } else if (wasRunning && !wasIntentional) {
-      logger.error(
-        `Wifi display exceeded ${MAX_UNEXPECTED_EXIT_RESTARTS} restart attempts — giving up until user re-enables in Settings`,
-      )
+    if ((wasRunning || restartPending) && !wasIntentional) {
+      scheduleAutoRestart(`unexpected exit (code=${code})`)
     }
   })
 
@@ -522,10 +579,18 @@ export async function start(): Promise<void> {
     activeMonitorIndex = null
     childProc = null
     clearPid()
+    if (stabilityTimer) { clearTimeout(stabilityTimer); stabilityTimer = null }
+    // A process-level error (failed spawn, ENOENT, abrupt death) must still
+    // recover — previously this path scheduled nothing, leaving the cast dead.
+    scheduleAutoRestart(`process error (${err.message})`)
   })
 }
 
 export async function stop(): Promise<void> {
+  // Latch intentional teardown so the child's exit/error handlers don't
+  // auto-restart a deliberate stop (primary gate in scheduleAutoRestart).
+  intentionalStop = true
+  if (stabilityTimer) { clearTimeout(stabilityTimer); stabilityTimer = null }
   if (!childProc || !running) {
     logger.warn('Wifi display not running')
     return
