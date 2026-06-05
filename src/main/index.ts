@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { join } from 'path'
 import * as settings from './services/settings'
 import * as overlay from './services/overlay'
@@ -44,6 +44,7 @@ function createWindow(): void {
     minHeight: 600,
     title: 'BroadcastBuddy',
     backgroundColor: '#1e1e2e',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -51,6 +52,10 @@ function createWindow(): void {
       sandbox: false,
     },
   })
+
+  // Remove the native File/Edit/View menu bar entirely.
+  Menu.setApplicationMenu(null)
+  mainWindow.setMenuBarVisibility(false)
 
   // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
