@@ -10,6 +10,27 @@ let identified = false
 let requestCounter = 0
 const pendingRequests = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
 
+// Auto-reconnect: remember the params of a SUCCESSFUL connection so a mid-show
+// OBS drop (crash / restart / ws blip) reconnects on its own instead of leaving
+// the operator without record/stream/slow-zoom control until a manual Connect.
+// Armed only after Identified (lastConnect set there), so an OBS that was never
+// up at boot doesn't spawn an endless retry-spam loop.
+let lastConnect: { host: string; port: number; password?: string } | null = null
+let intentionalDisconnect = false
+let reconnectTimer: NodeJS.Timeout | null = null
+const RECONNECT_DELAY_MS = 3000
+
+function scheduleReconnect(): void {
+  if (reconnectTimer || intentionalDisconnect || !lastConnect) return
+  const { host, port, password } = lastConnect
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    if (intentionalDisconnect || !lastConnect) return
+    logger.info(`OBS reconnect attempt → ${host}:${port}`)
+    connect(host, port, password).catch(() => scheduleReconnect())
+  }, RECONNECT_DELAY_MS)
+}
+
 // ── Event subscribers (main-process consumers) ──────────────────────────
 type ConnectedCallback = () => void
 type DisconnectedCallback = () => void
@@ -109,6 +130,9 @@ export function getCutTransitionName(): string | null {
 // ── Connection ──────────────────────────────────────────────────────────
 
 export function connect(host: string, port: number, password?: string): Promise<void> {
+  // A fresh connect attempt clears the intentional-disconnect latch so the
+  // close handler will auto-reconnect if this connection later drops.
+  intentionalDisconnect = false
   return new Promise((resolve, reject) => {
     // Short-circuit if a socket is already OPEN *or* still CONNECTING. Without
     // the CONNECTING guard, a manual Connect racing the startup auto-connect
@@ -146,6 +170,10 @@ export function connect(host: string, port: number, password?: string): Promise<
           case 2: // Identified
             identified = true
             clearTimeout(timeout)
+            // Arm auto-reconnect with these (now-proven) params + cancel any
+            // pending reconnect from a prior drop.
+            lastConnect = { host, port, password }
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
             logger.info('OBS WebSocket identified')
             // Prime the transition cache so revert + slow zoom helpers have
             // a populated kind lookup before the first operator action.
@@ -205,6 +233,12 @@ export function connect(host: string, port: number, password?: string): Promise<
         }
       }
       logger.info('OBS WebSocket disconnected')
+      // Reconnect a dropped (non-deliberate) connection so OBS control survives
+      // an OBS restart / ws blip mid-show. No-op until a connection was Identified.
+      if (!intentionalDisconnect && lastConnect) {
+        logger.warn(`OBS connection lost — reconnecting in ${RECONNECT_DELAY_MS / 1000}s`)
+        scheduleReconnect()
+      }
     })
   })
 }
@@ -465,6 +499,11 @@ export function isConnected(): boolean {
 }
 
 export function disconnect(): void {
+  // Deliberate disconnect: latch it + drop the remembered params so the close
+  // handler does NOT auto-reconnect, and cancel any pending reconnect.
+  intentionalDisconnect = true
+  lastConnect = null
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
   if (ws) {
     ws.close()
     ws = null
