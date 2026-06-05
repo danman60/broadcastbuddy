@@ -21,7 +21,11 @@
 - **Suite 285/285 green** (also fixed 2 pre-existing stale overlay-controls selectors).
 - Deployed `a1e0aea` → **auto-save VERIFIED LIVE end-to-end**: boot auto-loaded March session (idx22, 34 triggers); `nextTrigger` → session file rewrote (mtime today, idx23) → restored to 22. Cast reset, decoder errs=0.
 - **Adversarial review of the shipped code** → 2 real fixes (`ba5f359`): (HIGH) `obsConnection.connect()` now guards OPEN|CONNECTING so a manual Connect racing F3 auto-connect can't close the good socket; (MED) CC apply only adopts+saves a session when none loaded (was overwriting a manually-loaded session's file every apply). Suite 285/285. **Redeploying to DART.**
-- Remaining 5and5 deferred (judged poor autonomous picks): S8 (overlay.ts split — risky refactor of critical overlay path, low value), F4 (now largely redundant w/ F1b auto-session), F5 (needs real gallery data).
+- Regression tests added for tonight's features (startup auto-load, CC-apply auto-select + adoption guard) — `tests/startup-and-ccapply.spec.ts`, +5 → **suite 290/290** (`88b7ab1`).
+- **S8 done** (`37d19a2`): extracted `buildOverlayHTML` → `overlaySource.ts`, overlay.ts 2668→800 lines, byte-identical template, suite 290/290. NOT redeployed (pure refactor; DART `ba5f359` is functionally identical — avoid needless cast disruption).
+- **5and5 fully addressed**: implemented F1/F2/F3/S2/S8/S10 (+F1b); skipped S1 (false-positive) + S9 (already correct); deferred F4 (redundant w/ F1b) + F5 (needs real gallery data to validate).
+- **DART live `ba5f359`** (= functionally current), BB running, cast healthy, decoder errs=0. All work pushed `1db3bff`→`37d19a2`.
+- Remaining work needs things unavailable autonomously: live OBS walkthrough (hardware), F5 (gallery data). Overnight: periodic DART health heartbeat.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
 
