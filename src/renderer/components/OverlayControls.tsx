@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '../store/useStore'
-import type { LoopMode, SlowZoomStatus } from '../../shared/types'
+import type { LoopMode } from '../../shared/types'
 import '../styles/controls.css'
 
 const LOOP_CYCLE: LoopMode[] = ['none', 'loop', 'ping-pong']
@@ -17,65 +17,19 @@ export function OverlayControls() {
 
   const [autoFire, setAutoFire] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const [slowZoom, setSlowZoom] = useState<SlowZoomStatus>({ wideZoomedIn: false, tightZoomedIn: false })
-  const [zoomBusy, setZoomBusy] = useState<'wide' | 'tight' | null>(null)
-  const [transitionRevert, setTransitionRevert] = useState(false)
   const gridVisible = overlayState?.gridVisible ?? false
 
-  // Broadcast-chrome elements (clock / counter / feature card)
+  // Broadcast-chrome elements (clock / feature card)
   const clock = overlayState?.clock
-  const counter = overlayState?.counter
   const featureCard = overlayState?.featureCard
-  const [counterLabel, setCounterLabel] = useState('')
   const [fcKicker, setFcKicker] = useState('UP NEXT')
   const [fcTitle, setFcTitle] = useState('')
   const [fcSubtitle, setFcSubtitle] = useState('')
 
-  // Keep the editable counter-label input in sync with state.
-  useEffect(() => {
-    if (counter) setCounterLabel(counter.label)
-  }, [counter?.label])
-
-  // Fetch autoFire + OBS controls state on mount
+  // Fetch autoFire state on mount
   useEffect(() => {
     window.api.playlistGetStatus().then((s) => setAutoFire(s.autoFire))
-    window.api.obsSlowZoomStatus?.().then((s: SlowZoomStatus) => setSlowZoom(s)).catch(() => { /* OBS may be disconnected */ })
-    window.api.obsTransitionRevertGet?.().then((r: { enabled: boolean }) => setTransitionRevert(r.enabled)).catch(() => { /* ignore */ })
-
-    // Push-update from main when slow-zoom state drifts (operator changes scene
-    // out from under us, or zoom completes elsewhere).
-    const onZoomUpdate = (status: unknown) => setSlowZoom(status as SlowZoomStatus)
-    window.api.on?.('obs:slow-zoom-status-update', onZoomUpdate)
-    return () => {
-      window.api.removeAllListeners?.('obs:slow-zoom-status-update')
-    }
   }, [])
-
-  async function handleSlowZoomWide() {
-    setZoomBusy('wide')
-    try {
-      const status = await window.api.obsSlowZoomTriggerWide()
-      setSlowZoom(status)
-    } finally {
-      setZoomBusy(null)
-    }
-  }
-
-  async function handleSlowZoomTight() {
-    setZoomBusy('tight')
-    try {
-      const status = await window.api.obsSlowZoomTriggerTight()
-      setSlowZoom(status)
-    } finally {
-      setZoomBusy(null)
-    }
-  }
-
-  async function handleTransitionRevertToggle() {
-    const next = !transitionRevert
-    const result = await window.api.obsTransitionRevertSet(next)
-    setTransitionRevert(result.enabled)
-  }
 
   async function handleAutoFireToggle() {
     const enabled = await window.api.playlistAutoFireToggle()
@@ -103,24 +57,6 @@ export function OverlayControls() {
   }
   async function handleClockSeconds() {
     await window.api.overlayClockUpdate({ showSeconds: !(clock?.showSeconds ?? true) })
-  }
-
-  // ── Counter ──
-  async function handleCounterToggle() {
-    await window.api.overlayCounterToggle()
-  }
-  async function handleCounterBump(delta: number) {
-    await window.api.overlayCounterBump(delta)
-  }
-  async function handleCounterSetValue(value: number) {
-    if (Number.isFinite(value)) await window.api.overlayCounterSet(value, counterLabel)
-  }
-  async function handleCounterSetLabel() {
-    await window.api.overlayCounterSet(counter?.value ?? 1, counterLabel)
-  }
-  async function handleCounterSyncTrigger() {
-    // Set counter from the selected trigger's 1-based order index.
-    if (selectedIndex >= 0) await window.api.overlayCounterSet(selectedIndex + 1, counterLabel)
   }
 
   // ── Feature card ──
@@ -313,38 +249,6 @@ export function OverlayControls() {
             </div>
           </div>
 
-          {/* ── OBS camera ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">OBS Camera</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button
-                  className={`seg-btn ${slowZoom.wideZoomedIn ? 'on' : ''}`}
-                  onClick={handleSlowZoomWide}
-                  disabled={zoomBusy !== null}
-                  title="Toggle slow zoom on the Wide camera (Move Transition in OBS)"
-                >
-                  {zoomBusy === 'wide' ? 'Wide…' : `Wide Zoom ${slowZoom.wideZoomedIn ? 'OUT' : 'IN'}`}
-                </button>
-                <button
-                  className={`seg-btn ${slowZoom.tightZoomedIn ? 'on' : ''}`}
-                  onClick={handleSlowZoomTight}
-                  disabled={zoomBusy !== null}
-                  title="Toggle slow zoom on the Tight camera (Move Transition in OBS)"
-                >
-                  {zoomBusy === 'tight' ? 'Tight…' : `Tight Zoom ${slowZoom.tightZoomedIn ? 'OUT' : 'IN'}`}
-                </button>
-              </div>
-              <button
-                className={`toggle ${transitionRevert ? 'on' : ''}`}
-                onClick={handleTransitionRevertToggle}
-                title="Auto-snap OBS back to Cut transition 500ms after any non-Cut transition fires"
-              >
-                Revert: {transitionRevert ? 'ON' : 'OFF'}
-              </button>
-            </div>
-          </div>
-
           {/* ── On-air clock ── */}
           <div className="ctl-group">
             <span className="ctl-label">Clock</span>
@@ -372,52 +276,6 @@ export function OverlayControls() {
                   Secs {clock?.showSeconds ? 'ON' : 'OFF'}
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* ── Counter badge ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">Counter</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button
-                  className={`seg-btn seg-toggle ${counter?.visible ? 'on' : ''}`}
-                  onClick={handleCounterToggle}
-                  title="Show/hide the numeric counter badge"
-                >
-                  Counter {counter?.visible ? 'ON' : 'OFF'}
-                </button>
-                <button className="seg-btn seg-step" onClick={() => handleCounterBump(-1)} title="Decrement counter">
-                  −
-                </button>
-                <input
-                  type="number"
-                  className="seg-input"
-                  value={counter?.value ?? 1}
-                  onChange={(e) => handleCounterSetValue(parseInt(e.target.value, 10))}
-                  title="Counter value"
-                />
-                <button className="seg-btn seg-step" onClick={() => handleCounterBump(1)} title="Increment counter">
-                  +
-                </button>
-              </div>
-              <input
-                type="text"
-                className="ctl-text-input"
-                value={counterLabel}
-                onChange={(e) => setCounterLabel(e.target.value)}
-                onBlur={handleCounterSetLabel}
-                placeholder="Label (e.g. ENTRY)"
-                title="Counter label"
-              />
-              <button
-                className="btn-bulk"
-                onClick={handleCounterSyncTrigger}
-                disabled={selectedIndex < 0}
-                title="Set counter to the selected trigger's order number"
-              >
-                Sync #{selectedIndex >= 0 ? selectedIndex + 1 : '-'}
-              </button>
             </div>
           </div>
 

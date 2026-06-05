@@ -632,8 +632,13 @@ export function showFeatureCard(data: Partial<Omit<FeatureCardState, 'visible' |
   overlayState.featureCard = {
     ...overlayState.featureCard,
     ...data,
-    // Persistent feature-card logo wins; fall back to the incoming/per-trigger logo.
-    logoDataUrl: featureCardLogoDataUrl || data.logoDataUrl || overlayState.featureCard.logoDataUrl,
+    // Persistent feature-card logo wins; then the incoming/per-trigger logo; then
+    // the CLIENT logo so cards show client branding by default; then existing.
+    logoDataUrl:
+      featureCardLogoDataUrl ||
+      data.logoDataUrl ||
+      overlayState.clientLogo.dataUrl ||
+      overlayState.featureCard.logoDataUrl,
     visible: true,
     firedAt: Date.now(),
   }
@@ -657,8 +662,13 @@ export function setFeatureCardContent(
   overlayState.featureCard = {
     ...overlayState.featureCard,
     ...data,
-    // Persistent feature-card logo wins; fall back to the incoming/per-trigger logo.
-    logoDataUrl: featureCardLogoDataUrl || data.logoDataUrl || overlayState.featureCard.logoDataUrl,
+    // Persistent feature-card logo wins; then the incoming/per-trigger logo; then
+    // the CLIENT logo so cards show client branding by default; then existing.
+    logoDataUrl:
+      featureCardLogoDataUrl ||
+      data.logoDataUrl ||
+      overlayState.clientLogo.dataUrl ||
+      overlayState.featureCard.logoDataUrl,
   }
   notifyChange()
 }

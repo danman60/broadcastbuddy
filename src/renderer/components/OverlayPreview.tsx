@@ -92,6 +92,38 @@ export function OverlayPreview() {
     return clock.showSeconds ? `${h12}:${m}:${sec} ${ampm}` : `${h12}:${m} ${ampm}`
   })()
 
+  // Starting-soon scene mirror for the in-app preview. The real overlay
+  // (overlaySource.ts) paints a full-bleed gradient + title/subtitle/countdown;
+  // the preview previously only drew the small media chips, so the operator saw
+  // a black canvas. Approximate the scene here (scaled mock, not pixel-exact).
+  const ssDesign = ss?.design
+  const ssGradient = (() => {
+    if (ssDesign?.gradientColors && ssDesign.gradientColors.length >= 2) {
+      const angle = typeof ssDesign.gradientAngle === 'number' ? ssDesign.gradientAngle : 135
+      return `linear-gradient(${angle}deg, ${ssDesign.gradientColors.join(', ')})`
+    }
+    // Accent-derived gradient mirroring the CSS default (.ss-gradient-bg).
+    const bg = ss?.backgroundColor || '#0d0f1d'
+    const accent = ss?.accentColor || '#667eea'
+    return `linear-gradient(135deg, ${bg} 0%, color-mix(in srgb, ${accent} 18%, ${bg}) 45%, ${bg} 100%)`
+  })()
+  // Countdown readout: prefer an explicit target, else fixed seconds, else blank.
+  const ssCountdownText = (() => {
+    if (!ss?.showCountdown) return ''
+    let total = 0
+    if (ss.countdownTarget) {
+      total = Math.max(0, Math.round((new Date(ss.countdownTarget).getTime() - Date.now()) / 1000))
+    } else if (ss.countdownSeconds > 0) {
+      total = ss.countdownSeconds
+    } else {
+      return ''
+    }
+    if (total <= 0) return ss.completionText || ''
+    const m = Math.floor(total / 60)
+    const sec = String(total % 60).padStart(2, '0')
+    return `${m}:${sec}`
+  })()
+
   const anim = pickAnimation(s.animation)
   const bgClass = [
     'preview-lt-card',
@@ -188,6 +220,41 @@ export function OverlayPreview() {
           <div className="preview-counter">
             <span className="preview-counter-number">{counter.value}</span>
             {counter.label && <span className="preview-counter-label">{counter.label}</span>}
+          </div>
+        )}
+
+        {/* Starting-soon full scene (gradient bg + title/subtitle/countdown).
+            Mirrors overlaySource.ts so the operator sees the scene, not black. */}
+        {ss?.visible && (
+          <div className="preview-ss-scene" style={{ background: ssGradient }}>
+            {ss.sectionLabel && (
+              <div className="preview-ss-section" style={{ color: ss.accentColor }}>
+                {ss.sectionLabel}
+              </div>
+            )}
+            <div
+              className="preview-ss-title"
+              style={{ color: ss.textColor, fontFamily: ssDesign?.titleFont || undefined }}
+            >
+              {ss.title || 'Starting Soon'}
+            </div>
+            {ss.subtitle && (
+              <div
+                className="preview-ss-subtitle"
+                style={{ color: ss.textColor, fontFamily: ssDesign?.subtitleFont || undefined }}
+              >
+                {ss.subtitle}
+              </div>
+            )}
+            <div className="preview-ss-accent-line" style={{ background: ss.accentColor }} />
+            {ssCountdownText && (
+              <div
+                className="preview-ss-countdown"
+                style={{ color: ss.textColor, fontWeight: ssDesign?.countdownWeight || undefined }}
+              >
+                {ssCountdownText}
+              </div>
+            )}
           </div>
         )}
 
