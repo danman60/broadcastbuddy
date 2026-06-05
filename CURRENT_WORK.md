@@ -39,7 +39,8 @@
 - **Regression tests for reliability fixes** (`6c6dfd6`): recovery-fallback (4) + OBS reconnect via mock obs-ws handshake (2). Suite 290→296.
 - **Full operator-lifecycle integration test** (`9dfe65a`): boot→CC apply→fire/navigate→feature card→toggles→ad-hoc→edit→auto-save→restart→restore, 9 cases, cross-feature invariants hold, no bugs. Suite 296→**305**. Proves "everything in this flow works + activates" end-to-end.
 - **Known user-flagged bug FIXED** (`ab2de73`): LLM document-import conflated dance performers with routine titles (7Attitudes: 53 routines → 85 triggers, broke audio matching). Rewrote `llmService.ts` SYSTEM_PROMPT → one trigger per routine (performers→subtitle, choreographer→category). **Live-validated against DeepSeek**: 5-routine program → exactly 5 triggers, the KEIRA GUPPY solo case correct. CC-web half (`broadcastTrigger.importFromDocument`) still pending — flagged in CC INBOX + memory.
-- All pushed `1db3bff`→`ab2de73`. **Suite 273→305.** DART app code = `a5fe8dd`; one app-commit behind (llm prompt fix — import is prep-time, ships next deploy, not worth a cast disruption tonight).
+- **Overlay Mode remote toggle** (`d4c2708`): new `toggleOverlayMode` wsHub command (user-noted pending — panels needed a Tools click, couldn't drive over SSH). Headless test: opens panels (win count 1→5) + closes back. Suite 305→306. Lets Stream Deck/script/SSH turn Overlay Mode on/off + lets me verify the panel-freeze fix live.
+- All pushed `1db3bff`→`d4c2708`. **Suite 273→306.** **Deploying llm fix + overlay-mode toggle to DART** → then live-test toggleOverlayMode.
 - Truly operator-only remaining (in the runbook): audio meters (visual), slow-zoom (needs OBS scene/transition names), stream control (won't broadcast), overlay-in-OBS visual confirm.
 
 ## Session 2026-06-04 (huge: DART deploy + HEVC cast + UI) → /fresh
