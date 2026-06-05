@@ -187,7 +187,10 @@ test('Counter +/− buttons increment and decrement the value', async () => {
 
 test('Feature: Up Next button shows the feature card', async () => {
   await selectIndex(0)
-  const featUpNext = window.locator('button:has-text("Feature: Up Next")')
+  // Scope to the Feature Card group — a bare "Up Next" also matches the
+  // lower-third chip button. (Post-redesign the button is plain "Up Next".)
+  const featGroup = window.locator('.ctl-group', { has: window.locator('.ctl-label:has-text("Feature Card")') })
+  const featUpNext = featGroup.getByRole('button', { name: 'Up Next', exact: true })
   await expect(featUpNext).toBeEnabled()
   await featUpNext.click()
   await window.waitForTimeout(400)
@@ -211,7 +214,7 @@ test('Feature card composer Show button shows a custom card', async () => {
   await window.waitForTimeout(150)
   // Scope the Show button to the feature-composer row (the row containing the
   // Title input) — a bare button:has-text("Show") also matches Starting Soon's.
-  const composerRow = window.locator('.controls-bulk-row', { has: window.locator('input[placeholder="Title"]') })
+  const composerRow = window.locator('.ctl-row', { has: window.locator('input[placeholder="Title"]') })
   const showBtn = composerRow.getByRole('button', { name: 'Show', exact: true })
   await expect(showBtn).toBeEnabled()
   await showBtn.click()

@@ -139,12 +139,50 @@ app.whenReady().then(() => {
   const revertPref = settings.get('obsTransitionRevert')
   if (revertPref) obsConnection.setTransitionRevertEnabled(true)
 
+  // 11b. Auto-connect to OBS from saved settings (fire-and-forget, fail-soft).
+  //      Removes the manual Connect click every show; a failure (OBS not running)
+  //      is logged and ignored, exactly like the existing OBS-down fail-soft path.
+  const obsCfg = settings.get('obsConnection')
+  if (obsCfg?.host) {
+    obsConnection.connect(obsCfg.host, obsCfg.port, obsCfg.password)
+      .then(() => logger.info(`OBS auto-connected: ${obsCfg.host}:${obsCfg.port}`))
+      .catch((err) => logger.warn(`OBS auto-connect failed (will connect on demand): ${err instanceof Error ? err.message : err}`))
+  }
+
   // 12. Operator event log → renderer live fanout.
   events.setOnEvent((record) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win) win.webContents.send(IPC.EVENTS_NEW, record)
   })
   events.recordEvent('system', 'BroadcastBuddy started')
+
+  // 12b. Auto-load the most-recent saved session so operator edits persist across
+  //      restarts. The debounced auto-save in overlay.notifyChange() only engages
+  //      when a session is loaded; without this, a normal boot leaves
+  //      currentSession=null and every styling/playlist edit is lost on restart.
+  //      getMostRecentSession() also sets the module currentSession. Skipped if a
+  //      session is somehow already set; no-op on a fresh profile (no sessions).
+  if (!session.getCurrentSession()) {
+    try {
+      const recent = session.getMostRecentSession()
+      if (recent) {
+        overlay.loadSessionState(
+          recent.triggers,
+          recent.styling,
+          recent.companyLogoDataUrl,
+          recent.clientLogoDataUrl,
+          recent.selectedIndex,
+          recent.playedIds,
+          recent.loopMode,
+          recent.notes,
+          recent.streamConfig,
+        )
+        logger.info(`Auto-loaded most-recent session: ${recent.name}`)
+      }
+    } catch (err) {
+      logger.warn(`Auto-load session failed: ${err instanceof Error ? err.message : err}`)
+    }
+  }
 
   // 13. Crash recovery — snapshot provider + dirty-marker check + periodic snapshots.
   crashRecovery.setSnapshotProvider(() => {

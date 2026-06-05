@@ -630,23 +630,26 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // Fetch a remote image and return it as a base64 data URL, or '' on any
+  // failure. Shared by the CC-apply logo paths (per-trigger / company / client).
+  async function fetchAsDataUrl(url?: string | null): Promise<string> {
+    if (!url) return ''
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return ''
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const contentType = res.headers.get('content-type') || 'image/png'
+      return `data:${contentType};base64,${buffer.toString('base64')}`
+    } catch {
+      return ''
+    }
+  }
+
   ipcMain.handle(IPC.CC_APPLY_PACKAGE, async (_e, pkg: BroadcastPackage, eventId?: string) => {
     // Convert CC triggers to BB triggers, fetching logos in parallel
     const newTriggers: Trigger[] = await Promise.all(
       pkg.triggers.map(async (t, i) => {
-        let logoDataUrl = ''
-        if (t.logoUrl) {
-          try {
-            const res = await fetch(t.logoUrl)
-            if (res.ok) {
-              const buffer = Buffer.from(await res.arrayBuffer())
-              const contentType = res.headers.get('content-type') || 'image/png'
-              logoDataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
-            }
-          } catch {
-            // Skip failed logo fetches
-          }
-        }
+        const logoDataUrl = await fetchAsDataUrl(t.logoUrl)
         return {
           id: generateId() + i,
           name: t.name || t.title || '',
@@ -665,6 +668,12 @@ export function registerIpcHandlers(): void {
     for (const t of newTriggers) {
       overlay.addTrigger(t)
     }
+    // Auto-select the first trigger so the lower-third/preview has content
+    // immediately and Up Next / That Was are enabled (clearAllTriggers reset
+    // selectedIndex to -1, which otherwise fires an empty card until a manual click).
+    if (overlay.getTriggers().length > 0) {
+      overlay.selectTrigger(0)
+    }
 
     // Apply stream config if any streaming field is present
     if (pkg.streaming.streamKey || pkg.streaming.rtmpUrl || pkg.streaming.livestreamUrl || pkg.streaming.embedCode) {
@@ -678,34 +687,12 @@ export function registerIpcHandlers(): void {
     }
 
     // Apply company logo if available
-    if (pkg.company?.logoUrl) {
-      try {
-        const res = await fetch(pkg.company.logoUrl)
-        if (res.ok) {
-          const buffer = Buffer.from(await res.arrayBuffer())
-          const contentType = res.headers.get('content-type') || 'image/png'
-          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
-          overlay.setCompanyLogo(dataUrl)
-        }
-      } catch {
-        // Skip failed logo fetch
-      }
-    }
+    const companyLogo = await fetchAsDataUrl(pkg.company?.logoUrl)
+    if (companyLogo) overlay.setCompanyLogo(companyLogo)
 
     // Apply client logo if available
-    if (pkg.client.logoUrl) {
-      try {
-        const res = await fetch(pkg.client.logoUrl)
-        if (res.ok) {
-          const buffer = Buffer.from(await res.arrayBuffer())
-          const contentType = res.headers.get('content-type') || 'image/png'
-          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`
-          overlay.setClientLogo(dataUrl)
-        }
-      } catch {
-        // Skip failed logo fetch
-      }
-    }
+    const clientLogo = await fetchAsDataUrl(pkg.client.logoUrl)
+    if (clientLogo) overlay.setClientLogo(clientLogo)
 
     // Apply brand color as accent if available
     if (pkg.client.brandColor) {
@@ -725,6 +712,24 @@ export function registerIpcHandlers(): void {
       }
       applyOverlayContent((pkg.overlayConfig as Record<string, unknown>).content)
     }
+
+    // Ensure a session backs the applied package so operator edits auto-persist
+    // (overlay auto-save is guarded on a loaded session). If none is loaded,
+    // adopt one named from the client, then persist the applied state immediately.
+    if (!session.getCurrentSession()) {
+      session.newSession(pkg.client?.organization ? `${pkg.client.organization} (live)` : 'CC Package')
+    }
+    session.saveSession(
+      overlay.getTriggers(),
+      overlay.getStyling(),
+      overlay.getOverlayState().companyLogo.dataUrl,
+      overlay.getOverlayState().clientLogo.dataUrl,
+      overlay.getSelectedIndex(),
+      overlay.getPlayedSet(),
+      overlay.getLoopMode(),
+      overlay.getNotes(),
+      overlay.getStreamConfig(),
+    )
 
     pushState()
 

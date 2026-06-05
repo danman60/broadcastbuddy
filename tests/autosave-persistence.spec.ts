@@ -1,6 +1,7 @@
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 
 // Auto-save persistence regression (shipped this session).
 //
@@ -15,10 +16,17 @@ import fs from 'fs'
 let app: ElectronApplication
 let window: Page
 
+// Isolated, empty userData so the NEGATIVE-GUARD case starts on a truly fresh
+// profile with no saved sessions. Without this, the startup auto-load (loads the
+// most-recent session) would adopt a session left behind by an earlier spec in
+// the shared default userData dir, and getCurrent() would not be null.
+const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bb-autosave-'))
+
 test.beforeAll(async () => {
   app = await electron.launch({
     args: [
       path.join(__dirname, '..'),
+      `--user-data-dir=${userDataDir}`,
       '--disable-gpu',
       '--no-sandbox',
     ],
