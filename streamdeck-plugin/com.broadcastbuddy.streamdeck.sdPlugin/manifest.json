@@ -317,6 +317,21 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.cycle-transition",
+      "Name": "Cycle Transition",
+      "Tooltip": "Cycle the lower-third entrance transition/animation",
+      "Icon": "imgs/actions/transition",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/transition",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

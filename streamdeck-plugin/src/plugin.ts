@@ -11,6 +11,7 @@ import { ToggleTickerAction } from './actions/toggle-ticker'
 import { UpNextAction } from './actions/up-next'
 import { ThatWasAction } from './actions/that-was'
 import { ToggleGridAction } from './actions/toggle-grid'
+import { CycleTransitionAction } from './actions/cycle-transition'
 import { SlowZoomWideAction, SlowZoomTightAction } from './actions/slow-zoom'
 import { RecordAction } from './actions/record'
 import { StreamAction } from './actions/stream'
@@ -29,6 +30,7 @@ streamDeck.actions.registerAction(new ToggleTickerAction())
 streamDeck.actions.registerAction(new UpNextAction())
 streamDeck.actions.registerAction(new ThatWasAction())
 streamDeck.actions.registerAction(new ToggleGridAction())
+streamDeck.actions.registerAction(new CycleTransitionAction())
 streamDeck.actions.registerAction(new SlowZoomWideAction())
 streamDeck.actions.registerAction(new SlowZoomTightAction())
 streamDeck.actions.registerAction(new RecordAction())
