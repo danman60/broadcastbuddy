@@ -135,6 +135,14 @@ contextBridge.exposeInMainWorld('api', {
   // ── Brand scraper ──────────────────────────────────────────────
   brandScrape: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE, url),
   brandScrapeAI: (url: string) => ipcRenderer.invoke(IPC.BRAND_SCRAPE_AI, url),
+  brandFetchLogo: (imageUrl: string): Promise<string> =>
+    ipcRenderer.invoke(IPC.BRAND_FETCH_LOGO, imageUrl),
+
+  // ── User style presets ─────────────────────────────────────────
+  userPresetsList: () => ipcRenderer.invoke(IPC.USER_PRESETS_LIST),
+  userPresetsAdd: (preset: import('../shared/types').UserStylePreset) =>
+    ipcRenderer.invoke(IPC.USER_PRESETS_ADD, preset),
+  userPresetsDelete: (id: string) => ipcRenderer.invoke(IPC.USER_PRESETS_DELETE, id),
 
   // ── Window ──────────────────────────────────────────────────────
   windowResize: (width: number, height: number) =>

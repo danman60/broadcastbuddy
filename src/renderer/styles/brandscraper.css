@@ -77,3 +77,20 @@
   display: flex;
   gap: 8px;
 }
+
+/* ── Brand Kit one-click actions ──────────────────────────────── */
+.brand-kit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.brand-status {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-dim, rgba(102, 126, 234, 0.12));
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+}

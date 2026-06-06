@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { buildBrandStyling, buildBrandTicker, buildBrandStartingSoon } from '../../shared/brandKit'
+import type { UserStylePreset } from '../../shared/types'
 import '../styles/brandscraper.css'
 
 interface BrandResult {
@@ -14,10 +16,13 @@ export function BrandScraperPanel() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<BrandResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<string | null>(null) // transient success line
+  const [busy, setBusy] = useState(false) // apply/import/preset in flight
 
   async function handleScrape(useAI: boolean) {
     if (!url.trim()) return
     setError(null)
+    setStatus(null)
     setLoading(true)
 
     try {
@@ -56,6 +61,80 @@ export function BrandScraperPanel() {
 
   async function applyFont(font: string) {
     await window.api.overlayUpdateStyling({ fontFamily: `'${font}', sans-serif` })
+  }
+
+  // ── One brand style applied to the WHOLE display ────────────────
+  async function applyBrandKit() {
+    if (!result) return
+    setBusy(true)
+    setStatus(null)
+    setError(null)
+    try {
+      const brand = { colors: result.colors, fonts: result.fonts, siteName: result.siteName }
+      // 1. Complete lower-third + feature-card theme (global styling + elements).
+      await window.api.overlayUpdateStyling(buildBrandStyling(brand))
+      // 2. Ticker strip colors.
+      await window.api.tickerUpdate(buildBrandTicker(brand))
+      // 3. Starting-Soon scene (gradient design + base colors).
+      await window.api.startingSoonUpdate(buildBrandStartingSoon(brand))
+      setStatus('Brand kit applied to lower-third, ticker, feature card & Starting Soon')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Apply failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── Save the brand-derived styling as a named user preset ───────
+  async function createPreset() {
+    if (!result) return
+    const defaultName = result.siteName || 'Brand Preset'
+    const name = window.prompt('Preset name', defaultName)
+    if (!name) return
+    setBusy(true)
+    setStatus(null)
+    setError(null)
+    try {
+      const brand = { colors: result.colors, fonts: result.fonts, siteName: result.siteName }
+      const preset: UserStylePreset = {
+        id: `user-${Date.now()}`,
+        name,
+        description: `Brand kit from ${result.siteName || url}`,
+        styling: buildBrandStyling(brand),
+        source: 'user',
+        createdAt: new Date().toISOString(),
+      }
+      await window.api.userPresetsAdd(preset)
+      window.dispatchEvent(new CustomEvent('user-presets-changed'))
+      setStatus(`Saved preset "${name}" — find it in Template Presets`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save preset failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── Import scraped logo as the CLIENT logo ──────────────────────
+  async function importLogo() {
+    if (!result?.logoUrl) return
+    setBusy(true)
+    setStatus(null)
+    setError(null)
+    try {
+      const dataUrl = await window.api.brandFetchLogo(result.logoUrl)
+      if (!dataUrl) {
+        setError('Could not fetch that logo image')
+        return
+      }
+      const state = await window.api.overlayGetState()
+      const company = state?.companyLogo?.dataUrl || ''
+      await window.api.overlaySetLogos(company, dataUrl)
+      setStatus('Logo imported as Client Logo (top-right)')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import logo failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -97,6 +176,39 @@ export function BrandScraperPanel() {
             {result.siteName && (
               <div className="brand-site-name">{result.siteName}</div>
             )}
+
+            {/* Primary one-click actions — theme the whole display, save it,
+                import the logo. */}
+            <div className="brand-kit-actions">
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={applyBrandKit}
+                disabled={busy || result.colors.length === 0}
+                title="Theme lower-third, ticker, feature card & Starting Soon from this brand"
+              >
+                Apply Brand Kit
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={createPreset}
+                disabled={busy || result.colors.length === 0}
+                title="Save this brand styling as a named preset"
+              >
+                Create Preset
+              </button>
+              {result.logoUrl && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={importLogo}
+                  disabled={busy}
+                  title="Fetch the scraped logo and set it as the Client logo"
+                >
+                  Import as Client Logo
+                </button>
+              )}
+            </div>
+
+            {status && <div className="brand-status">{status}</div>}
 
             {result.colors.length > 0 && (
               <div>

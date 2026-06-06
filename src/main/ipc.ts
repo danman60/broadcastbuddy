@@ -26,7 +26,7 @@ import * as streamDeckPlugin from './services/streamDeckPlugin'
 import * as overlayPanels from './services/overlayPanels'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
-import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView } from '../shared/types'
+import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView, UserStylePreset } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -948,6 +948,29 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.BRAND_SCRAPE_AI, async (_e, url: string) => {
     return brandScraper.scrapeWithAI(url)
+  })
+
+  // Fetch a remote logo URL → base64 data URL (for "Import as Client Logo").
+  ipcMain.handle(IPC.BRAND_FETCH_LOGO, async (_e, imageUrl: string) => {
+    return brandScraper.fetchImageAsDataUrl(imageUrl)
+  })
+
+  // ── User style presets (operator-saved, alongside built-in PRESETS) ──
+  ipcMain.handle(IPC.USER_PRESETS_LIST, () => {
+    return settings.get('userPresets') ?? []
+  })
+
+  ipcMain.handle(IPC.USER_PRESETS_ADD, (_e, preset: UserStylePreset) => {
+    const list = (settings.get('userPresets') ?? []).filter((p) => p.id !== preset.id)
+    list.push(preset)
+    settings.set('userPresets', list)
+    return list
+  })
+
+  ipcMain.handle(IPC.USER_PRESETS_DELETE, (_e, id: string) => {
+    const list = (settings.get('userPresets') ?? []).filter((p) => p.id !== id)
+    settings.set('userPresets', list)
+    return list
   })
 
   // ── Window ────────────────────────────────────────────────────

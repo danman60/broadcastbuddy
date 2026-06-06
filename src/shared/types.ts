@@ -123,6 +123,20 @@ export interface OverlayPerElementStyling {
   }
 }
 
+// ── User Style Preset (operator-saved, persisted via electron-store) ─────────
+// Structural twin of presets.ts `StylePreset`. Lives here (not presets.ts) so
+// AppSettings can reference it without a renderer↔settings circular import.
+// `source: 'user'` distinguishes these from the static built-in PRESETS so the
+// gallery only allows deleting user ones.
+export interface UserStylePreset {
+  id: string
+  name: string
+  description: string
+  styling: OverlayStyling
+  source: 'user'
+  createdAt: string // ISO
+}
+
 // ── Stream Config ────────────────────────────────────────────────
 
 export interface StreamConfig {
@@ -364,6 +378,7 @@ export interface AppSettings {
   overlay: OverlayStyling
   companyLogoPath: string
   featureCardLogoPath: string // persistent graphics/feature-card logo (data URL); empty = fall back to per-trigger logo
+  userPresets?: UserStylePreset[] // operator-saved style presets (shown next to built-in PRESETS)
   deepseekApiKey: string
   geminiApiKey: string
   sessionsDir: string
@@ -816,6 +831,12 @@ export const IPC = {
   // Brand scraper
   BRAND_SCRAPE: 'brand:scrape',
   BRAND_SCRAPE_AI: 'brand:scrape-ai',
+  BRAND_FETCH_LOGO: 'brand:fetch-logo', // remote image URL → base64 data URL
+
+  // User presets (operator-saved StylePresets, alongside built-in PRESETS)
+  USER_PRESETS_LIST: 'user-presets:list',
+  USER_PRESETS_ADD: 'user-presets:add',
+  USER_PRESETS_DELETE: 'user-presets:delete',
 
   // Window
   WINDOW_RESIZE: 'window:resize',

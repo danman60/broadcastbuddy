@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -97,6 +97,12 @@ interface ElectronAPI {
     siteName: string
     aiSuggestion?: string
   }>
+  brandFetchLogo: (imageUrl: string) => Promise<string>
+
+  // User style presets
+  userPresetsList: () => Promise<UserStylePreset[]>
+  userPresetsAdd: (preset: UserStylePreset) => Promise<UserStylePreset[]>
+  userPresetsDelete: (id: string) => Promise<UserStylePreset[]>
 
   // Window
   windowResize: (width: number, height: number) => Promise<void>
