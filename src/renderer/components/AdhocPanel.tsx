@@ -47,11 +47,12 @@ export function AdhocPanel() {
   return (
     <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
       <div className="panel-section-title" onClick={() => setCollapsed(!collapsed)}>
-        Ad-hoc Overlay
+        Quick Lower-Third
         <span className="chevron">{collapsed ? '▸' : '▾'}</span>
       </div>
       {!collapsed && (
         <div className="adhoc-panel">
+          <div className="adhoc-hint">Fire a freeform lower-third without a saved trigger</div>
           <input
             ref={titleRef}
             className="adhoc-input"

@@ -102,9 +102,13 @@ export function App() {
         )}
         <div className="right-panel">
           <div className="panel-group-label">Live Control</div>
-          <OverlayControls />
-          <TriggerEditor />
-          <AdhocPanel />
+          <div className="live-control-grid">
+            <OverlayControls />
+            <div className="live-control-stack">
+              <TriggerEditor />
+              <AdhocPanel />
+            </div>
+          </div>
           <div className="panel-group-label">Content &amp; Styling</div>
           <AnimationPanel />
           <StartingSoonPanel />

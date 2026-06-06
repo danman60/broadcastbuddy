@@ -4,6 +4,14 @@
   gap: 8px;
 }
 
+.adhoc-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: -2px;
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
 .adhoc-input {
   padding: 6px 8px;
   background: var(--bg-input);

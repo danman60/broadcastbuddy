@@ -57,6 +57,31 @@
   grid-column: 1 / -1;
 }
 
+/* Live Control group is its own explicit 2-col sub-layout spanning the full
+   width of the outer right-panel grid: column 1 = Playlist Controls (tall
+   primary control), column 2 = Edit Entry stacked over Quick Lower-Third. This
+   pins the panels into aligned columns instead of letting the auto-fill grid
+   scatter them and leave a blank cell. */
+.live-control-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 16px;
+}
+.live-control-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.compact .live-control-grid {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.compact .live-control-stack {
+  gap: 8px;
+}
+
 .panel-section {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
