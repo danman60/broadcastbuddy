@@ -722,11 +722,23 @@ export function registerIpcHandlers(): void {
 
     // Apply saved overlay config if present (lossless — see applyOverlayConfigToStyling).
     if (pkg.overlayConfig) {
-      const stylingUpdates = applyOverlayConfigToStyling(pkg.overlayConfig as Record<string, unknown>)
+      const oc = pkg.overlayConfig as Record<string, unknown>
+      // CC ships brand styling under `overlayConfig.styling` (a ready
+      // OverlayStyling partial derived from the tenant primary/secondary colors).
+      // Apply it FIRST so a full editor payload at the top level (saved via
+      // saveOverlayConfig) still wins. Apply-once + non-locking: updateStyling
+      // merges, so absent fields are a no-op and later operator edits override.
+      if (oc.styling && typeof oc.styling === 'object') {
+        const brandUpdates = applyOverlayConfigToStyling(oc.styling as Record<string, unknown>)
+        if (Object.keys(brandUpdates).length > 0) {
+          overlay.updateStyling(brandUpdates)
+        }
+      }
+      const stylingUpdates = applyOverlayConfigToStyling(oc)
       if (Object.keys(stylingUpdates).length > 0) {
         overlay.updateStyling(stylingUpdates)
       }
-      applyOverlayContent((pkg.overlayConfig as Record<string, unknown>).content)
+      applyOverlayContent(oc.content)
     }
 
     // Ensure a session backs the applied package so operator edits auto-persist
