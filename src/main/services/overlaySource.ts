@@ -274,6 +274,18 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     border-radius: 2px;
     margin: 24px auto;
   }
+  /* Tenant (company, top-left) + client (top-right) logos on the SS scene.
+     Scoped under .starting-soon to outrank the generic '.starting-soon > *'
+     position:relative rule so these stay absolutely pinned to the corners. */
+  .starting-soon > .ss-brand-logo {
+    position: absolute; top: 60px;
+    max-width: 240px; max-height: 120px; object-fit: contain;
+    z-index: 4;
+    filter: drop-shadow(0 0 14px rgba(0,0,0,0.45));
+  }
+  .starting-soon > .ss-brand-logo.company { left: 80px; }
+  .starting-soon > .ss-brand-logo.client  { right: 80px; }
+  .starting-soon > .ss-brand-logo.empty { display: none; }
   @keyframes ss-completion-pop {
     0% { transform: scale(0.8); opacity: 0; }
     60% { transform: scale(1.05); opacity: 1; }
@@ -753,9 +765,12 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
   .bb-fc-bg {
     position: absolute; inset: 0;
     background:
-      radial-gradient(ellipse at 18% 22%, rgba(102,126,234,0.42) 0%, transparent 55%),
-      radial-gradient(ellipse at 82% 78%, rgba(156,109,255,0.30) 0%, transparent 60%),
-      linear-gradient(135deg, #0d0f1d 0%, #14172a 45%, #1c1f3a 100%);
+      radial-gradient(ellipse at 18% 22%, color-mix(in srgb, var(--fc-accent, #667eea) 42%, transparent) 0%, transparent 55%),
+      radial-gradient(ellipse at 82% 78%, color-mix(in srgb, var(--fc-accent, #667eea) 30%, transparent) 0%, transparent 60%),
+      linear-gradient(135deg,
+        var(--fc-bg, #0d0f1d) 0%,
+        color-mix(in srgb, var(--fc-bg, #0d0f1d) 88%, var(--fc-accent, #667eea)) 45%,
+        color-mix(in srgb, var(--fc-bg, #0d0f1d) 78%, var(--fc-accent, #667eea)) 100%);
   }
   .bb-fc-bg::after {
     content: '';
@@ -797,8 +812,18 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     filter: drop-shadow(0 0 14px rgba(255,255,255,0.18));
   }
   .bb-fc-logo.empty { display: none; }
+  /* Tenant (company, top-left) + client (top-right) logos — shown by default. */
+  .bb-fc-brand-logo {
+    position: absolute; top: 56px;
+    max-width: 260px; max-height: 130px; object-fit: contain;
+    z-index: 4;
+    filter: drop-shadow(0 0 14px rgba(0,0,0,0.45));
+  }
+  .bb-fc-brand-logo.company { left: 72px; }
+  .bb-fc-brand-logo.client  { right: 72px; }
+  .bb-fc-brand-logo.empty { display: none; }
   .bb-fc-kicker {
-    font-family: 'Bebas Neue', 'Anton', 'Arial Black', sans-serif;
+    font-family: var(--fc-font, 'Bebas Neue', 'Anton', 'Arial Black', sans-serif);
     font-size: 56px; letter-spacing: 0.12em; line-height: 1;
     text-transform: uppercase;
     color: var(--fc-accent, #667eea);
@@ -810,7 +835,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     50%      { text-shadow: 0 0 28px rgba(0,0,0,0.5), 0 0 38px var(--fc-accent, #667eea); }
   }
   .bb-fc-title {
-    font-family: 'Playfair Display', 'Georgia', serif;
+    font-family: var(--fc-font, 'Playfair Display', 'Georgia', serif);
     font-weight: 700; font-size: 96px; line-height: 1.04;
     max-width: 1500px;
     text-shadow: 0 4px 16px rgba(0,0,0,0.55);
@@ -821,7 +846,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     50%      { text-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 42px var(--fc-accent, #667eea), 0 0 12px rgba(255,255,255,0.18); }
   }
   .bb-fc-subtitle {
-    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-family: var(--fc-font, 'Inter', 'Segoe UI', sans-serif);
     font-weight: 500; font-size: 36px; line-height: 1.35;
     color: rgba(255,255,255,0.93);
     max-width: 1400px;
@@ -985,6 +1010,9 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     </div>
     <div class="ss-visualizer" id="ss-visualizer"></div>
     <div class="ss-section-badge" id="ss-section-badge"></div>
+    <!-- Tenant (company) + client logos shown by default on the Starting Soon scene. -->
+    <img class="ss-brand-logo company empty" id="ss-company-logo" src="" alt="">
+    <img class="ss-brand-logo client empty" id="ss-client-logo" src="" alt="">
     <div class="ss-welcome" id="ss-welcome" style="display:none"></div>
     <div class="ss-title" id="ss-title"></div>
     <div class="ss-accent-line" id="ss-accent"></div>
@@ -1011,6 +1039,9 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     <div class="bb-fc-bg"></div>
     <div class="bb-fc-glow-ring"></div>
     <div class="bb-fc-sparkles" id="bb-fc-sparkles"></div>
+    <!-- Tenant (company) + client logos shown by default on every full-screen card. -->
+    <img class="bb-fc-brand-logo company empty" id="bb-fc-company-logo" src="" alt="">
+    <img class="bb-fc-brand-logo client empty" id="bb-fc-client-logo" src="" alt="">
     <div class="bb-fc-content">
       <img class="bb-fc-logo empty" id="bb-fc-logo" src="" alt="">
       <div class="bb-fc-kicker" id="bb-fc-kicker"></div>
@@ -1303,9 +1334,9 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
         cliLogo.classList.remove('visible');
       }
 
-      // Starting Soon
+      // Starting Soon — pass company+client logos (shown by default on the SS scene).
       if (msg.overlay.startingSoon) {
-        applyStartingSoon(msg.overlay.startingSoon);
+        applyStartingSoon(msg.overlay.startingSoon, msg.overlay.companyLogo, msg.overlay.clientLogo);
       }
 
       // Ticker
@@ -1332,8 +1363,15 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       // Counter
       if (msg.overlay.counter) applyCounter(msg.overlay.counter);
 
-      // Feature card
-      if (msg.overlay.featureCard) applyFeatureCard(msg.overlay.featureCard, lt.styling && lt.styling.elements && lt.styling.elements.featureCard);
+      // Feature card — pass per-element overrides, the global brand styling
+      // (for accent/bg/font theming) and the company+client logos (shown by default).
+      if (msg.overlay.featureCard) applyFeatureCard(
+        msg.overlay.featureCard,
+        lt.styling && lt.styling.elements && lt.styling.elements.featureCard,
+        s,
+        msg.overlay.companyLogo,
+        msg.overlay.clientLogo
+      );
     }
 
     function applyClock(c) {
@@ -1395,9 +1433,31 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       }
     }
 
-    function applyFeatureCard(fc, fcStyle) {
+    function applyFeatureCard(fc, fcStyle, styling, companyLogo, clientLogo) {
       var fcEl = document.getElementById('bb-feature-card');
       if (!fcEl) return;
+
+      // ── Brand theming: accent + bg gradient + font driven by the live styling ──
+      if (styling) {
+        if (styling.accentColor) fcEl.style.setProperty('--fc-accent', styling.accentColor);
+        if (styling.backgroundColor) fcEl.style.setProperty('--fc-bg', styling.backgroundColor);
+        if (styling.fontFamily) fcEl.style.setProperty('--fc-font', styling.fontFamily);
+      }
+
+      // ── Tenant (company) + client logos — shown by default on every card ──
+      var fcCompany = document.getElementById('bb-fc-company-logo');
+      if (fcCompany) {
+        var cu = companyLogo && companyLogo.dataUrl;
+        if (cu) { fcCompany.src = cu; fcCompany.classList.remove('empty'); }
+        else { fcCompany.classList.add('empty'); }
+      }
+      var fcClient = document.getElementById('bb-fc-client-logo');
+      if (fcClient) {
+        var clu = clientLogo && clientLogo.dataUrl;
+        if (clu) { fcClient.src = clu; fcClient.classList.remove('empty'); }
+        else { fcClient.classList.add('empty'); }
+      }
+
       var anim = fc.animateIn || 'slide-up';
       var shouldShow = !!fc.visible;
       var retrigger = (fc.firedAt && fc.firedAt !== lastFcFiredAt);
@@ -1495,7 +1555,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       }
     }
 
-    function applyStartingSoon(ss) {
+    function applyStartingSoon(ss, companyLogo, clientLogo) {
       var ssEl = document.getElementById('starting-soon');
       var ssTitleEl = document.getElementById('ss-title');
       var ssSubEl = document.getElementById('ss-subtitle');
@@ -1503,6 +1563,20 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       var ssAccent = document.getElementById('ss-accent');
 
       if (!ss) { ssEl.classList.remove('visible'); return; }
+
+      // ── Tenant (company) + client logos — shown by default on the SS scene ──
+      var ssCompany = document.getElementById('ss-company-logo');
+      if (ssCompany) {
+        var ssCu = companyLogo && companyLogo.dataUrl;
+        if (ssCu) { ssCompany.src = ssCu; ssCompany.classList.remove('empty'); }
+        else { ssCompany.classList.add('empty'); }
+      }
+      var ssClient = document.getElementById('ss-client-logo');
+      if (ssClient) {
+        var ssClu = clientLogo && clientLogo.dataUrl;
+        if (ssClu) { ssClient.src = ssClu; ssClient.classList.remove('empty'); }
+        else { ssClient.classList.add('empty'); }
+      }
 
       ssTitleEl.textContent = ss.title || '';
       ssSubEl.textContent = ss.subtitle || '';

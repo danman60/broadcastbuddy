@@ -148,9 +148,13 @@ export function buildBrandStartingSoon(brand: ScrapedBrand): Partial<StartingSoo
   const { background, text, accent } = mapPalette(brand.colors)
   const headingFont = fontStack(brand.fonts[0])
   const bodyFont = fontStack(brand.fonts[1] || brand.fonts[0])
+  // Gradient must read as clearly branded: deep background → accent → background.
+  // Putting the (vivid) accent at the MIDDLE stop guarantees the brand color is
+  // visible across the scene rather than tucked into a 33% corner where two
+  // near-identical dark stops make it look like a flat field.
   const design: SSDesign = {
     presetId: 'brand-kit',
-    gradientColors: [darken(background, 0.15), background, accent],
+    gradientColors: [darken(background, 0.25), accent, background],
     gradientAngle: 135,
     titleFont: headingFont,
     subtitleFont: bodyFont,
