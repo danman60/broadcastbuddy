@@ -150,16 +150,14 @@ export function OverlayControls() {
       </div>
       {!collapsed && (
         <div className="ctl">
-          {/* ── Hero: Fire / Hide + status ── */}
+          {/* ── Hero: Fire / Hide + tight inline status ── */}
           <div className="ctl-hero">
-            <div className="ctl-hero-actions">
-              <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
-                Fire
-              </button>
-              <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
-                Hide
-              </button>
-            </div>
+            <button className="btn-fire" onClick={() => window.api.overlayFireLT()}>
+              Fire
+            </button>
+            <button className="btn-hide" onClick={() => window.api.overlayHideLT()}>
+              Hide
+            </button>
             <div className="ctl-hero-status">
               <span className={`status-dot ${isVisible ? 'live' : ''}`} />
               <span className="ctl-live-label">{isVisible ? 'LIVE' : 'OFF'}</span>
@@ -167,183 +165,170 @@ export function OverlayControls() {
               {playedCount > 0 && <span className="controls-played-badge">{playedCount} played</span>}
               {upNext && (
                 <span className="controls-up-next">
-                  Up next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
+                  Next: <span className="controls-up-next-name">{upNext.title || upNext.name}</span>
                 </span>
               )}
             </div>
           </div>
 
-          {/* ── Playlist navigation ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">Playlist</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button className="seg-btn" onClick={() => window.api.triggerPrev()}>Prev</button>
-                <button className="seg-btn" onClick={() => window.api.triggerNext()}>Next</button>
-                <button
-                  className="seg-btn seg-accent"
-                  onClick={() => window.api.triggerNextFull()}
-                  title="Advance + Fire (Ctrl+Enter or Shift+Right)"
-                >
-                  Next + Fire
-                </button>
-              </div>
+          {/* ── Playlist navigation + bulk ── */}
+          <div className="ctl-row">
+            <div className="seg">
+              <button className="seg-btn" onClick={() => window.api.triggerPrev()}>Prev</button>
+              <button className="seg-btn" onClick={() => window.api.triggerNext()}>Next</button>
               <button
-                className={`toggle ${autoFire ? 'on' : ''}`}
-                onClick={handleAutoFireToggle}
-                title="Auto-fire on Next/Prev"
+                className="seg-btn seg-accent"
+                onClick={() => window.api.triggerNextFull()}
+                title="Advance + Fire (Ctrl+Enter or Shift+Right)"
               >
-                Auto {autoFire ? 'ON' : 'OFF'}
+                Next + Fire
               </button>
-              <button
-                className={`toggle ${loopActive ? 'on' : ''}`}
-                onClick={handleLoopCycle}
-                title="Cycle loop mode: Off → Loop → Ping-Pong"
-              >
-                {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
-              </button>
-              <span className="ctl-spacer" />
-              <div className="ctl-bulk-cluster">
-                <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
-                  Reset Pos
-                </button>
-                <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
-                  Clear Played
-                </button>
-                <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
-                  Clear All
-                </button>
-              </div>
             </div>
-          </div>
-
-          {/* ── Lower-third graphics ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">Graphics</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button
-                  className="seg-btn"
-                  onClick={handleUpNext}
-                  disabled={!hasNext}
-                  title="Fire the NEXT trigger as a lower-third labelled UP NEXT (does not advance position)"
-                >
-                  Up Next
-                </button>
-                <button
-                  className="seg-btn"
-                  onClick={handleThatWas}
-                  disabled={!hasPrev}
-                  title="Fire the PREVIOUS trigger as a lower-third labelled THAT WAS (does not advance position)"
-                >
-                  That Was
-                </button>
-              </div>
-              <button
-                className={`toggle ${gridVisible ? 'on' : ''}`}
-                onClick={handleGridToggle}
-                title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
-              >
-                Grid {gridVisible ? 'ON' : 'OFF'}
+            <button
+              className={`toggle ${autoFire ? 'on' : ''}`}
+              onClick={handleAutoFireToggle}
+              title="Auto-fire on Next/Prev"
+            >
+              Auto {autoFire ? 'ON' : 'OFF'}
+            </button>
+            <button
+              className={`toggle ${loopActive ? 'on' : ''}`}
+              onClick={handleLoopCycle}
+              title="Cycle loop mode: Off → Loop → Ping-Pong"
+            >
+              {LOOP_LABELS[loopMode as LoopMode] || 'Loop: Off'}
+            </button>
+            <span className="ctl-spacer" />
+            <div className="ctl-bulk-cluster">
+              <button className="btn-bulk" onClick={handleResetPosition} title="Jump to trigger #1">
+                Reset
+              </button>
+              <button className="btn-bulk" onClick={handleClearPlayed} title="Clear all played indicators">
+                Clear Played
+              </button>
+              <button className="btn-bulk btn-bulk-danger" onClick={handleClearAll} title="Remove all triggers">
+                Clear All
               </button>
             </div>
           </div>
 
-          {/* ── On-air clock ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">Clock</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button
-                  className={`seg-btn seg-toggle ${clock?.visible ? 'on' : ''}`}
-                  onClick={handleClockToggle}
-                  title="Show/hide the on-air wall clock"
-                >
-                  Clock {clock?.visible ? 'ON' : 'OFF'}
-                </button>
-                <button
-                  className="seg-btn"
-                  onClick={() => handleClockFormat(clock?.format === '24h' ? '12h' : '24h')}
-                  title="Toggle 12h / 24h time format"
-                >
-                  {clock?.format === '24h' ? '24h' : '12h'}
-                </button>
-                <button
-                  className={`seg-btn seg-toggle ${clock?.showSeconds ? 'on' : ''}`}
-                  onClick={handleClockSeconds}
-                  title="Toggle seconds display"
-                >
-                  Secs {clock?.showSeconds ? 'ON' : 'OFF'}
-                </button>
-              </div>
+          {/* ── Reveal: Up Next / That Was for Lower-Third + Feature Card ── */}
+          <div className="ctl-row ctl-reveal">
+            <span className="ctl-mini-label" title="Lower-third graphics">LT</span>
+            <div className="seg">
+              <button
+                className="seg-btn"
+                onClick={handleUpNext}
+                disabled={!hasNext}
+                title="Fire the NEXT trigger as a lower-third labelled UP NEXT (does not advance position)"
+              >
+                Up Next
+              </button>
+              <button
+                className="seg-btn"
+                onClick={handleThatWas}
+                disabled={!hasPrev}
+                title="Fire the PREVIOUS trigger as a lower-third labelled THAT WAS (does not advance position)"
+              >
+                That Was
+              </button>
+            </div>
+            <span className="ctl-mini-label" title="Full-screen feature card">Card</span>
+            <div className="seg">
+              <button
+                className="seg-btn"
+                onClick={handleFeatureUpNext}
+                disabled={!hasNext}
+                title="Show the NEXT trigger as a full-screen UP NEXT feature card (does not advance position)"
+              >
+                Up Next
+              </button>
+              <button
+                className="seg-btn"
+                onClick={handleFeatureThatWas}
+                disabled={!hasPrev}
+                title="Show the PREVIOUS trigger as a full-screen THAT WAS feature card (does not advance position)"
+              >
+                That Was
+              </button>
+              <button
+                className="seg-btn seg-danger"
+                onClick={handleFeatureHide}
+                disabled={!featureCard?.visible}
+                title="Hide the full-screen feature card"
+              >
+                Hide
+              </button>
             </div>
           </div>
 
-          {/* ── Full-screen feature card ── */}
-          <div className="ctl-group">
-            <span className="ctl-label">Feature Card</span>
-            <div className="ctl-row">
-              <div className="seg">
-                <button
-                  className="seg-btn"
-                  onClick={handleFeatureUpNext}
-                  disabled={!hasNext}
-                  title="Show the NEXT trigger as a full-screen UP NEXT feature card (does not advance position)"
-                >
-                  Up Next
-                </button>
-                <button
-                  className="seg-btn"
-                  onClick={handleFeatureThatWas}
-                  disabled={!hasPrev}
-                  title="Show the PREVIOUS trigger as a full-screen THAT WAS feature card (does not advance position)"
-                >
-                  That Was
-                </button>
-                <button
-                  className="seg-btn seg-danger"
-                  onClick={handleFeatureHide}
-                  disabled={!featureCard?.visible}
-                  title="Hide the full-screen feature card"
-                >
-                  Hide Card
-                </button>
-              </div>
-            </div>
-            <div className="ctl-row">
-              <input
-                type="text"
-                className="ctl-text-input ctl-kicker"
-                value={fcKicker}
-                onChange={(e) => setFcKicker(e.target.value)}
-                placeholder="Kicker"
-                title="Feature card kicker (UP NEXT / THAT WAS / custom)"
-              />
-              <input
-                type="text"
-                className="ctl-text-input"
-                value={fcTitle}
-                onChange={(e) => setFcTitle(e.target.value)}
-                placeholder="Title"
-                title="Feature card title"
-              />
-              <input
-                type="text"
-                className="ctl-text-input"
-                value={fcSubtitle}
-                onChange={(e) => setFcSubtitle(e.target.value)}
-                placeholder="Subtitle"
-                title="Feature card subtitle"
-              />
-              <button
-                className="btn-bulk btn-bulk-accent"
-                onClick={handleFeatureShow}
-                disabled={!fcTitle.trim()}
-                title="Show a custom full-screen feature card"
-              >
-                Show
-              </button>
-            </div>
+          {/* ── Toggles: Grid + Clock controls as compact pills ── */}
+          <div className="ctl-row ctl-toggles">
+            <button
+              className={`toggle ${gridVisible ? 'on' : ''}`}
+              onClick={handleGridToggle}
+              title="Toggle the rule-of-thirds leveling grid on the OBS browser source (operator-only — turn off before going live)"
+            >
+              Grid {gridVisible ? 'ON' : 'OFF'}
+            </button>
+            <span className="ctl-divider" />
+            <button
+              className={`toggle ${clock?.visible ? 'on' : ''}`}
+              onClick={handleClockToggle}
+              title="Show/hide the on-air wall clock"
+            >
+              Clock {clock?.visible ? 'ON' : 'OFF'}
+            </button>
+            <button
+              className="toggle"
+              onClick={() => handleClockFormat(clock?.format === '24h' ? '12h' : '24h')}
+              title="Toggle 12h / 24h time format"
+            >
+              {clock?.format === '24h' ? '24h' : '12h'}
+            </button>
+            <button
+              className={`toggle ${clock?.showSeconds ? 'on' : ''}`}
+              onClick={handleClockSeconds}
+              title="Toggle seconds display"
+            >
+              Secs {clock?.showSeconds ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
+          {/* ── Feature card composer ── */}
+          <div className="ctl-row ctl-composer">
+            <input
+              type="text"
+              className="ctl-text-input ctl-kicker"
+              value={fcKicker}
+              onChange={(e) => setFcKicker(e.target.value)}
+              placeholder="Kicker"
+              title="Feature card kicker (UP NEXT / THAT WAS / custom)"
+            />
+            <input
+              type="text"
+              className="ctl-text-input"
+              value={fcTitle}
+              onChange={(e) => setFcTitle(e.target.value)}
+              placeholder="Title"
+              title="Feature card title"
+            />
+            <input
+              type="text"
+              className="ctl-text-input"
+              value={fcSubtitle}
+              onChange={(e) => setFcSubtitle(e.target.value)}
+              placeholder="Subtitle"
+              title="Feature card subtitle"
+            />
+            <button
+              className="btn-bulk btn-bulk-accent"
+              onClick={handleFeatureShow}
+              disabled={!fcTitle.trim()}
+              title="Show a custom full-screen feature card"
+            >
+              Show
+            </button>
           </div>
 
           <div className="controls-shortcuts-hint">

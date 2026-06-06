@@ -7,31 +7,26 @@
 .ctl {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* ── Hero: Fire / Hide + status ───────────────────────────────── */
+/* ── Hero: Fire / Hide + tight inline status ──────────────────── */
 .ctl-hero {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ctl-hero-actions {
-  display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 .ctl-hero .btn-fire,
 .ctl-hero .btn-hide {
   color: #fff;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.03em;
-  padding: 12px 34px;
+  padding: 9px 26px;
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition: filter var(--transition), transform var(--transition);
@@ -46,9 +41,11 @@
 .ctl-hero-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
+  margin-left: auto;
   font-size: 12px;
   color: var(--text-secondary);
+  min-width: 0;
 }
 
 .ctl-live-label {
@@ -89,48 +86,51 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 320px;
+  max-width: 200px;
 }
 .controls-up-next-name {
   color: var(--text-secondary);
   font-weight: 600;
 }
 
-/* ── Row groups with subtle left label ─────────────────────────── */
-.ctl-group {
-  display: grid;
-  grid-template-columns: 84px 1fr;
-  align-items: start;
-  column-gap: 12px;
-  row-gap: 6px;
-}
-
-.ctl-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-dim);
-  padding-top: 9px;
-  user-select: none;
-}
-
+/* ── Flat dense rows (no per-group section headers) ────────────── */
 .ctl-row {
-  grid-column: 2;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
 }
-.ctl-group .ctl-row + .ctl-row { margin-top: 0; }
+
+/* tiny inline label that prefixes a segment (LT / Card) */
+.ctl-mini-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  user-select: none;
+}
+.ctl-reveal .ctl-mini-label + .seg { margin-right: 4px; }
+
+/* thin vertical seam separating pill clusters within one row */
+.ctl-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+}
 
 .ctl-spacer { flex: 1 1 auto; min-width: 8px; }
 
 .ctl-bulk-cluster {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
+
+/* composer inputs sit flush on one line, Show pinned to the right */
+.ctl-composer { gap: 6px; }
 
 /* ── Segmented control: connected pills, shared radius on ends ─── */
 .seg {
@@ -147,7 +147,7 @@
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border: none;
   border-right: 1px solid var(--border);
   cursor: pointer;
@@ -227,7 +227,7 @@
 .toggle {
   font-size: 12px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg-tertiary);
@@ -255,7 +255,7 @@
 
 /* ── Secondary / bulk buttons ─────────────────────────────────── */
 .btn-bulk {
-  padding: 7px 13px;
+  padding: 6px 11px;
   font-size: 11px;
   font-weight: 500;
   border-radius: var(--radius);
@@ -304,9 +304,9 @@
 
 /* ── Free-text inputs (counter label, feature card composer) ──── */
 .ctl-text-input {
-  flex: 1 1 120px;
-  min-width: 90px;
-  padding: 7px 11px;
+  flex: 1 1 100px;
+  min-width: 72px;
+  padding: 6px 10px;
   font-size: 12px;
   background: var(--bg-input);
   color: var(--text-primary);
@@ -319,7 +319,7 @@
 .ctl-text-input:focus { border-color: var(--border-focus); }
 
 .ctl-kicker {
-  flex: 0 0 110px;
+  flex: 0 0 92px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
@@ -327,10 +327,10 @@
 
 /* ── Shortcuts hint ───────────────────────────────────────────── */
 .controls-shortcuts-hint {
-  margin-top: 2px;
-  padding-top: 10px;
+  margin-top: 1px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
   letter-spacing: 0.02em;
 }
