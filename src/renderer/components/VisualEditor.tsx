@@ -33,6 +33,7 @@ function findSnap(value: number, targets: number[]): number | null {
 export function VisualEditor({ onClose }: { onClose: () => void }) {
   const overlayState = useStore((s) => s.overlayState)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<ElementKey | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [layout, setLayout] = useState<OverlayLayout>({ ...DEFAULT_LAYOUT })
@@ -43,6 +44,13 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
     if (overlayState?.lowerThird.styling.layout) {
       setLayout({ ...DEFAULT_LAYOUT, ...overlayState.lowerThird.styling.layout })
     }
+  }, [])
+
+  // Focus ONCE on mount so keyboard shortcuts (arrows/G/Escape) work. The old
+  // `ref={(el) => el?.focus()}` ran on every render, stealing focus and causing
+  // flicker during interaction (e.g. while typing in the X/Y/W/H inputs).
+  useEffect(() => {
+    rootRef.current?.focus()
   }, [])
 
   const toCanvasPercent = useCallback(
@@ -226,7 +234,7 @@ export function VisualEditor({ onClose }: { onClose: () => void }) {
       onMouseUp={handleMouseUp}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      ref={(el) => el?.focus()}
+      ref={rootRef}
     >
       <div className="ve-header">
         <span className="ve-title">Visual Overlay Editor</span>

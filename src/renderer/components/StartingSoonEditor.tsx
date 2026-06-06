@@ -112,12 +112,24 @@ interface DragState {
   startPos: { x: number; y: number }
 }
 
+// Live position of the element currently being dragged. Kept in local state so
+// the drag tracks the cursor smoothly without round-tripping through the main
+// process (which would re-broadcast overlay state and re-render the whole editor
+// + iframe stage on every mousemove frame). Committed via IPC once on mouseUp.
+interface DragPos {
+  element: SSElementKey
+  x: number
+  y: number
+}
+
 export function StartingSoonEditor({ onClose }: { onClose: () => void }) {
   const overlayState = useStore((s) => s.overlayState)
   const settings = useStore((s) => s.settings)
   const stageRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<SSElementKey | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
+  // Live cursor-tracked position during an active drag (local only — no IPC).
+  const [dragPos, setDragPos] = useState<DragPos | null>(null)
 
   const httpPort = settings?.server?.httpPort ?? 19080
   const overlayUrl = useMemo(() => `http://127.0.0.1:${httpPort}/overlay`, [httpPort])
@@ -178,11 +190,23 @@ export function StartingSoonEditor({ onClose }: { onClose: () => void }) {
     const { px, py } = toStagePercent(e.clientX, e.clientY)
     const nx = Math.max(2, Math.min(98, drag.startPos.x + (px - drag.startX)))
     const ny = Math.max(2, Math.min(98, drag.startPos.y + (py - drag.startY)))
-    setPlacement(drag.element, { x: Math.round(nx * 10) / 10, y: Math.round(ny * 10) / 10 })
+    // Live-update LOCAL state only during the drag — no IPC per frame, so the
+    // overlay state is not re-broadcast and the editor/iframe do not re-render
+    // dozens of times per second. The element proxy renders from dragPos below.
+    setDragPos({
+      element: drag.element,
+      x: Math.round(nx * 10) / 10,
+      y: Math.round(ny * 10) / 10,
+    })
   }
 
   function handleMouseUp() {
+    // Commit the final position ONCE on release (single IPC → single broadcast).
+    if (drag && dragPos && dragPos.element === drag.element) {
+      setPlacement(drag.element, { x: dragPos.x, y: dragPos.y })
+    }
     setDrag(null)
+    setDragPos(null)
   }
 
   function applyPack(pack: ProPack) {
@@ -207,8 +231,13 @@ export function StartingSoonEditor({ onClose }: { onClose: () => void }) {
 
   if (!ss) return null
 
-  // Box geometry for the drag proxy of each element.
+  // Box geometry for the drag proxy of each element. While an element is being
+  // dragged, render it from the live LOCAL dragPos so it tracks the cursor with
+  // no store round-trip; otherwise from the committed layout (or default).
   function boxStyle(key: SSElementKey): React.CSSProperties {
+    if (dragPos && dragPos.element === key) {
+      return { left: `${dragPos.x}%`, top: `${dragPos.y}%` }
+    }
     const p = layout[key]
     const pos = p ? { x: p.x, y: p.y } : DEFAULT_POS[key]
     return { left: `${pos.x}%`, top: `${pos.y}%` }
