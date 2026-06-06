@@ -41,6 +41,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
+import ws from 'ws'
 import { ChatConfig, ChatMessage, ChatState } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -174,7 +175,9 @@ async function backfill(): Promise<void> {
 function connectChannel(): void {
   if (!isReady() || !config) return
   supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-    realtime: { params: { eventsPerSecond: 10 } },
+    // Electron's Node 20 has no global WebSocket — supply the `ws` package as
+    // the realtime transport, else RealtimeClient throws on construction.
+    realtime: { transport: ws as unknown as typeof WebSocket, params: { eventsPerSecond: 10 } },
   })
 
   const channelName = `bb-chat:${config.eventId}`

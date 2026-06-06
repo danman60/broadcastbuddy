@@ -20,6 +20,7 @@
  *                 no consumer yet.
  */
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
+import ws from 'ws'
 import { CcRelayConfig, CcRelayState } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -106,7 +107,8 @@ function connectChannel(): void {
   if (!isReady() || !config) return
   try {
     supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-      realtime: { params: { eventsPerSecond: 10 } },
+      // Electron Node 20 lacks global WebSocket — supply `ws` as transport.
+      realtime: { transport: ws as unknown as typeof WebSocket, params: { eventsPerSecond: 10 } },
     })
 
     const name = channelName()

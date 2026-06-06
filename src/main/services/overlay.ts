@@ -187,6 +187,7 @@ export function reorderTriggers(ids: string[]): void {
     if (t) ordered.push({ ...t, order: ordered.length })
   }
   triggers = ordered
+  notifyChange() // persist the new order via the debounced session auto-save
 }
 
 export function selectTrigger(index: number): void {
