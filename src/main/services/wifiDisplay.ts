@@ -451,6 +451,14 @@ export async function start(): Promise<void> {
   childProc = spawn(binaryPath, args, {
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
+    // Belt-and-suspenders: hard-pin capture+touch to the Virtual Display Driver
+    // by adapter name so extra on-site monitors (projector/HDMI) can't shift the
+    // target by index. The server tries this substring first, then its
+    // looks_like_vdd() heuristic, then --monitor-index. Override via OS env.
+    env: {
+      ...process.env,
+      WIFI_DISPLAY_VDD_MATCH: process.env.WIFI_DISPLAY_VDD_MATCH || 'Virtual Display Driver',
+    },
   })
 
   if (childProc.pid) {
