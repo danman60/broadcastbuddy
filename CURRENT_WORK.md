@@ -1,5 +1,12 @@
 # Current Work - BroadcastBuddy
 
+## 2026-06-13 — DART DEPLOYED (taps fix)
+- DART reachable again (tailscale SSH OK; `tailscale status` shows stale "offline" — ignore).
+- Pulled `85d2bd3` → `cf9f8ae`. All 3 queued commits now on DART (editor-drag `bcf62d1`, SD cycle-transition `fe86b82`, VDD tap-lock env `3c06a67`).
+- Rebuilt (`npm run dist:installer`, clean) + robocopied `win-unpacked` → `C:\Program Files\BroadcastBuddy` (BB.exe 09:41, 26 files, 0 failed). `wifi-display-server.exe` md5 `598e993c` = VDD tap-lock binary (same as CSE; strings: `Touch target LOCKED`, `env WIFI_DISPLAY_VDD_MATCH`, `DXGI DeviceName match`).
+- **Taps-not-registering root cause:** binary auto-heuristic `looks_like_vdd()` defeated by a 3rd on-site monitor → fell back to `--monitor-index` → wrong surface. `3c06a67` forces `WIFI_DISPLAY_VDD_MATCH=Virtual Display Driver` env (binary's first priority) → index-proof. Fix is in DISK build now, NOT yet verified live.
+- **BLOCKED — on-site only:** BB won't launch (DART console LOCKED; "Interactive only" task fires Last Result 0 but elevated GUI exits). When console unlocked → BB auto-launches. Then verify: log `Touch target LOCKED to … env WIFI_DISPLAY_VDD_MATCH` + physical tablet tap with 3rd monitor present. If on-site VDD DXGI DeviceName ≠ "Virtual Display Driver", override env.
+
 ## Last Session Summary (2026-06-05 → 06-06, marathon operator-feedback session)
 Resolved a 12-item operator punch list, then iterated live on DART through ~20 more fixes from rapid user feedback (UI, brand kit, Stream Deck plugin, CC integration, tablet, overlay editor). API key for CC integration fully resolved end-to-end. Session ended with DART unreachable (tailscale down) → 3 commits queued for deploy. New task surfaced at the very end (compsync.net dashboard loading-flash) — NOT started.
 

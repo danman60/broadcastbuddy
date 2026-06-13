@@ -10,6 +10,7 @@ import * as brandScraper from './services/brandScraper'
 import * as obsConnection from './services/obsConnection'
 import * as galleryService from './services/galleryService'
 import * as wifiDisplay from './services/wifiDisplay'
+import * as directMode from './services/directMode'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1171,6 +1172,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.WIFI_DISPLAY_PING_TABLET, () => {
     wifiDisplay.pingTabletForDiscovery()
     return { ok: true }
+  })
+
+  // ── Wi-Fi Direct (no-router) hotspot mode ─────────────────────
+
+  ipcMain.handle(IPC.DIRECT_MODE_START, async () => {
+    const status = await directMode.startDirectMode()
+    return { ...status, qrPayload: status.active ? directMode.buildDirectQrPayload() : undefined }
+  })
+
+  ipcMain.handle(IPC.DIRECT_MODE_STOP, async () => {
+    const status = await directMode.stopDirectMode()
+    return { ...status, qrPayload: undefined }
+  })
+
+  ipcMain.handle(IPC.DIRECT_MODE_STATUS, () => {
+    const status = directMode.getDirectModeStatus()
+    return { ...status, qrPayload: status.active ? directMode.buildDirectQrPayload() : undefined }
   })
 
   // ── OBS Slow Zoom ─────────────────────────────────────────────

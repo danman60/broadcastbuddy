@@ -569,6 +569,19 @@ export interface WifiDisplaySettings {
   encoder?: 'openh264' | 'hevc-nvenc'
 }
 
+// Wi-Fi Direct (no-router) hotspot mode. Brings up the Windows Mobile Hotspot
+// so a tablet can join with no router; existing UDP-5002 discovery + streaming
+// then work unchanged on the 192.168.137.x subnet.
+export interface DirectModeStatus {
+  active: boolean
+  ssid: string
+  passphrase: string
+  hostIp: string
+  error?: string
+  // QR payload JSON string the renderer encodes (present when active).
+  qrPayload?: string
+}
+
 export const DEFAULT_WIFI_DISPLAY: WifiDisplaySettings = {
   monitorIndex: null,
   bitrate: 3000,
@@ -930,6 +943,11 @@ export const IPC = {
   WIFI_DISPLAY_STATUS: 'wifi-display:status',
   WIFI_DISPLAY_SET_MONITOR: 'wifi-display:set-monitor',
   WIFI_DISPLAY_PING_TABLET: 'wifi-display:ping-tablet',
+
+  // Wi-Fi Direct (no-router) hotspot mode
+  DIRECT_MODE_START: 'direct-mode:start',
+  DIRECT_MODE_STOP: 'direct-mode:stop',
+  DIRECT_MODE_STATUS: 'direct-mode:status',
 
   // OBS Slow Zoom (Move Transition driver)
   OBS_SLOW_ZOOM_TRIGGER_WIDE: 'obs:slow-zoom-trigger-wide',

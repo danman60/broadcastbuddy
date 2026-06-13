@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import { useStore } from '../store/useStore'
 import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyConfig } from '../../shared/types'
 import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
@@ -31,6 +32,15 @@ export function Settings() {
   const [wifi, setWifi] = useState<WifiDisplaySettings>(DEFAULT_WIFI_DISPLAY)
   const [wifiRunning, setWifiRunning] = useState(false)
   const [wifiError, setWifiError] = useState('')
+
+  // Wi-Fi Direct (no-router) hotspot mode
+  const [directActive, setDirectActive] = useState(false)
+  const [directSsid, setDirectSsid] = useState('')
+  const [directPass, setDirectPass] = useState('')
+  const [directQr, setDirectQr] = useState('')
+  const [directBusy, setDirectBusy] = useState(false)
+  const [directError, setDirectError] = useState('')
+  const [directExpanded, setDirectExpanded] = useState(false)
 
   // Operator chat (Supabase Realtime, off by default)
   const [chatUrl, setChatUrl] = useState('')
@@ -76,6 +86,7 @@ export function Settings() {
     checkObsStatus()
     refreshMonitors()
     refreshWifiStatus()
+    refreshDirectStatus()
     refreshBackups()
   }, [settings])
 
@@ -151,6 +162,59 @@ export function Settings() {
     try {
       await window.api.wifiDisplayPingTablet()
     } catch {}
+  }
+
+  async function applyDirectStatus(s: { active: boolean; ssid: string; passphrase: string; qrPayload?: string; error?: string }) {
+    setDirectActive(!!s.active)
+    setDirectSsid(s.ssid || '')
+    setDirectPass(s.passphrase || '')
+    setDirectError(s.error || '')
+    if (s.active && s.qrPayload) {
+      try {
+        const url = await QRCode.toDataURL(s.qrPayload, { margin: 1, width: 220 })
+        setDirectQr(url)
+      } catch {
+        setDirectQr('')
+      }
+    } else {
+      setDirectQr('')
+    }
+  }
+
+  async function refreshDirectStatus() {
+    try {
+      const s = await window.api.directModeStatus()
+      await applyDirectStatus(s)
+    } catch {
+      setDirectActive(false)
+    }
+  }
+
+  async function handleDirectStart() {
+    setDirectBusy(true)
+    setDirectError('')
+    try {
+      const s = await window.api.directModeStart()
+      await applyDirectStatus(s)
+    } catch (err) {
+      setDirectError(err instanceof Error ? err.message : 'Start failed')
+      setDirectActive(false)
+    } finally {
+      setDirectBusy(false)
+    }
+  }
+
+  async function handleDirectStop() {
+    setDirectBusy(true)
+    setDirectError('')
+    try {
+      const s = await window.api.directModeStop()
+      await applyDirectStatus(s)
+    } catch (err) {
+      setDirectError(err instanceof Error ? err.message : 'Stop failed')
+    } finally {
+      setDirectBusy(false)
+    }
   }
 
   async function checkObsStatus() {
@@ -451,6 +515,67 @@ export function Settings() {
           </div>
           {wifiError && (
             <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{wifiError}</p>
+          )}
+        </div>
+
+        <div className="settings-group">
+          <div
+            className="settings-group-title"
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setDirectExpanded((v) => !v)}
+          >
+            <span style={{ fontSize: 10 }}>{directExpanded ? '▼' : '▶'}</span>
+            Direct (No-Router) Mode
+            {directActive && (
+              <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginLeft: 6 }}>Active</span>
+            )}
+          </div>
+          {directExpanded && (
+            <>
+              <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                Turn this PC into a Wi-Fi hotspot so a tablet can join with no router. Once the
+                tablet is on the hotspot, normal tablet discovery + streaming take over. Windows only.
+              </p>
+              <div className="settings-field-inline">
+                <label style={{ minWidth: 130 }}>Enable Direct Mode</label>
+                <input
+                  type="checkbox"
+                  checked={directActive}
+                  disabled={directBusy}
+                  onChange={(e) => (e.target.checked ? handleDirectStart() : handleDirectStop())}
+                />
+                {directBusy && (
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>Working…</span>
+                )}
+              </div>
+              {directActive && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="settings-field-inline">
+                    <label style={{ minWidth: 130 }}>Network (SSID)</label>
+                    <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{directSsid || '—'}</span>
+                  </div>
+                  <div className="settings-field-inline">
+                    <label style={{ minWidth: 130 }}>Password</label>
+                    <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{directPass || '—'}</span>
+                  </div>
+                  {directQr && (
+                    <div style={{ marginTop: 8 }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                        Scan with the tablet to join + connect:
+                      </p>
+                      <img
+                        src={directQr}
+                        alt="Direct mode QR"
+                        style={{ width: 220, height: 220, background: '#fff', borderRadius: 4 }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              {directError && (
+                <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{directError}</p>
+              )}
+            </>
           )}
         </div>
 

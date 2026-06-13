@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, SlowZoomStatus, ClockState, FeatureCardState } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, DirectModeStatus, SlowZoomStatus, ClockState, FeatureCardState } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -183,6 +183,14 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.WIFI_DISPLAY_SET_MONITOR, monitorIndex),
   wifiDisplayPingTablet: () =>
     ipcRenderer.invoke(IPC.WIFI_DISPLAY_PING_TABLET),
+
+  // ── Wi-Fi Direct (no-router) hotspot mode ─────────────────────
+  directModeStart: (): Promise<DirectModeStatus> =>
+    ipcRenderer.invoke(IPC.DIRECT_MODE_START),
+  directModeStop: (): Promise<DirectModeStatus> =>
+    ipcRenderer.invoke(IPC.DIRECT_MODE_STOP),
+  directModeStatus: (): Promise<DirectModeStatus> =>
+    ipcRenderer.invoke(IPC.DIRECT_MODE_STATUS),
 
   // ── OBS Slow Zoom ─────────────────────────────────────────────
   obsSlowZoomTriggerWide: (): Promise<SlowZoomStatus> =>

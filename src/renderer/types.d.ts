@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -246,6 +246,11 @@ interface ElectronAPI {
   wifiDisplayStatus: () => Promise<WifiDisplayState>
   wifiDisplaySetMonitor: (monitorIndex: number | null) => Promise<WifiDisplayState>
   wifiDisplayPingTablet: () => Promise<{ ok: boolean }>
+
+  // Wi-Fi Direct (no-router) hotspot mode
+  directModeStart: () => Promise<DirectModeStatus>
+  directModeStop: () => Promise<DirectModeStatus>
+  directModeStatus: () => Promise<DirectModeStatus>
 
   // Overlay Mode (frameless floating panels over OBS)
   overlayModeOpen: () => Promise<{ ok?: boolean; error?: string }>
