@@ -42,6 +42,21 @@ export function Settings() {
   const [directError, setDirectError] = useState('')
   const [directExpanded, setDirectExpanded] = useState(false)
 
+  // EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (host advertiser scaffold).
+  // Separate from the Direct hotspot panel above. Known-fragile, no native helper.
+  const [p2pActive, setP2pActive] = useState(false)
+  const [p2pStatus, setP2pStatus] = useState('')
+  const [p2pBusy, setP2pBusy] = useState(false)
+  const [p2pError, setP2pError] = useState('')
+  const [p2pExpanded, setP2pExpanded] = useState(false)
+
+  // EXPERIMENTAL / UNVERIFIED — Option 2 "BLE auto-advertise" no-router pairing.
+  // Advertises the SAME hotspot creds the QR path uses; tablet lists the host
+  // over BLE with no QR scan. Lives inside the Direct panel; does not disturb QR.
+  const [bleActive, setBleActive] = useState(false)
+  const [bleBusy, setBleBusy] = useState(false)
+  const [bleError, setBleError] = useState('')
+
   // Operator chat (Supabase Realtime, off by default)
   const [chatUrl, setChatUrl] = useState('')
   const [chatKey, setChatKey] = useState('')
@@ -87,6 +102,7 @@ export function Settings() {
     refreshMonitors()
     refreshWifiStatus()
     refreshDirectStatus()
+    refreshBleStatus()
     refreshBackups()
   }, [settings])
 
@@ -214,6 +230,78 @@ export function Settings() {
       setDirectError(err instanceof Error ? err.message : 'Stop failed')
     } finally {
       setDirectBusy(false)
+    }
+  }
+
+  // EXPERIMENTAL / UNVERIFIED — Option 2 "BLE auto-advertise" no-router pairing.
+  async function refreshBleStatus() {
+    try {
+      const s = await window.api.bleAdvertiseStatus()
+      setBleActive(!!s.active)
+      setBleError(s.error || '')
+    } catch {
+      setBleActive(false)
+    }
+  }
+
+  async function handleBleStart() {
+    setBleBusy(true)
+    setBleError('')
+    try {
+      const s = await window.api.bleAdvertiseStart()
+      setBleActive(!!s.active)
+      if (s.error) setBleError(s.error)
+    } catch (err) {
+      setBleError(err instanceof Error ? err.message : 'Start failed')
+      setBleActive(false)
+    } finally {
+      setBleBusy(false)
+    }
+  }
+
+  async function handleBleStop() {
+    setBleBusy(true)
+    setBleError('')
+    try {
+      const s = await window.api.bleAdvertiseStop()
+      setBleActive(!!s.active)
+      if (s.error) setBleError(s.error)
+    } catch (err) {
+      setBleError(err instanceof Error ? err.message : 'Stop failed')
+    } finally {
+      setBleBusy(false)
+    }
+  }
+
+  // EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (host advertiser scaffold).
+  async function handleP2pStart() {
+    setP2pBusy(true)
+    setP2pError('')
+    try {
+      const s = await window.api.wifiDirectP2PStart()
+      setP2pActive(s.active)
+      setP2pStatus(s.publisherStatus || '')
+      if (s.error) setP2pError(s.error)
+    } catch (err) {
+      setP2pError(err instanceof Error ? err.message : 'Start failed')
+      setP2pActive(false)
+    } finally {
+      setP2pBusy(false)
+    }
+  }
+
+  async function handleP2pStop() {
+    setP2pBusy(true)
+    setP2pError('')
+    try {
+      const s = await window.api.wifiDirectP2PStop()
+      setP2pActive(s.active)
+      setP2pStatus(s.publisherStatus || '')
+      if (s.error) setP2pError(s.error)
+    } catch (err) {
+      setP2pError(err instanceof Error ? err.message : 'Stop failed')
+    } finally {
+      setP2pBusy(false)
     }
   }
 
@@ -570,10 +658,89 @@ export function Settings() {
                       />
                     </div>
                   )}
+
+                  {/* EXPERIMENTAL / UNVERIFIED — Option 2 BLE auto-advertise.
+                      Broadcasts the SAME creds the QR encodes so the tablet can
+                      list this host with no QR scan. Does not affect the QR above. */}
+                  <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border, #333)' }}>
+                    <div className="settings-field-inline">
+                      <label style={{ minWidth: 130 }}>BLE auto-advertise (experimental)</label>
+                      <input
+                        type="checkbox"
+                        checked={bleActive}
+                        disabled={bleBusy}
+                        onChange={(e) => (e.target.checked ? handleBleStart() : handleBleStop())}
+                      />
+                      {bleActive && (
+                        <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginLeft: 8 }}>Advertising</span>
+                      )}
+                      {bleBusy && (
+                        <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>Working…</span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                      Unverified — Bluetooth peripheral support varies by adapter. Lets the
+                      tablet find this host over BLE with no QR scan.
+                    </p>
+                    {bleError && (
+                      <p style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{bleError}</p>
+                    )}
+                  </div>
                 </div>
               )}
               {directError && (
                 <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{directError}</p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── EXPERIMENTAL / UNVERIFIED: true Wi-Fi Direct P2P ──────────────
+            Host advertiser is a SCAFFOLD ONLY (no native helper for full
+            connection handling). Separate from the Direct hotspot panel above.
+            Collapsed by default. Known-fragile, not verified. */}
+        <div className="settings-group">
+          <div
+            className="settings-group-title"
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setP2pExpanded((v) => !v)}
+          >
+            <span style={{ fontSize: 10 }}>{p2pExpanded ? '▼' : '▶'}</span>
+            Wi-Fi Direct P2P (experimental, incomplete)
+            {p2pActive && (
+              <span style={{ fontSize: 11, color: '#eab308', fontWeight: 600, marginLeft: 6 }}>Advertising</span>
+            )}
+          </div>
+          {p2pExpanded && (
+            <>
+              <p style={{ fontSize: 11, color: '#eab308' }}>
+                EXPERIMENTAL / UNVERIFIED. This starts a true Wi-Fi Direct (Wi-Fi P2P)
+                advertisement so an Android tablet can discover this PC with no router and
+                no Mobile Hotspot. It is a SCAFFOLD ONLY — the host advertisement cannot
+                survive on its own and full peer-connection / socket handling needs a native
+                helper that is not built. Treat as a tech preview; it is not known to work.
+                Windows only.
+              </p>
+              <div className="settings-field-inline">
+                <label style={{ minWidth: 130 }}>Enable P2P Advertise</label>
+                <input
+                  type="checkbox"
+                  checked={p2pActive}
+                  disabled={p2pBusy}
+                  onChange={(e) => (e.target.checked ? handleP2pStart() : handleP2pStop())}
+                />
+                {p2pBusy && (
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>Working…</span>
+                )}
+              </div>
+              {p2pActive && (
+                <div className="settings-field-inline" style={{ marginTop: 8 }}>
+                  <label style={{ minWidth: 130 }}>Publisher Status</label>
+                  <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{p2pStatus || '—'}</span>
+                </div>
+              )}
+              {p2pError && (
+                <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{p2pError}</p>
               )}
             </>
           )}

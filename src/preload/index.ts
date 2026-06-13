@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, DirectModeStatus, SlowZoomStatus, ClockState, FeatureCardState } from '../shared/types'
+import type { Trigger, OverlayStyling, LoopMode, StreamConfig, StartingSoonState, BroadcastPackage, CCChecklistItem, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, SlowZoomStatus, ClockState, FeatureCardState } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   // ── Overlay control ──────────────────────────────────────────
@@ -191,6 +191,22 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.DIRECT_MODE_STOP),
   directModeStatus: (): Promise<DirectModeStatus> =>
     ipcRenderer.invoke(IPC.DIRECT_MODE_STATUS),
+
+  // ── EXPERIMENTAL / UNVERIFIED: true Wi-Fi Direct P2P (advertiser scaffold) ──
+  wifiDirectP2PStart: (): Promise<WifiDirectP2PStatus> =>
+    ipcRenderer.invoke(IPC.WIFI_DIRECT_P2P_START),
+  wifiDirectP2PStop: (): Promise<WifiDirectP2PStatus> =>
+    ipcRenderer.invoke(IPC.WIFI_DIRECT_P2P_STOP),
+  wifiDirectP2PStatus: (): Promise<WifiDirectP2PStatus> =>
+    ipcRenderer.invoke(IPC.WIFI_DIRECT_P2P_STATUS),
+
+  // ── EXPERIMENTAL / UNVERIFIED: Option 2 "BLE auto-list" pairing ───────────
+  bleAdvertiseStart: (): Promise<BleAdvertiseStatus> =>
+    ipcRenderer.invoke(IPC.BLE_ADVERTISE_START),
+  bleAdvertiseStop: (): Promise<BleAdvertiseStatus> =>
+    ipcRenderer.invoke(IPC.BLE_ADVERTISE_STOP),
+  bleAdvertiseStatus: (): Promise<BleAdvertiseStatus> =>
+    ipcRenderer.invoke(IPC.BLE_ADVERTISE_STATUS),
 
   // ── OBS Slow Zoom ─────────────────────────────────────────────
   obsSlowZoomTriggerWide: (): Promise<SlowZoomStatus> =>

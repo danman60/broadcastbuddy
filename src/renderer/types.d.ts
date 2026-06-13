@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -251,6 +251,16 @@ interface ElectronAPI {
   directModeStart: () => Promise<DirectModeStatus>
   directModeStop: () => Promise<DirectModeStatus>
   directModeStatus: () => Promise<DirectModeStatus>
+
+  // EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (host advertiser scaffold)
+  wifiDirectP2PStart: () => Promise<WifiDirectP2PStatus>
+  wifiDirectP2PStop: () => Promise<WifiDirectP2PStatus>
+  wifiDirectP2PStatus: () => Promise<WifiDirectP2PStatus>
+
+  // EXPERIMENTAL / UNVERIFIED — Option 2 "BLE auto-list" no-router pairing
+  bleAdvertiseStart: () => Promise<BleAdvertiseStatus>
+  bleAdvertiseStop: () => Promise<BleAdvertiseStatus>
+  bleAdvertiseStatus: () => Promise<BleAdvertiseStatus>
 
   // Overlay Mode (frameless floating panels over OBS)
   overlayModeOpen: () => Promise<{ ok?: boolean; error?: string }>

@@ -1,5 +1,14 @@
 # Current Work - BroadcastBuddy
 
+## 2026-06-13 — Wi-Fi Direct (no-router) feature + ship
+- Feature: tablet joins BB host's Windows Mobile Hotspot via QR, no router. Option 1 (PC Hotspot + QR). True Wi-Fi P2P + BLE auto-list NOT built (P2P needs native WinRT helper + on-device iteration; Electron BLE peripheral unreliable on Win).
+- QR contract: `{v:1,type:"bb-direct",ssid,pass,host:"192.168.137.1",videoPort,touchPort,wsPort,tabletLogPort,name,app:"BroadcastBuddy"}`.
+- BB (host) `d30116e`: new `src/main/services/directMode.ts` (WinRT NetworkOperatorTetheringManager via PS -EncodedCommand, netsh fallback), IPC `direct-mode:start/stop/status`, `Settings.tsx` Direct panel (toggle + SSID/pass + QR via `qrcode` dep). Discovery/streaming UNCHANGED — tablet on 192.168.137.x reuses UDP-5002 + IP-drift + `--client`. Also untracked-artifact cleanup commit.
+- CSController (tablet) `b02b169` (branch=master): new `WifiDirectJoiner.kt` (WifiNetworkSpecifier + requestNetwork + bindProcessToNetwork), `ConnectionScreen.kt` Direct button → ZXing QR scan → join → connect with QR params. CAMERA+CHANGE_NETWORK_STATE perms, zxing dep.
+- SHIP: APK uploaded to Drive APKs folder = `CSController-WifiDirect-2026-06-13.apk` (id 1HpYPqh1c0p1...). BB NSIS installer building in background job (`/tmp/bb-installer-build.sh`, log `/tmp/bb-installer-build.log`) — waits for DART tailscale (flapping), builds, scp's exe to `/tmp/BroadcastBuddy-Setup-WifiDirect-2026-06-13.exe`, then upload to same Drive folder. NOT yet on Drive (DART down).
+- AVD test-fix loop done: smoke found pairing-screen buttons clipped in landscape (no scroll) → blocked pairing. Fixed `227941a` (verticalScroll on ConnectionScreen column), rebuilt, re-verified at default density 420 (both buttons reachable, Direct→ZXing scanner opens, no crash). Fixed APK re-uploaded to Drive (same file id 1HpYPqh1c0p1...). QR contract parity host↔tablet confirmed static (type/ssid/pass/host/ports all match).
+- STILL UNVERIFIED (physics, not effort): live hotspot JOIN untestable here (no Wi-Fi adapter on SpyBalloon, AVD has no Wi-Fi radio, DART down). Host hotspot START unproven — depends on field PC having a Wi-Fi adapter w/ Mobile-Hotspot support. TODO when DART up: `netsh wlan show drivers` (Hosted network supported?) + directMode start smoke. If field host != DART, run on actual field PC.
+
 ## 2026-06-13 — DART DEPLOYED (taps fix)
 - DART reachable again (tailscale SSH OK; `tailscale status` shows stale "offline" — ignore).
 - Pulled `85d2bd3` → `cf9f8ae`. All 3 queued commits now on DART (editor-drag `bcf62d1`, SD cycle-transition `fe86b82`, VDD tap-lock env `3c06a67`).

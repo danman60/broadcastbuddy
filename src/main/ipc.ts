@@ -11,6 +11,9 @@ import * as obsConnection from './services/obsConnection'
 import * as galleryService from './services/galleryService'
 import * as wifiDisplay from './services/wifiDisplay'
 import * as directMode from './services/directMode'
+// EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (host advertiser scaffold).
+import * as wifiDirectP2P from './services/wifiDirectP2P'
+import * as bleAdvertise from './services/bleAdvertise'
 import * as slowZoom from './services/slowZoom'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1189,6 +1192,39 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.DIRECT_MODE_STATUS, () => {
     const status = directMode.getDirectModeStatus()
     return { ...status, qrPayload: status.active ? directMode.buildDirectQrPayload() : undefined }
+  })
+
+  // ── EXPERIMENTAL / UNVERIFIED: true Wi-Fi Direct P2P (advertiser scaffold) ──
+  // Isolated from the Direct (QR + Mobile Hotspot) handlers above. Host only
+  // starts a Wi-Fi Direct advertisement; full connection handling needs a
+  // native helper (see wifiDirectP2P.ts header).
+  ipcMain.handle(IPC.WIFI_DIRECT_P2P_START, async () => {
+    return wifiDirectP2P.startWifiDirectP2P()
+  })
+
+  ipcMain.handle(IPC.WIFI_DIRECT_P2P_STOP, async () => {
+    return wifiDirectP2P.stopWifiDirectP2P()
+  })
+
+  ipcMain.handle(IPC.WIFI_DIRECT_P2P_STATUS, () => {
+    return wifiDirectP2P.getWifiDirectP2PStatus()
+  })
+
+  // ── EXPERIMENTAL / UNVERIFIED: Option 2 "BLE auto-list" pairing ───────────
+  // Isolated from the Direct (QR + Mobile Hotspot) handlers above. Advertises
+  // the SAME hotspot creds the QR path encodes (buildDirectQrPayload) over BLE
+  // so a tablet can list the host with no QR scan. Best-effort, Windows-only,
+  // no native deps (see bleAdvertise.ts header).
+  ipcMain.handle(IPC.BLE_ADVERTISE_START, async () => {
+    return bleAdvertise.startBleAdvertise()
+  })
+
+  ipcMain.handle(IPC.BLE_ADVERTISE_STOP, async () => {
+    return bleAdvertise.stopBleAdvertise()
+  })
+
+  ipcMain.handle(IPC.BLE_ADVERTISE_STATUS, () => {
+    return bleAdvertise.getBleAdvertiseStatus()
   })
 
   // ── OBS Slow Zoom ─────────────────────────────────────────────

@@ -582,6 +582,25 @@ export interface DirectModeStatus {
   qrPayload?: string
 }
 
+// EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (Wi-Fi P2P). The host only
+// starts a Wi-Fi Direct *advertisement* (scaffold); full group-owner + socket
+// handling needs a native helper. Isolated from DirectModeStatus above.
+export interface WifiDirectP2PStatus {
+  active: boolean
+  // WiFiDirectAdvertisementPublisher.Status string, when the start succeeded.
+  publisherStatus?: string
+  error?: string
+}
+
+// EXPERIMENTAL / UNVERIFIED — Option 2 "BLE auto-list" no-router pairing.
+// Status of the best-effort Windows BLE advertisement that broadcasts the
+// Direct-mode hotspot creds so a tablet can list the host with no QR scan.
+// Isolated from DirectModeStatus / the QR path.
+export interface BleAdvertiseStatus {
+  active: boolean
+  error?: string
+}
+
 export const DEFAULT_WIFI_DISPLAY: WifiDisplaySettings = {
   monitorIndex: null,
   bitrate: 3000,
@@ -948,6 +967,17 @@ export const IPC = {
   DIRECT_MODE_START: 'direct-mode:start',
   DIRECT_MODE_STOP: 'direct-mode:stop',
   DIRECT_MODE_STATUS: 'direct-mode:status',
+
+  // EXPERIMENTAL / UNVERIFIED — true Wi-Fi Direct P2P (host advertiser scaffold).
+  WIFI_DIRECT_P2P_START: 'wifi-direct-p2p:start',
+  WIFI_DIRECT_P2P_STOP: 'wifi-direct-p2p:stop',
+  WIFI_DIRECT_P2P_STATUS: 'wifi-direct-p2p:status',
+
+  // EXPERIMENTAL / UNVERIFIED — Option 2 "BLE auto-list" no-router pairing.
+  // Best-effort Windows BLE advertisement of the Direct-mode hotspot creds.
+  BLE_ADVERTISE_START: 'ble-advertise:start',
+  BLE_ADVERTISE_STOP: 'ble-advertise:stop',
+  BLE_ADVERTISE_STATUS: 'ble-advertise:status',
 
   // OBS Slow Zoom (Move Transition driver)
   OBS_SLOW_ZOOM_TRIGGER_WIDE: 'obs:slow-zoom-trigger-wide',
