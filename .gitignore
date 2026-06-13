@@ -16,3 +16,8 @@ graphify-out/
 # ffmpeg.exe (75MB) provided out-of-band, not committed (matches CSE resources/ffmpeg/)
 resources/ffmpeg.exe
 _overnight-driver.mjs
+
+# local artifacts (auto-added by mistake 2026-06-13)
+.ccbot-uploads/
+.claude/
+AGENTS.md
