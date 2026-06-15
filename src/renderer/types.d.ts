@@ -131,6 +131,10 @@ interface ElectronAPI {
   obsSlowZoomTriggerTight: () => Promise<SlowZoomStatus>
   obsSlowZoomStatus: () => Promise<SlowZoomStatus>
 
+  // OBSBOT camera safety (guarded — no-op unless cameraHost is set)
+  cameraSetHome: () => Promise<{ ok: boolean }>
+  cameraGoHome: () => Promise<{ ok: boolean }>
+
   // OBS Transition auto-revert
   obsTransitionRevertGet: () => Promise<{ enabled: boolean }>
   obsTransitionRevertSet: (enabled: boolean) => Promise<{ enabled: boolean }>

@@ -15,6 +15,7 @@ import * as directMode from './services/directMode'
 import * as wifiDirectP2P from './services/wifiDirectP2P'
 import * as bleAdvertise from './services/bleAdvertise'
 import * as slowZoom from './services/slowZoom'
+import { saveHomeViaCamera, goHomeViaCamera } from './services/cameraDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
 import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
@@ -1239,6 +1240,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.OBS_SLOW_ZOOM_STATUS, () => {
     return slowZoom.getStatus()
+  })
+
+  // ── OBSBOT camera safety (guarded — no-op unless cameraHost is set) ────────
+  // Fire-and-forget: the helpers run detached + try/catch and never throw, so
+  // these handlers just invoke and acknowledge.
+  ipcMain.handle(IPC.CAMERA_SET_HOME, () => {
+    saveHomeViaCamera()
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_GO_HOME, () => {
+    goHomeViaCamera()
+    return { ok: true }
   })
 
   // ── OBS Transition auto-revert ────────────────────────────────

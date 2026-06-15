@@ -48,6 +48,14 @@ export function OverlayControls() {
     await window.api.overlayGridToggle()
   }
 
+  // ── OBSBOT camera safety (no-op unless a cameraHost is configured) ──
+  async function handleCameraSetHome() {
+    await window.api.cameraSetHome()
+  }
+  async function handleCameraGoWide() {
+    await window.api.cameraGoHome()
+  }
+
   // ── Clock ──
   async function handleClockToggle() {
     await window.api.overlayClockToggle()
@@ -293,6 +301,25 @@ export function OverlayControls() {
             >
               Secs {clock?.showSeconds ? 'ON' : 'OFF'}
             </button>
+          </div>
+
+          {/* ── OBSBOT camera safety controls (no-op unless a camera host is set) ── */}
+          <div className="ctl-row ctl-camera">
+            <button
+              className="btn-bulk"
+              onClick={handleCameraSetHome}
+              title="Frame the full stage manually on the camera first, then click to store it as the wide Home shot."
+            >
+              Set Home (Wide)
+            </button>
+            <button
+              className="btn-bulk btn-bulk-accent"
+              onClick={handleCameraGoWide}
+              title="Panic / between-routines — instantly return the camera to the static wide Home shot (AI tracking off). Hotkey: F4"
+            >
+              Go Wide
+            </button>
+            <span className="ctl-camera-hint">Frame the full stage manually first, then Set Home.</span>
           </div>
 
           {/* ── Feature card composer ── */}

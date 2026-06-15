@@ -216,6 +216,12 @@ contextBridge.exposeInMainWorld('api', {
   obsSlowZoomStatus: (): Promise<SlowZoomStatus> =>
     ipcRenderer.invoke(IPC.OBS_SLOW_ZOOM_STATUS),
 
+  // ── OBSBOT camera safety (guarded — no-op unless cameraHost is set) ───────
+  cameraSetHome: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SET_HOME),
+  cameraGoHome: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_GO_HOME),
+
   // ── OBS Transition auto-revert ────────────────────────────────
   obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),

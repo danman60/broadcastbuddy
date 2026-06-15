@@ -8,6 +8,7 @@
 import { globalShortcut } from 'electron'
 import * as overlay from './overlay'
 import * as obs from './obsConnection'
+import { goHomeViaCamera } from './cameraDirector'
 import { getSettings } from './settings'
 import { DEFAULT_HOTKEYS, HotkeyConfig } from '../../shared/types'
 import { createLogger } from '../logger'
@@ -40,6 +41,10 @@ export function register(): void {
     }
     await obs.saveReplayBuffer()
   })
+
+  // Go Wide / Panic — instant camera safety wide. No-op unless a cameraHost is
+  // configured (goHomeViaCamera early-returns + is fully guarded internally).
+  registerKey(hk.cameraGoHome, 'Go Wide / Panic', () => goHomeViaCamera())
 
   logger.info(`Global hotkeys registered: ${registeredKeys.join(', ') || '(none)'}`)
 }

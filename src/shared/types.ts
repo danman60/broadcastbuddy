@@ -736,6 +736,8 @@ export interface HotkeyConfig {
   prevTrigger: string
   toggleRecording: string
   saveReplay: string
+  /** "Go Wide / Panic" — recall the camera Home preset (AI off). No-op without a cameraHost. */
+  cameraGoHome: string
 }
 
 export const DEFAULT_HOTKEYS: HotkeyConfig = {
@@ -745,6 +747,8 @@ export const DEFAULT_HOTKEYS: HotkeyConfig = {
   prevTrigger: 'F5',
   toggleRecording: 'F7',
   saveReplay: 'F8',
+  // F4 — instant camera-wide / panic. Unused elsewhere (F5–F10 are taken above).
+  cameraGoHome: 'F4',
 }
 
 // ── Stream Deck plugin installer status ──────────────────────────────────────
@@ -989,6 +993,10 @@ export const IPC = {
   OBS_SLOW_ZOOM_TRIGGER_TIGHT: 'obs:slow-zoom-trigger-tight',
   OBS_SLOW_ZOOM_STATUS: 'obs:slow-zoom-status',
   OBS_SLOW_ZOOM_STATUS_UPDATE: 'obs:slow-zoom-status-update', // main → renderer push
+
+  // OBSBOT camera safety (guarded — no-op unless cameraHost is set)
+  CAMERA_SET_HOME: 'camera:set-home', // store current pose as wide Home preset
+  CAMERA_GO_HOME: 'camera:go-home',   // safety/panic → recall wide Home, AI off
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

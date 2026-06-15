@@ -47,7 +47,11 @@ async function loadCameraModule(): Promise<CameraModule | null> {
  * Build (once per host) a connected Director. Returns null on any failure —
  * callers treat null as "camera unavailable, do nothing".
  */
-async function getDirector(host: string): Promise<{ applyRoutine: (r: { dancerCount: number }) => unknown } | null> {
+async function getDirector(host: string): Promise<{
+  applyRoutine: (r: { dancerCount: number }) => unknown
+  saveHome: (name?: string) => unknown
+  goHome: () => unknown
+} | null> {
   if (directorHost !== host) {
     // Host changed (or first use) → drop any prior singleton and rebuild.
     directorHost = host
@@ -69,7 +73,11 @@ async function getDirector(host: string): Promise<{ applyRoutine: (r: { dancerCo
       }
     })()
   }
-  return directorPromise as Promise<{ applyRoutine: (r: { dancerCount: number }) => unknown } | null>
+  return directorPromise as Promise<{
+    applyRoutine: (r: { dancerCount: number }) => unknown
+    saveHome: (name?: string) => unknown
+    goHome: () => unknown
+  } | null>
 }
 
 /**
@@ -97,5 +105,55 @@ export function applyRoutineForTrigger(dancerCount: number | undefined): void {
   } catch (err) {
     // Defensive — must never throw into the caller (trigger fire).
     logger.error('applyRoutineForTrigger guard failed:', err)
+  }
+}
+
+/**
+ * Store the camera's CURRENT pose as the Home (wide stage) preset. The operator
+ * manually frames the full stage, then calls this to capture it. No-op unless a
+ * camera host is configured. Detached + try/catch — never throws into the UI.
+ */
+export function saveHomeViaCamera(): void {
+  try {
+    const host = (settings.get('cameraHost') || '').trim()
+    if (!host) return // feature OFF — complete no-op
+
+    void (async () => {
+      try {
+        const director = await getDirector(host)
+        if (!director) return
+        director.saveHome()
+        logger.info('Saved camera Home preset (operator-framed wide stage)')
+      } catch (err) {
+        logger.error('Camera saveHome failed:', err)
+      }
+    })()
+  } catch (err) {
+    logger.error('saveHomeViaCamera guard failed:', err)
+  }
+}
+
+/**
+ * Safety / panic: recall the static wide Home preset with AI tracking OFF. Used
+ * between routines or as the operator's instant override. No-op unless a camera
+ * host is configured. Detached + try/catch — never throws into the UI.
+ */
+export function goHomeViaCamera(): void {
+  try {
+    const host = (settings.get('cameraHost') || '').trim()
+    if (!host) return // feature OFF — complete no-op
+
+    void (async () => {
+      try {
+        const director = await getDirector(host)
+        if (!director) return
+        director.goHome()
+        logger.info('Camera went to Home (safety wide, AI off)')
+      } catch (err) {
+        logger.error('Camera goHome failed:', err)
+      }
+    })()
+  } catch (err) {
+    logger.error('goHomeViaCamera guard failed:', err)
   }
 }
