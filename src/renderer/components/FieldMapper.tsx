@@ -16,6 +16,7 @@ const TARGET_FIELDS: { id: FieldMapping['targetId']; label: string }[] = [
   { id: 'title', label: 'Title' },
   { id: 'subtitle', label: 'Subtitle' },
   { id: 'category', label: 'Category' },
+  { id: 'dancerCount', label: 'Dancer Count' },
 ]
 
 export function FieldMapper({ rawFields, sampleData, initialMappings, onApply, onCancel }: FieldMapperProps) {
@@ -47,7 +48,13 @@ export function FieldMapper({ rawFields, sampleData, initialMappings, onApply, o
 
       for (const mapping of mappings) {
         const value = applyFieldMapping(row, mapping)
-        trigger[mapping.targetId] = value
+        if (mapping.targetId === 'dancerCount') {
+          // Coerce to a number; non-numeric / empty → undefined (unmapped).
+          const n = parseInt(value, 10)
+          trigger.dancerCount = Number.isNaN(n) ? undefined : n
+        } else {
+          trigger[mapping.targetId] = value
+        }
       }
 
       // Fallback if no mappings
@@ -276,6 +283,7 @@ export function FieldMapper({ rawFields, sampleData, initialMappings, onApply, o
                   <th>Title</th>
                   <th>Subtitle</th>
                   <th>Category</th>
+                  <th>Dancers</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,6 +316,11 @@ export function FieldMapper({ rawFields, sampleData, initialMappings, onApply, o
                         )}
                       </td>
                     ))}
+                    <td>
+                      {trigger.dancerCount !== undefined
+                        ? trigger.dancerCount
+                        : <span className="empty-cell">—</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

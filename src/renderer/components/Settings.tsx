@@ -21,6 +21,9 @@ export function Settings() {
   const [obsConnected, setObsConnected] = useState(false)
   const [obsError, setObsError] = useState('')
 
+  // OBSBOT camera host (IP). Empty = camera integration OFF (no-op on fire).
+  const [cameraHost, setCameraHost] = useState('')
+
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
   const [r2AccessKeyId, setR2AccessKeyId] = useState('')
@@ -97,6 +100,7 @@ export function Settings() {
         setChatEnabled(!!settings.chatConfig.enabled)
       }
       if (settings.hotkeys) setHotkeys({ ...DEFAULT_HOTKEYS, ...settings.hotkeys })
+      setCameraHost(settings.cameraHost || '')
     }
     checkObsStatus()
     refreshMonitors()
@@ -334,6 +338,7 @@ export function Settings() {
     await window.api.settingsSet('r2Config', { endpoint: r2Endpoint, accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey, bucket: r2Bucket })
     await window.api.settingsSet('wifiDisplay', wifi)
     await window.api.settingsSet('hotkeys', hotkeys)
+    await window.api.settingsSet('cameraHost', cameraHost.trim())
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -428,6 +433,23 @@ export function Settings() {
           <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
             Enable OBS WebSocket in OBS: Tools &gt; WebSocket Server Settings.
             Notes will include recording timecodes when connected.
+          </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">OBSBOT Camera (optional)</div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Camera Host</label>
+            <input
+              type="text"
+              value={cameraHost}
+              onChange={(e) => setCameraHost(e.target.value)}
+              placeholder="e.g. 192.168.88.10 (leave blank to disable)"
+            />
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            When set, firing a routine with a Dancer Count auto-frames the OBSBOT
+            camera. Leave blank to turn the camera integration off entirely.
           </p>
         </div>
 

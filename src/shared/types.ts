@@ -14,6 +14,7 @@ export interface Trigger {
   order: number // sort position
   logoDataUrl: string // per-entry logo (base64 data URL, optional)
   type?: 'lower_third' | 'title_card' | 'feature' // visual form (default lower_third); title_card/feature → full-screen feature card
+  dancerCount?: number // optional — # of dancers in the routine; drives OBSBOT camera framing on fire (no-op unless a camera host is configured)
 }
 
 // ── Overlay Styling ──────────────────────────────────────────────
@@ -351,7 +352,7 @@ export interface TransformConfig {
 
 export interface FieldMapping {
   sourceIds: string[]
-  targetId: 'name' | 'title' | 'subtitle' | 'category' | 'logoDataUrl'
+  targetId: 'name' | 'title' | 'subtitle' | 'category' | 'logoDataUrl' | 'dancerCount'
   transform: TransformConfig
 }
 
@@ -408,6 +409,10 @@ export interface AppSettings {
   chatConfig?: ChatConfig
   dayChecklistLastShown?: string // YYYY-MM-DD the start-of-day modal last auto-shown
   hotkeys?: HotkeyConfig
+  // OBSBOT camera host (IP). Empty/unset = camera integration OFF (complete
+  // no-op on trigger fire). When set, firing a trigger with a numeric
+  // dancerCount drives the camera's framing via @compsync/camera.
+  cameraHost?: string
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────

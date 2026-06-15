@@ -43,6 +43,7 @@ const store = new Store<AppSettings>({
     chatConfig: { ...DEFAULT_CHAT_CONFIG },
     dayChecklistLastShown: '',
     hotkeys: { ...DEFAULT_HOTKEYS },
+    cameraHost: '',
   },
 })
 

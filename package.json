@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
+    "@compsync/camera": "file:../obsbot-control",
     "@supabase/supabase-js": "^2.106.0",
     "electron-log": "^5.1.1",
     "electron-store": "^6.0.1",

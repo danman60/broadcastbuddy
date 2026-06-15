@@ -12,6 +12,7 @@ export function TriggerEditor() {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [category, setCategory] = useState('')
+  const [dancerCount, setDancerCount] = useState('')
   const [collapsed, setCollapsed] = useState(false)
 
   // Sync local state when selection changes
@@ -21,6 +22,7 @@ export function TriggerEditor() {
       setTitle(selected.title)
       setSubtitle(selected.subtitle)
       setCategory(selected.category)
+      setDancerCount(selected.dancerCount !== undefined ? String(selected.dancerCount) : '')
     }
   }, [selected?.id, selectedIndex])
 
@@ -35,6 +37,16 @@ export function TriggerEditor() {
     }
 
     await window.api.triggerUpdate(selected.id, { [field]: value })
+  }
+
+  // Numeric dancer-count handler — empty / non-numeric clears the field
+  // (persists undefined). Drives OBSBOT camera framing on fire when a camera
+  // host is configured; otherwise has no effect.
+  async function handleDancerCountChange(value: string) {
+    if (!selected) return
+    setDancerCount(value)
+    const n = parseInt(value, 10)
+    await window.api.triggerUpdate(selected.id, { dancerCount: Number.isNaN(n) ? undefined : n })
   }
 
   async function handleBrowseLogo() {
@@ -84,6 +96,16 @@ export function TriggerEditor() {
                 value={category}
                 onChange={(e) => handleChange('category', e.target.value)}
                 placeholder="Group..."
+              />
+            </div>
+            <div className="field-row">
+              <label>Dancer Count</label>
+              <input
+                type="number"
+                min={0}
+                value={dancerCount}
+                onChange={(e) => handleDancerCountChange(e.target.value)}
+                placeholder="# dancers..."
               />
             </div>
           </div>

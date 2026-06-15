@@ -22,6 +22,7 @@ import { buildOverlayHTML } from './overlaySource'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
 import * as session from './session'
+import { applyRoutineForTrigger } from './cameraDirector'
 
 const logger = createLogger('overlay')
 
@@ -390,6 +391,9 @@ export function fireLowerThird(forceLowerThird = false): void {
   // Track played trigger (position logic is identical regardless of visual form)
   if (selected) {
     playedSet.add(selected.id)
+    // GUARDED OBSBOT camera framing — complete no-op unless a camera host is
+    // configured AND this trigger has a numeric dancerCount. Never throws.
+    applyRoutineForTrigger(selected.dancerCount)
   }
 
   // title_card / feature triggers render as the FULL-SCREEN feature card instead

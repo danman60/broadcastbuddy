@@ -179,6 +179,7 @@ function generateSuggestedMappings(fieldNames: string[]): import('../../shared/t
     subtitle: ['subtitle', 'description', 'role', 'position', 'details', 'info'],
     category: ['category', 'group', 'type', 'section', 'division', 'class'],
     logoDataUrl: ['logo', 'image', 'avatar', 'photo'],
+    dancerCount: ['dancercount', 'dancers', 'numdancers', 'numberofdancers', 'count', 'size', 'performers'],
   }
 
   for (const [targetId, searchPatterns] of Object.entries(patterns)) {
