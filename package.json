@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
-    "@compsync/camera": "file:../obsbot-control",
     "@supabase/supabase-js": "^2.106.0",
     "electron-log": "^5.1.1",
     "electron-store": "^6.0.1",
@@ -33,6 +32,7 @@
     "@rollup/rollup-win32-x64-msvc": "^4.62.0"
   },
   "devDependencies": {
+    "@compsync/camera": "file:../obsbot-control",
     "@playwright/test": "^1.58.2",
     "@types/express": "^4.17.21",
     "@types/qrcode": "^1.5.6",
