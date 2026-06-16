@@ -55,7 +55,8 @@
       "output": "release"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "!node_modules/@compsync/**"
     ],
     "asarUnpack": [
       "**/node_modules/pdfjs-dist/**"
