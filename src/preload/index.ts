@@ -222,6 +222,30 @@ contextBridge.exposeInMainWorld('api', {
   cameraGoHome: (): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.CAMERA_GO_HOME),
 
+  // ── OBSBOT camera — probe + manual control (guarded; no-op unless active) ──
+  cameraProbe: (): Promise<{ ok: boolean; host: string; reachable: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.CAMERA_PROBE),
+  cameraNudge: (args: {
+    dir: 'up' | 'down' | 'left' | 'right'
+    speed: number
+    stop?: boolean
+  }): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.CAMERA_NUDGE, args),
+  cameraZoom: (args: { target: number; speed: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_ZOOM, args),
+  cameraRecenter: (): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.CAMERA_RECENTER),
+  cameraRecallPreset: (args: { n: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_RECALL_PRESET, args),
+  cameraSavePreset: (args: { id: number; name?: string }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SAVE_PRESET, args),
+  cameraDeletePreset: (args: { id: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_DELETE_PRESET, args),
+  cameraSetAutoMode: (args: {
+    on: boolean
+  }): Promise<{ ok: boolean; host?: string; reachable?: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SET_AUTO_MODE, args),
+  cameraSetTrackingSpeed: (args: { mode: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SET_TRACKING_SPEED, args),
+
   // ── OBS Transition auto-revert ────────────────────────────────
   obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),

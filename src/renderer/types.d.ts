@@ -135,6 +135,23 @@ interface ElectronAPI {
   cameraSetHome: () => Promise<{ ok: boolean }>
   cameraGoHome: () => Promise<{ ok: boolean }>
 
+  // OBSBOT camera — probe + manual control (guarded; no-op unless active)
+  cameraProbe: () => Promise<{ ok: boolean; host: string; reachable: boolean; error?: string }>
+  cameraNudge: (args: {
+    dir: 'up' | 'down' | 'left' | 'right'
+    speed: number
+    stop?: boolean
+  }) => Promise<{ ok: boolean }>
+  cameraZoom: (args: { target: number; speed: number }) => Promise<{ ok: boolean }>
+  cameraRecenter: () => Promise<{ ok: boolean }>
+  cameraRecallPreset: (args: { n: number }) => Promise<{ ok: boolean }>
+  cameraSavePreset: (args: { id: number; name?: string }) => Promise<{ ok: boolean }>
+  cameraDeletePreset: (args: { id: number }) => Promise<{ ok: boolean }>
+  cameraSetAutoMode: (args: {
+    on: boolean
+  }) => Promise<{ ok: boolean; host?: string; reachable?: boolean; error?: string }>
+  cameraSetTrackingSpeed: (args: { mode: number }) => Promise<{ ok: boolean }>
+
   // OBS Transition auto-revert
   obsTransitionRevertGet: () => Promise<{ enabled: boolean }>
   obsTransitionRevertSet: (enabled: boolean) => Promise<{ enabled: boolean }>

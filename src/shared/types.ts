@@ -413,6 +413,15 @@ export interface AppSettings {
   // no-op on trigger fire). When set, firing a trigger with a numeric
   // dancerCount drives the camera's framing via @compsync/camera.
   cameraHost?: string
+  // ── OBSBOT camera — additive controls (all optional; defaults = current OFF
+  // behaviour). The camera feature is considered ACTIVE when cameraAutoMode is
+  // true OR cameraHost is non-empty (see resolveCameraHost / isCameraFeatureActive
+  // in cameraDirector.ts). When active but cameraHost is blank, the OBSBOT
+  // USB/RNDIS default 192.168.88.10 is used so the operator never types an IP.
+  cameraAutoMode?: boolean // master opt-in: auto-frame on trigger fire. Default false.
+  cameraTrackingSpeed?: number // OBSBOT track-speed mode 0–5. Default 2 (slow).
+  cameraFramingMode?: 'recital' | 'competition' // Director framing floor. Default 'recital'.
+  cameraPort?: number // camera HTTP port. Default 80.
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -997,6 +1006,18 @@ export const IPC = {
   // OBSBOT camera safety (guarded — no-op unless cameraHost is set)
   CAMERA_SET_HOME: 'camera:set-home', // store current pose as wide Home preset
   CAMERA_GO_HOME: 'camera:go-home',   // safety/panic → recall wide Home, AI off
+
+  // OBSBOT camera — connection probe + manual control (guarded; no-op unless the
+  // camera feature is active). Backs a future PTZ control panel (later wave).
+  CAMERA_PROBE: 'camera:probe',                 // connectivity check → status
+  CAMERA_NUDGE: 'camera:nudge',                 // gimbal velocity / stop
+  CAMERA_ZOOM: 'camera:zoom',                   // ramp zoom to target
+  CAMERA_RECENTER: 'camera:recenter',           // reset gimbal to centre
+  CAMERA_RECALL_PRESET: 'camera:recall-preset', // recall stored preset n
+  CAMERA_SAVE_PRESET: 'camera:save-preset',     // store current pose as preset id
+  CAMERA_DELETE_PRESET: 'camera:delete-preset', // delete stored preset id
+  CAMERA_SET_AUTO_MODE: 'camera:set-auto-mode', // persist auto-mode opt-in
+  CAMERA_SET_TRACKING_SPEED: 'camera:set-tracking-speed', // OBSBOT track-speed mode
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

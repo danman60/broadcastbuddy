@@ -1,31 +1,66 @@
 /**
- * cameraDirector — GUARDED, OPT-IN OBSBOT camera framing on trigger fire.
+ * cameraDirector — GUARDED, OPT-IN OBSBOT camera control.
  *
- * Entirely dormant unless the operator sets a `cameraHost` in settings. When a
- * host IS configured, firing a trigger that carries a numeric `dancerCount`
- * drives the OBSBOT Tail 2 into the right framing via the local
- * `@compsync/camera` package (Director + RestCamera over HTTP).
+ * Entirely dormant unless the camera feature is ACTIVE. The feature is active
+ * when EITHER the operator flips Auto Mode on (`cameraAutoMode === true`) OR a
+ * `cameraHost` IP is configured. When active, the host resolves to the operator's
+ * `cameraHost` if set, otherwise the OBSBOT USB/RNDIS default `192.168.88.10`
+ * (plug-and-play — no IP typing). See `resolveCameraHost` / `isCameraFeatureActive`.
+ *
+ * Two distinct guard layers:
+ *  - applyRoutineForTrigger (auto-frame on trigger fire) requires `cameraAutoMode`
+ *    to be TRUE in addition to a resolvable host + numeric dancerCount. With Auto
+ *    Mode off the trigger path is a complete no-op (byte-identical to today).
+ *  - Manual control / save-home / go-home / probe activate on the broader
+ *    isCameraFeatureActive signal (auto-mode OR host) — the operator can drive the
+ *    camera by hand the moment the feature is on.
  *
  * Design constraints (this is a SHIPPING production app):
- *  - ZERO behaviour change when `cameraHost` is empty/unset → applyRoutineForTrigger()
- *    early-returns before touching anything.
+ *  - ZERO behaviour change when the feature is inactive → every entry point
+ *    early-returns before touching the camera package.
  *  - A camera failure must NEVER throw into the show flow → every async step is
- *    wrapped in try/catch and only logged.
+ *    wrapped in try/catch and only logged. Helpers are fire-and-forget (detached).
  *  - The ESM-only `@compsync/camera` package is loaded via a dynamic import()
  *    (this file is bundled CJS) so a static ESM import can't break the build.
  *  - Isolated here so the feature is easy to remove or extend.
  */
 import { createLogger } from '../logger'
 import * as settings from './settings'
+import type { AppSettings } from '../../shared/types'
 
 const logger = createLogger('camera')
+
+// OBSBOT USB/RNDIS single-cable fixed address — the SDK default. Used as the
+// host fallback when the feature is active but no cameraHost was typed.
+const DEFAULT_CAMERA_HOST = '192.168.88.10'
 
 // Lazily-resolved package module + connected Director singleton, keyed by the
 // host they were built for (so a host change rebuilds rather than reusing a
 // stale connection).
 type CameraModule = typeof import('@compsync/camera')
+
+// The subset of the ICamera HAL we drive for manual control (lives on Director.cam).
+interface CameraHal {
+  gimbalVelocity: (dir: 'up' | 'down' | 'left' | 'right', speed: number) => void
+  gimbalStop: (dir: 'up' | 'down' | 'left' | 'right') => void
+  zoomTo: (target: number, speed: number) => void
+  resetGimbal: () => void
+  triggerPreset: (n: number) => void
+  setPreset: (id: number, name?: string) => void
+  deletePreset: (id: number) => void
+  setTrackingSpeed: (mode: number) => void
+  connect: () => Promise<void>
+}
+
+interface CameraDirector {
+  applyRoutine: (r: { dancerCount: number }) => unknown
+  saveHome: (name?: string) => unknown
+  goHome: () => unknown
+  cam: CameraHal
+}
+
 let cameraModulePromise: Promise<CameraModule | null> | null = null
-let directorPromise: Promise<unknown | null> | null = null
+let directorPromise: Promise<CameraDirector | null> | null = null
 let directorHost: string | null = null
 
 async function loadCameraModule(): Promise<CameraModule | null> {
@@ -44,14 +79,43 @@ async function loadCameraModule(): Promise<CameraModule | null> {
 }
 
 /**
- * Build (once per host) a connected Director. Returns null on any failure —
- * callers treat null as "camera unavailable, do nothing".
+ * Is the camera feature considered ACTIVE? True when the operator opted in via
+ * Auto Mode OR explicitly configured a host IP. When false, EVERY entry point in
+ * this module is a complete no-op (the camera stays fully off).
  */
-async function getDirector(host: string): Promise<{
-  applyRoutine: (r: { dancerCount: number }) => unknown
-  saveHome: (name?: string) => unknown
-  goHome: () => unknown
-} | null> {
+export function isCameraFeatureActive(s: AppSettings = settings.getAll()): boolean {
+  const autoMode = s.cameraAutoMode === true
+  const host = (s.cameraHost || '').trim()
+  return autoMode || host.length > 0
+}
+
+/**
+ * Resolve the camera host to dial. Returns the operator-typed `cameraHost` when
+ * set, otherwise the OBSBOT default `192.168.88.10` — but ONLY when the feature
+ * is active. Returns null when the feature is inactive (guard preserved: no host,
+ * no camera). Callers treat null as "feature off, do nothing".
+ */
+export function resolveCameraHost(s: AppSettings = settings.getAll()): string | null {
+  if (!isCameraFeatureActive(s)) return null
+  const host = (s.cameraHost || '').trim()
+  return host || DEFAULT_CAMERA_HOST
+}
+
+function resolvePort(s: AppSettings = settings.getAll()): number {
+  const p = s.cameraPort
+  return typeof p === 'number' && Number.isFinite(p) && p > 0 ? p : 80
+}
+
+function resolveFramingMode(s: AppSettings = settings.getAll()): 'recital' | 'competition' {
+  return s.cameraFramingMode === 'competition' ? 'competition' : 'recital'
+}
+
+/**
+ * Build (once per host) a connected Director. Returns null on any failure —
+ * callers treat null as "camera unavailable, do nothing". The Director is built
+ * with the operator's framing mode + port from settings.
+ */
+async function getDirector(host: string): Promise<CameraDirector | null> {
   if (directorHost !== host) {
     // Host changed (or first use) → drop any prior singleton and rebuild.
     directorHost = host
@@ -63,7 +127,9 @@ async function getDirector(host: string): Promise<{
         const mod = await loadCameraModule()
         if (!mod) return null
         const { Director, RestCamera } = mod
-        const director = new Director(new RestCamera({ host, dryRun: false }))
+        const s = settings.getAll()
+        const cam = new RestCamera({ host, port: resolvePort(s), dryRun: false })
+        const director = new Director(cam, { mode: resolveFramingMode(s) }) as unknown as CameraDirector
         await director.cam.connect()
         logger.info(`OBSBOT camera connected at ${host}`)
         return director
@@ -73,22 +139,28 @@ async function getDirector(host: string): Promise<{
       }
     })()
   }
-  return directorPromise as Promise<{
-    applyRoutine: (r: { dancerCount: number }) => unknown
-    saveHome: (name?: string) => unknown
-    goHome: () => unknown
-  } | null>
+  return directorPromise
+}
+
+/** Drop any cached Director so the next call rebuilds (after a settings change). */
+function invalidateDirector(): void {
+  directorHost = null
+  directorPromise = null
 }
 
 /**
  * Fire-and-forget camera framing for a trigger going live. No-op (returns
- * immediately) unless BOTH a camera host is configured AND the trigger carries
- * a numeric dancerCount. Never throws — failures are logged only.
+ * immediately) unless ALL of: Auto Mode is ON, a host resolves, and the trigger
+ * carries a numeric dancerCount. With Auto Mode off this is byte-identical to the
+ * pre-feature fire path. Never throws — failures are logged only.
  */
 export function applyRoutineForTrigger(dancerCount: number | undefined): void {
   try {
-    const host = (settings.get('cameraHost') || '').trim()
-    if (!host) return // feature OFF — complete no-op, byte-identical fire path
+    const s = settings.getAll()
+    // Auto-Mode guard: trigger-driven framing ONLY when the operator opted in.
+    if (s.cameraAutoMode !== true) return // feature/auto OFF — complete no-op
+    const host = resolveCameraHost(s)
+    if (!host) return
     if (typeof dancerCount !== 'number' || Number.isNaN(dancerCount)) return
 
     // Run async, detached — the show flow does not await the camera.
@@ -110,12 +182,12 @@ export function applyRoutineForTrigger(dancerCount: number | undefined): void {
 
 /**
  * Store the camera's CURRENT pose as the Home (wide stage) preset. The operator
- * manually frames the full stage, then calls this to capture it. No-op unless a
- * camera host is configured. Detached + try/catch — never throws into the UI.
+ * manually frames the full stage, then calls this to capture it. No-op unless the
+ * camera feature is active. Detached + try/catch — never throws into the UI.
  */
 export function saveHomeViaCamera(): void {
   try {
-    const host = (settings.get('cameraHost') || '').trim()
+    const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
 
     void (async () => {
@@ -135,12 +207,12 @@ export function saveHomeViaCamera(): void {
 
 /**
  * Safety / panic: recall the static wide Home preset with AI tracking OFF. Used
- * between routines or as the operator's instant override. No-op unless a camera
- * host is configured. Detached + try/catch — never throws into the UI.
+ * between routines or as the operator's instant override. No-op unless the camera
+ * feature is active. Detached + try/catch — never throws into the UI.
  */
 export function goHomeViaCamera(): void {
   try {
-    const host = (settings.get('cameraHost') || '').trim()
+    const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
 
     void (async () => {
@@ -155,5 +227,142 @@ export function goHomeViaCamera(): void {
     })()
   } catch (err) {
     logger.error('goHomeViaCamera guard failed:', err)
+  }
+}
+
+// ── Connection probe ────────────────────────────────────────────────────────
+
+export interface CameraProbeResult {
+  ok: boolean
+  host: string
+  reachable: boolean
+  error?: string
+}
+
+/**
+ * Probe the camera connection. Resolves the host, (re)builds the Director's
+ * RestCamera, runs connect() (a real GET /ai/workmode), and reports reachability.
+ * NEVER throws — always resolves a result object. Backs a connection-status
+ * indicator (UI added later).
+ */
+export async function probeCameraConnection(): Promise<CameraProbeResult> {
+  try {
+    const host = resolveCameraHost()
+    if (!host) {
+      return { ok: false, host: '', reachable: false, error: 'Camera feature is off' }
+    }
+    const director = await getDirector(host)
+    if (!director) {
+      return { ok: false, host, reachable: false, error: 'Could not connect to camera' }
+    }
+    // getDirector already ran connect() successfully if it returned non-null;
+    // run it again for a fresh reachability read.
+    try {
+      await director.cam.connect()
+      return { ok: true, host, reachable: true }
+    } catch (err) {
+      return {
+        ok: false,
+        host,
+        reachable: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      host: '',
+      reachable: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
+// ── Manual control (each guarded + detached + try/catch, reuses the singleton) ─
+// All are fire-and-forget no-ops unless the camera feature is active. They drive
+// the underlying ICamera HAL (director.cam) directly.
+
+/** Run `fn` against the connected HAL, detached + guarded. No-op when inactive. */
+function withCam(label: string, fn: (cam: CameraHal) => void): void {
+  try {
+    const host = resolveCameraHost()
+    if (!host) return // feature OFF — complete no-op
+
+    void (async () => {
+      try {
+        const director = await getDirector(host)
+        if (!director) return
+        fn(director.cam)
+      } catch (err) {
+        logger.error(`Camera ${label} failed:`, err)
+      }
+    })()
+  } catch (err) {
+    logger.error(`${label} guard failed:`, err)
+  }
+}
+
+/** Nudge the gimbal in a direction at a velocity, or stop that axis. */
+export function nudgeCamera(
+  dir: 'up' | 'down' | 'left' | 'right',
+  speed: number,
+  stop = false,
+): void {
+  withCam('nudge', (cam) => {
+    if (stop) cam.gimbalStop(dir)
+    else cam.gimbalVelocity(dir, speed)
+  })
+}
+
+/** Ramp zoom to an abstract target (0–100) at a speed (0–10). */
+export function zoomCamera(target: number, speed: number): void {
+  withCam('zoom', (cam) => cam.zoomTo(target, speed))
+}
+
+/** Recentre the gimbal. */
+export function recenterCamera(): void {
+  withCam('recenter', (cam) => cam.resetGimbal())
+}
+
+/** Recall stored preset n. */
+export function recallCameraPreset(n: number): void {
+  withCam('recall-preset', (cam) => cam.triggerPreset(n))
+}
+
+/** Store the current pose as preset id (with optional name). */
+export function saveCameraPreset(id: number, name?: string): void {
+  withCam('save-preset', (cam) => cam.setPreset(id, name))
+}
+
+/** Delete stored preset id. */
+export function deleteCameraPreset(id: number): void {
+  withCam('delete-preset', (cam) => cam.deletePreset(id))
+}
+
+/** Set the OBSBOT tracking-speed mode (0–5). */
+export function setCameraTrackingSpeed(mode: number): void {
+  withCam('set-tracking-speed', (cam) => cam.setTrackingSpeed(mode))
+}
+
+/**
+ * Persist the Auto-Mode opt-in and react to the change:
+ *  - OFF → also go to Home (safety wide) so the camera doesn't sit AI-tracking.
+ *  - ON  → ensure a Director exists / probe so the connection is warm.
+ * Persists `cameraAutoMode`. Never throws.
+ */
+export async function setCameraAutoMode(on: boolean): Promise<CameraProbeResult | { ok: boolean }> {
+  try {
+    settings.set('cameraAutoMode', on)
+    if (!on) {
+      // Turning off — release the gimbal to the safe wide shot (if a host exists).
+      goHomeViaCamera()
+      return { ok: true }
+    }
+    // Turning on — warm the connection and report reachability.
+    invalidateDirector()
+    return await probeCameraConnection()
+  } catch (err) {
+    logger.error('setCameraAutoMode failed:', err)
+    return { ok: false }
   }
 }

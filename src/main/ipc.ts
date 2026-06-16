@@ -15,7 +15,19 @@ import * as directMode from './services/directMode'
 import * as wifiDirectP2P from './services/wifiDirectP2P'
 import * as bleAdvertise from './services/bleAdvertise'
 import * as slowZoom from './services/slowZoom'
-import { saveHomeViaCamera, goHomeViaCamera } from './services/cameraDirector'
+import {
+  saveHomeViaCamera,
+  goHomeViaCamera,
+  probeCameraConnection,
+  nudgeCamera,
+  zoomCamera,
+  recenterCamera,
+  recallCameraPreset,
+  saveCameraPreset,
+  deleteCameraPreset,
+  setCameraTrackingSpeed,
+  setCameraAutoMode,
+} from './services/cameraDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
 import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
@@ -1252,6 +1264,55 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.CAMERA_GO_HOME, () => {
     goHomeViaCamera()
+    return { ok: true }
+  })
+
+  // ── OBSBOT camera — connection probe + manual control (guarded; no-op unless
+  // the camera feature is active). Helpers run detached + try/catch and never
+  // throw, so these handlers invoke and acknowledge. NO UI yet (later wave).
+  ipcMain.handle(IPC.CAMERA_PROBE, async () => {
+    return probeCameraConnection()
+  })
+
+  ipcMain.handle(
+    IPC.CAMERA_NUDGE,
+    (_e, args: { dir: 'up' | 'down' | 'left' | 'right'; speed: number; stop?: boolean }) => {
+      nudgeCamera(args.dir, args.speed, args.stop)
+      return { ok: true }
+    },
+  )
+
+  ipcMain.handle(IPC.CAMERA_ZOOM, (_e, args: { target: number; speed: number }) => {
+    zoomCamera(args.target, args.speed)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_RECENTER, () => {
+    recenterCamera()
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_RECALL_PRESET, (_e, args: { n: number }) => {
+    recallCameraPreset(args.n)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_SAVE_PRESET, (_e, args: { id: number; name?: string }) => {
+    saveCameraPreset(args.id, args.name)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_DELETE_PRESET, (_e, args: { id: number }) => {
+    deleteCameraPreset(args.id)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_SET_AUTO_MODE, async (_e, args: { on: boolean }) => {
+    return setCameraAutoMode(args.on)
+  })
+
+  ipcMain.handle(IPC.CAMERA_SET_TRACKING_SPEED, (_e, args: { mode: number }) => {
+    setCameraTrackingSpeed(args.mode)
     return { ok: true }
   })
 

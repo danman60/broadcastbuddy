@@ -23,6 +23,11 @@ export function Settings() {
 
   // OBSBOT camera host (IP). Empty = camera integration OFF (no-op on fire).
   const [cameraHost, setCameraHost] = useState('')
+  // OBSBOT camera — additive controls (defaults = current OFF behaviour).
+  const [cameraAutoMode, setCameraAutoMode] = useState(false)
+  const [cameraTrackingSpeed, setCameraTrackingSpeed] = useState(2)
+  const [cameraFramingMode, setCameraFramingMode] = useState<'recital' | 'competition'>('recital')
+  const [cameraPort, setCameraPort] = useState(80)
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -101,6 +106,12 @@ export function Settings() {
       }
       if (settings.hotkeys) setHotkeys({ ...DEFAULT_HOTKEYS, ...settings.hotkeys })
       setCameraHost(settings.cameraHost || '')
+      setCameraAutoMode(settings.cameraAutoMode === true)
+      setCameraTrackingSpeed(
+        typeof settings.cameraTrackingSpeed === 'number' ? settings.cameraTrackingSpeed : 2,
+      )
+      setCameraFramingMode(settings.cameraFramingMode === 'competition' ? 'competition' : 'recital')
+      setCameraPort(typeof settings.cameraPort === 'number' ? settings.cameraPort : 80)
     }
     checkObsStatus()
     refreshMonitors()
@@ -339,6 +350,10 @@ export function Settings() {
     await window.api.settingsSet('wifiDisplay', wifi)
     await window.api.settingsSet('hotkeys', hotkeys)
     await window.api.settingsSet('cameraHost', cameraHost.trim())
+    await window.api.settingsSet('cameraAutoMode', cameraAutoMode)
+    await window.api.settingsSet('cameraTrackingSpeed', cameraTrackingSpeed)
+    await window.api.settingsSet('cameraFramingMode', cameraFramingMode)
+    await window.api.settingsSet('cameraPort', cameraPort)
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -447,9 +462,58 @@ export function Settings() {
               placeholder="e.g. 192.168.88.10 (leave blank to disable)"
             />
           </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Auto Mode</label>
+            <input
+              type="checkbox"
+              checked={cameraAutoMode}
+              onChange={(e) => setCameraAutoMode(e.target.checked)}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
+              Auto-frame on routine fire (uses {(cameraHost || '').trim() || '192.168.88.10'})
+            </span>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Tracking Speed</label>
+            <select
+              value={cameraTrackingSpeed}
+              onChange={(e) => setCameraTrackingSpeed(Number(e.target.value))}
+            >
+              <option value={0}>0 — Super Lazy</option>
+              <option value={1}>1 — Lazy</option>
+              <option value={2}>2 — Slow</option>
+              <option value={3}>3 — Fast</option>
+              <option value={4}>4 — Crazy</option>
+              <option value={5}>5 — Custom</option>
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Framing Mode</label>
+            <select
+              value={cameraFramingMode}
+              onChange={(e) =>
+                setCameraFramingMode(e.target.value === 'competition' ? 'competition' : 'recital')
+              }
+            >
+              <option value="recital">Recital (wide floor)</option>
+              <option value="competition">Competition (tighter)</option>
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Camera Port</label>
+            <input
+              type="number"
+              value={cameraPort}
+              onChange={(e) => setCameraPort(Number(e.target.value) || 80)}
+              placeholder="80"
+              style={{ maxWidth: 100 }}
+            />
+          </div>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-            When set, firing a routine with a Dancer Count auto-frames the OBSBOT
-            camera. Leave blank to turn the camera integration off entirely.
+            Turn Auto Mode on to auto-frame on routine fire — the camera defaults to
+            192.168.88.10 over USB, so no IP is needed. Set a Camera Host only to
+            override that address. Leave Auto Mode off and Host blank to disable the
+            camera entirely.
           </p>
         </div>
 

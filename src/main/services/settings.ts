@@ -44,6 +44,11 @@ const store = new Store<AppSettings>({
     dayChecklistLastShown: '',
     hotkeys: { ...DEFAULT_HOTKEYS },
     cameraHost: '',
+    // OBSBOT camera additive controls — defaults preserve current OFF behaviour.
+    cameraAutoMode: false,
+    cameraTrackingSpeed: 2,
+    cameraFramingMode: 'recital',
+    cameraPort: 80,
   },
 })
 
