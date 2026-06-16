@@ -27,6 +27,10 @@ import {
   deleteCameraPreset,
   setCameraTrackingSpeed,
   setCameraAutoMode,
+  nudgeCameraXY,
+  zoomCameraVelocity,
+  setCameraAiEnable,
+  getCameraState,
 } from './services/cameraDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1314,6 +1318,36 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CAMERA_SET_TRACKING_SPEED, (_e, args: { mode: number }) => {
     setCameraTrackingSpeed(args.mode)
     return { ok: true }
+  })
+
+  // ── OBSBOT camera — PTZ control panel (Wave 2/3) ──────────────────────────
+  // High-rate joystick/gamepad path. nudgeCameraXY fires detached (the helper
+  // does NOT await camera I/O), so this handler stays cheap under the ~10Hz
+  // invoke loop. All guarded — no-op when the camera feature is inactive.
+  ipcMain.handle(
+    IPC.CAMERA_NUDGE_XY,
+    (_e, args: { yaw: number; pitch: number; stop?: boolean }) => {
+      nudgeCameraXY(args.yaw, args.pitch, args.stop)
+      return { ok: true }
+    },
+  )
+
+  ipcMain.handle(
+    IPC.CAMERA_ZOOM_VELOCITY,
+    (_e, args: { dir: 'in' | 'out'; speed: number; stop?: boolean }) => {
+      zoomCameraVelocity(args.dir, args.speed, args.stop)
+      return { ok: true }
+    },
+  )
+
+  ipcMain.handle(IPC.CAMERA_SET_AI_ENABLE, (_e, args: { on: boolean }) => {
+    setCameraAiEnable(args.on)
+    return { ok: true }
+  })
+
+  // Live gimbal/zoom readout for the panel status. Never throws.
+  ipcMain.handle(IPC.CAMERA_GET_STATE, async () => {
+    return getCameraState()
   })
 
   // ── OBS Transition auto-revert ────────────────────────────────

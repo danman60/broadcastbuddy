@@ -152,6 +152,18 @@ interface ElectronAPI {
   }) => Promise<{ ok: boolean; host?: string; reachable?: boolean; error?: string }>
   cameraSetTrackingSpeed: (args: { mode: number }) => Promise<{ ok: boolean }>
 
+  // OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state)
+  cameraNudgeXY: (args: { yaw: number; pitch: number; stop?: boolean }) => Promise<{ ok: boolean }>
+  cameraZoomVelocity: (args: { dir: 'in' | 'out'; speed: number; stop?: boolean }) => Promise<{ ok: boolean }>
+  cameraSetAiEnable: (args: { on: boolean }) => Promise<{ ok: boolean }>
+  cameraGetState: () => Promise<{
+    ok: boolean
+    reachable: boolean
+    gimbal?: { pan: number; tilt: number }
+    zoom?: number
+    error?: string
+  }>
+
   // OBS Transition auto-revert
   obsTransitionRevertGet: () => Promise<{ enabled: boolean }>
   obsTransitionRevertSet: (enabled: boolean) => Promise<{ enabled: boolean }>

@@ -422,6 +422,12 @@ export interface AppSettings {
   cameraTrackingSpeed?: number // OBSBOT track-speed mode 0–5. Default 2 (slow).
   cameraFramingMode?: 'recital' | 'competition' // Director framing floor. Default 'recital'.
   cameraPort?: number // camera HTTP port. Default 80.
+  // ── PTZ control panel tuning (all optional; defaults applied in the renderer
+  // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
+  cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
+  cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
+  cameraCommandRateHz?: number // shared command-sender flush rate (Hz). Default 10.
+  cameraPreviewDeviceId?: string // chosen videoinput deviceId for the live preview monitor.
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -1018,6 +1024,14 @@ export const IPC = {
   CAMERA_DELETE_PRESET: 'camera:delete-preset', // delete stored preset id
   CAMERA_SET_AUTO_MODE: 'camera:set-auto-mode', // persist auto-mode opt-in
   CAMERA_SET_TRACKING_SPEED: 'camera:set-tracking-speed', // OBSBOT track-speed mode
+
+  // OBSBOT camera — PTZ control panel (Wave 2/3). High-rate joystick/gamepad path
+  // + zoom velocity + AI interlock + live state readout. All guarded; no-op when
+  // the camera feature is inactive.
+  CAMERA_NUDGE_XY: 'camera:nudge-xy',           // 2D gimbal velocity / stop (joystick + gamepad)
+  CAMERA_ZOOM_VELOCITY: 'camera:zoom-velocity', // hold-to-zoom velocity / stop
+  CAMERA_SET_AI_ENABLE: 'camera:set-ai-enable', // master AI tracking on/off (interlock + toggle)
+  CAMERA_GET_STATE: 'camera:get-state',         // live gimbal/zoom readout (never throws)
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

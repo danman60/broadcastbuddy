@@ -42,13 +42,20 @@ type CameraModule = typeof import('@compsync/camera')
 // The subset of the ICamera HAL we drive for manual control (lives on Director.cam).
 interface CameraHal {
   gimbalVelocity: (dir: 'up' | 'down' | 'left' | 'right', speed: number) => void
+  gimbalVelocityXY: (yaw: number, pitch: number) => void
   gimbalStop: (dir: 'up' | 'down' | 'left' | 'right') => void
+  gimbalStopAll: () => void
   zoomTo: (target: number, speed: number) => void
+  zoomVelocity: (dir: 'in' | 'out', speed: number) => void
+  stopZoom: () => void | Promise<void>
   resetGimbal: () => void
+  setAiEnable: (enable: boolean) => void
   triggerPreset: (n: number) => void
   setPreset: (id: number, name?: string) => void
   deletePreset: (id: number) => void
   setTrackingSpeed: (mode: number) => void
+  getGimbalPos: (deviceIndex?: number) => void | Promise<unknown>
+  getZoomInfo: (deviceIndex?: number) => void | Promise<unknown>
   connect: () => Promise<void>
 }
 
@@ -342,6 +349,91 @@ export function deleteCameraPreset(id: number): void {
 /** Set the OBSBOT tracking-speed mode (0–5). */
 export function setCameraTrackingSpeed(mode: number): void {
   withCam('set-tracking-speed', (cam) => cam.setTrackingSpeed(mode))
+}
+
+/**
+ * 2D joystick gimbal velocity (BOTH axes in one command) or a crisp two-axis
+ * stop. THIS is the high-rate (~10Hz) path the on-screen joystick + gamepad
+ * drive — not the single-axis nudgeCamera above. Signed velocities, clamped by
+ * the HAL to ±178. yaw>0 = right, pitch>0 = up. No-op when inactive.
+ *
+ * The handler that calls this fires it detached and does NOT await camera I/O,
+ * so the ~10Hz invoke loop stays cheap.
+ */
+export function nudgeCameraXY(yaw: number, pitch: number, stop = false): void {
+  withCam('nudge-xy', (cam) => {
+    if (stop) cam.gimbalStopAll()
+    else cam.gimbalVelocityXY(yaw, pitch)
+  })
+}
+
+/** Hold-to-zoom velocity toward a rail, or stop the zoom ramp. */
+export function zoomCameraVelocity(dir: 'in' | 'out', speed: number, stop = false): void {
+  withCam('zoom-velocity', (cam) => {
+    if (stop) void cam.stopZoom()
+    else cam.zoomVelocity(dir, speed)
+  })
+}
+
+/** Master AI tracking on/off (used by the auto/manual interlock + toggle). */
+export function setCameraAiEnable(on: boolean): void {
+  withCam('set-ai-enable', (cam) => cam.setAiEnable(on))
+}
+
+/**
+ * Live camera state for the panel status readout. Awaits the RestCamera's real
+ * GET read-backs (getGimbalPos/getZoomInfo) and NEVER throws — always resolves a
+ * result object. Returns `reachable: false` when the feature is off or the
+ * camera can't be reached.
+ *
+ * HAL note: RestCamera.getGimbalPos() returns the stored PRESET list (`{ presetlist }`),
+ * NOT the instantaneous live pan/tilt — the OBSBOT SDK has no live-pose GET. So
+ * `gimbal` is best-effort and may be absent; `zoom` reads the live ratio.
+ */
+export interface CameraStateResult {
+  ok: boolean
+  reachable: boolean
+  gimbal?: { pan: number; tilt: number }
+  zoom?: number
+  error?: string
+}
+
+export async function getCameraState(): Promise<CameraStateResult> {
+  try {
+    const host = resolveCameraHost()
+    if (!host) return { ok: false, reachable: false, error: 'Camera feature is off' }
+    const director = await getDirector(host)
+    if (!director) return { ok: false, reachable: false, error: 'Could not connect to camera' }
+
+    const result: CameraStateResult = { ok: true, reachable: true }
+
+    // Zoom — live ratio. RestCamera returns { ratio } (abstract), guard the shape.
+    try {
+      const zoomInfo = (await director.cam.getZoomInfo()) as { ratio?: number } | undefined
+      if (zoomInfo && typeof zoomInfo.ratio === 'number') result.zoom = zoomInfo.ratio
+    } catch (err) {
+      logger.warn(`getCameraState zoom read failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+
+    // Gimbal — best-effort. The SDK returns the preset list, not live pose; if a
+    // pan/tilt pair surfaces (future HAL), pass it through. Otherwise omit.
+    try {
+      const pos = (await director.cam.getGimbalPos()) as
+        | { pan?: number; tilt?: number; pitch?: number; yaw?: number }
+        | undefined
+      if (pos && typeof pos === 'object') {
+        const pan = typeof pos.pan === 'number' ? pos.pan : typeof pos.yaw === 'number' ? pos.yaw : undefined
+        const tilt = typeof pos.tilt === 'number' ? pos.tilt : typeof pos.pitch === 'number' ? pos.pitch : undefined
+        if (typeof pan === 'number' && typeof tilt === 'number') result.gimbal = { pan, tilt }
+      }
+    } catch (err) {
+      logger.warn(`getCameraState gimbal read failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+
+    return result
+  } catch (err) {
+    return { ok: false, reachable: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 /**

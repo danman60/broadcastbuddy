@@ -246,6 +246,21 @@ contextBridge.exposeInMainWorld('api', {
   cameraSetTrackingSpeed: (args: { mode: number }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.CAMERA_SET_TRACKING_SPEED, args),
 
+  // ── OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state) ──
+  cameraNudgeXY: (args: { yaw: number; pitch: number; stop?: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_NUDGE_XY, args),
+  cameraZoomVelocity: (args: { dir: 'in' | 'out'; speed: number; stop?: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_ZOOM_VELOCITY, args),
+  cameraSetAiEnable: (args: { on: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SET_AI_ENABLE, args),
+  cameraGetState: (): Promise<{
+    ok: boolean
+    reachable: boolean
+    gimbal?: { pan: number; tilt: number }
+    zoom?: number
+    error?: string
+  }> => ipcRenderer.invoke(IPC.CAMERA_GET_STATE),
+
   // ── OBS Transition auto-revert ────────────────────────────────
   obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),

@@ -1,0 +1,260 @@
+/* ===== OBSBOT PTZ Control Panel =====
+   Dark BB panel styling (matches global.css vars + the other Overlay-Mode
+   panels). Hosted inside PanelChrome's .panel-body. */
+
+.camera-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  color: var(--text-primary, #e5e7eb);
+  font-size: 12px;
+}
+
+/* ── Off-state (feature inactive) ── */
+.camera-off {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-dim, #9ca3af);
+}
+.camera-off .camera-off-icon {
+  font-size: 28px;
+  opacity: 0.6;
+}
+.camera-off .camera-off-hint {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ── Connection status row ── */
+.camera-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.camera-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b7280;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+.camera-dot.ok { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+.camera-dot.bad { background: #ef4444; box-shadow: 0 0 6px #ef444488; }
+.camera-host {
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text-dim, #9ca3af);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Generic button ── */
+.camera-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e5e7eb;
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.camera-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); }
+.camera-btn:active { background: rgba(255, 255, 255, 0.18); }
+.camera-btn.small { padding: 3px 7px; font-size: 10px; }
+.camera-btn.danger { background: #6b1616; border-color: #8a1d1d; }
+.camera-btn.danger:hover { background: #8a1d1d; }
+.camera-btn.wide { width: 100%; }
+
+/* ── AUTO / MANUAL segmented toggle ── */
+.camera-segment {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.camera-segment button {
+  background: transparent;
+  border: none;
+  color: var(--text-dim, #9ca3af);
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.camera-segment button.active {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.camera-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.camera-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim, #9ca3af);
+  min-width: 70px;
+}
+.camera-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim, #9ca3af);
+  margin-top: 2px;
+}
+
+/* ── Joystick zone ── */
+.camera-joystick-zone {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.10), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.camera-joystick-block {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.camera-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.camera-slider { width: 100%; }
+input[type='range'].camera-slider { accent-color: var(--accent, #6366f1); }
+
+/* ── Zoom rocker ── */
+.camera-zoom-rocker {
+  display: inline-flex;
+  gap: 4px;
+}
+.camera-zoom-rocker button {
+  width: 34px;
+  height: 28px;
+  font-size: 16px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.camera-zoom-rocker button:active { background: var(--accent, #6366f1); }
+
+/* ── Preset grid ── */
+.camera-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+.camera-preset-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e5e7eb;
+  border-radius: 4px;
+  padding: 8px 0;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.camera-preset-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.camera-preset-btn.saved-flash {
+  background: #16653488;
+  border-color: #22c55e;
+}
+
+/* ── Home / recenter row ── */
+.camera-home-row { display: flex; gap: 6px; }
+.camera-home-row .camera-btn { flex: 1; }
+
+/* ── Live preview ── */
+.camera-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.camera-preview-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  object-fit: contain;
+}
+.camera-preview-empty {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  color: var(--text-dim, #9ca3af);
+  font-size: 11px;
+  text-align: center;
+  padding: 8px;
+}
+
+/* ── Gamepad hint / indicator ── */
+.camera-gamepad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-dim, #9ca3af);
+}
+.camera-gamepad .pad-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b7280; flex-shrink: 0;
+}
+.camera-gamepad .pad-dot.on { background: #22c55e; box-shadow: 0 0 5px #22c55e88; }
+.camera-gamepad .pad-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.camera-manual-flash {
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+/* Dark native widgets (selects) inside the panel. */
+.camera-panel select {
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.camera-panel select option {
+  background: #111827;
+  color: #e5e7eb;
+}
