@@ -1,4 +1,20 @@
-# Current Work — BroadcastBuddy (OBSBOT Tail 2 PTZ camera integration)
+# Current Work — BroadcastBuddy
+
+## 2026-06-16 Session — Field logging + PTZ build/deploy to DART
+**Goal met:** DART now runs `572fbbb` (logging + PTZ), built on FIRMAMENT, deployed + verified live.
+- **Weekend failure diagnosed** (June 13 event): no-router transports failed. Wi-Fi Direct = experimental/unverified. Phone-hotspot connect failed; operator fell back to legacy "ScreenDesk" which worked over the same hotspot → BB is the fault, not the network. Root cause candidates: multi-homed `getLocalIp()` (wifiDisplay.ts:108-110, 192.168/10 tie at priority 0 → can advertise unreachable OBS-LAN IP) and/or hotspot AP isolation. Failure-window logs had rotated out (tablet video-stats flood `main.log` in ~1 day).
+- **Phase 1 field logging shipped** (`572fbbb`, additive only): new `net` EventKind → events.jsonl. Records discovery start (ALL IP candidates + chosen + advertised host), deduped discovery replies, WS hub bind, client connect/disconnect, Direct/Wi-Fi-Direct/BLE start/stop/error (no secrets). Tablet logs routed to dedicated `<userData>/logs/tablet.log` so they stop overwriting main.log. **Verified live on DART** — boot emitted "Discovery listener started" w/ candidates [192.168.0.161 p0, 172.28.128.1 p2, 100.90.103.121 p3] = DART is multi-homed (3 ifaces), confirms the tie-break risk.
+- **Build/deploy:** FIRMAMENT obsbot-control dist rebuilt first (src newer than dist), then BB npm install + `@rollup/rollup-win32-x64-msvc` fix + dist:installer. Installed on DART (app.asar 23:33), PTZ verified (OBSBOT/framing/PTZ panel/gamepad in asar), SD plugin redeployed (manifest + 26 icons), BB relaunched healthy (4 procs, wifi-display stable). ASTEROID also got `2b153e0` June 13 (pre-PTZ; not updated this session — DART-only per user).
+- **Plan for Phase 2-4** (connection fix, bench repro, disarm experimental transports): `docs/plans/2026-06-16-connect-reliability-and-logging.md`. NOT built — bench work, do NOT ship to a show machine until hotspot repro passes.
+
+### Open threads (not in this goal)
+- **3 upcoming events to load on DART** (parallel track): only **Ancaster Dance Arts** has programme data (32 routines, `RemotionVideo/src/data/adaRoutines.json`). Other 2 events: names + scanned programmes still needed from user. "Loaded" = CC broadcast-package per event pushed to BB.
+- Connection FIX (getLocalIp hotspot preference + one-button connect) — Phase 2, bench-first.
+- CC handoff item: auto-push CF stream key → OBS on CC_APPLY_PACKAGE (ipc.ts ~694-707).
+
+---
+
+## Prior Session — OBSBOT Tail 2 PTZ camera integration
 
 ## Last Session Summary
 Built the OBSBOT Tail 2 automated-capture stack: a shared `@compsync/camera` control package (separate repo `~/projects/obsbot-control`) + full integration into BroadcastBuddy. Goal = "plug in the Tail 2 → camera auto-frames each routine by dancer count, operator can override." Dual-app framework: same `@compsync/camera` module will also go into CompSyncElectronApp (CSE) later — **BB ships first** (recital test ~2026-06-20/21). Camera-enabled Windows installer built + staged.
