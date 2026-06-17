@@ -123,6 +123,38 @@ function getLocalIp(): string {
   return candidates[0]?.address || '0.0.0.0'
 }
 
+/**
+ * Observability-only: returns the RANKED candidate list (same ranking
+ * getLocalIp() uses) so field logs can show every local IPv4 + its priority.
+ * Does NOT change getLocalIp's behavior or IP selection — read-only.
+ */
+function getRankedIpCandidates(): { address: string; priority: number }[] {
+  const interfaces = os.networkInterfaces()
+  const candidates: { address: string; priority: number }[] = []
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family !== 'IPv4' || iface.internal) continue
+      const addr = iface.address
+      if (addr.startsWith('192.168.') || addr.startsWith('10.')) {
+        candidates.push({ address: addr, priority: 0 })
+      } else if (addr.startsWith('172.')) {
+        candidates.push({ address: addr, priority: 2 })
+      } else if (addr.startsWith('100.')) {
+        candidates.push({ address: addr, priority: 3 })
+      } else {
+        candidates.push({ address: addr, priority: 1 })
+      }
+    }
+  }
+  candidates.sort((a, b) => a.priority - b.priority)
+  return candidates
+}
+
+// Dedupe discovery-reply 'net' events to one per distinct requester IP per
+// start/stop cycle so the 5s tablet poll doesn't flood events.jsonl. Reset in
+// stopDiscoveryListener().
+const discoveryReplyLoggedIps = new Set<string>()
+
 function getLocalIpv4s(): Set<string> {
   const out = new Set<string>()
   const interfaces = os.networkInterfaces()
@@ -175,6 +207,16 @@ function startDiscoveryListener(): void {
       discoverySocket?.send(reply, 0, reply.length, rinfo.port, rinfo.address)
       logger.debug(`Discovery reply sent to ${rinfo.address}:${rinfo.port}`)
 
+      // One 'net' event per distinct requester IP per start/stop cycle — the
+      // tablet polls every 5s, so logging every datagram would flood the log.
+      if (!discoveryReplyLoggedIps.has(rinfo.address)) {
+        discoveryReplyLoggedIps.add(rinfo.address)
+        recordEvent('net', 'Discovery reply sent', {
+          to: rinfo.address,
+          advertisedHost: getLocalIp(),
+        })
+      }
+
       // One-shot tablet IP drift adoption per start/stop cycle.
       if (driftAdoptedThisSession) return
       try {
@@ -215,6 +257,19 @@ function startDiscoveryListener(): void {
     discoverySocket!.setBroadcast(true)
     const payload = getDiscoveryPayload()
     discoverySocket!.send(payload, 0, payload.length, DISCOVERY_PORT, '255.255.255.255')
+
+    try {
+      const settings = getSettings()
+      const wd = settings.wifiDisplay!
+      recordEvent('net', 'Discovery listener started', {
+        advertisedHost: getLocalIp(),
+        candidates: getRankedIpCandidates(),
+        videoPort: wd.videoPort,
+        touchPort: wd.touchPort,
+        wsPort: settings.server.wsPort,
+        discoveryPort: DISCOVERY_PORT,
+      })
+    } catch { /* telemetry best-effort */ }
   })
 }
 
@@ -239,6 +294,7 @@ export function pingTabletForDiscovery(): void {
 function stopDiscoveryListener(): void {
   if (discoveryInterval) { clearInterval(discoveryInterval); discoveryInterval = null }
   if (discoverySocket) { try { discoverySocket.close() } catch {} discoverySocket = null }
+  discoveryReplyLoggedIps.clear()
 }
 
 const PID_FILE = 'wifi-display.pid'

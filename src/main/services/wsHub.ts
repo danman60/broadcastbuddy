@@ -26,6 +26,7 @@ import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 
 const logger = createLogger('wsHub')
 
@@ -206,8 +207,15 @@ export function start(port: number): void {
   // same-machine clients. Matches the overlay HTTP server (also 0.0.0.0).
   wss = new WebSocketServer({ port, host: '0.0.0.0' })
 
-  wss.on('connection', (ws) => {
+  wss.on('listening', () => {
+    recordEvent('net', 'WS hub listening', { host: '0.0.0.0', port })
+  })
+
+  wss.on('connection', (ws, req) => {
     (ws as unknown as { isAlive: boolean }).isAlive = true
+
+    const remoteIp = req.socket.remoteAddress || 'unknown'
+    recordEvent('net', 'Client connected', { ip: remoteIp })
 
     ws.on('pong', () => {
       (ws as unknown as { isAlive: boolean }).isAlive = true
@@ -247,10 +255,15 @@ export function start(port: number): void {
       }
     })
 
-    ws.on('close', () => {
+    ws.on('close', (code, reason) => {
       const clientType = clients.get(ws) || 'unknown'
       clients.delete(ws)
       logger.info(`Client disconnected: ${clientType}`)
+      recordEvent('net', 'Client disconnected', {
+        ip: remoteIp,
+        code,
+        reason: reason ? reason.toString() : '',
+      })
     })
   })
 

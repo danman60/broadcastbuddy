@@ -25,6 +25,7 @@
 
 import { execFile } from 'child_process'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 import { getDirectModeStatus, buildDirectQrPayload } from './directMode'
 
 const logger = createLogger('ble-advertise')
@@ -227,6 +228,7 @@ export async function startBleAdvertise(): Promise<BleAdvertiseStatus> {
     const direct = getDirectModeStatus()
     if (!direct.active || !direct.ssid) {
       current = { active: false, error: 'Start Direct Mode first — no hotspot creds to advertise.' }
+      recordEvent('net', 'BLE failed', { error: current.error })
       return current
     }
 
@@ -236,6 +238,7 @@ export async function startBleAdvertise(): Promise<BleAdvertiseStatus> {
       const msg = (probe.stderr || probe.stdout || 'BLE peripheral mode unsupported on this adapter').trim()
       logger.warn(`BLE advertise probe failed: ${msg}`)
       current = { active: false, error: msg }
+      recordEvent('net', 'BLE failed', { error: msg })
       return current
     }
 
@@ -247,11 +250,13 @@ export async function startBleAdvertise(): Promise<BleAdvertiseStatus> {
     detached = runPowerShellDetached(script)
     current = { active: true }
     logger.info(`BLE advertise started (experimental): service=${BB_BLE_SERVICE_UUID} ssid=${direct.ssid}`)
+    recordEvent('net', 'BLE started', { ssid: direct.ssid, service: BB_BLE_SERVICE_UUID })
     return current
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error(`startBleAdvertise failed: ${msg}`)
     current = { active: false, error: msg }
+    recordEvent('net', 'BLE failed', { error: msg })
     return current
   }
 }
@@ -271,9 +276,11 @@ export async function stopBleAdvertise(): Promise<BleAdvertiseStatus> {
   try {
     stopBleAdvertiseSync()
     logger.info('BLE advertise stopped')
+    recordEvent('net', 'BLE stopped', {})
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error(`stopBleAdvertise failed: ${msg}`)
+    recordEvent('net', 'BLE stopped', { error: msg })
   }
   current = { active: false }
   return current

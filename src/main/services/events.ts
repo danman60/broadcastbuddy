@@ -32,6 +32,7 @@ export type EventKind =
   | 'gallery'
   | 'chat'
   | 'cc'
+  | 'net'
   | 'system'
   | 'error'
 

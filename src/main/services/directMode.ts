@@ -2,6 +2,7 @@ import { execFile } from 'child_process'
 import os from 'os'
 import { createLogger } from '../logger'
 import { getSettings } from './settings'
+import { recordEvent } from './events'
 import { DirectModeStatus } from '../../shared/types'
 
 const logger = createLogger('direct-mode')
@@ -175,6 +176,7 @@ export async function startDirectMode(): Promise<DirectModeStatus> {
       if (parsed && parsed.ssid) {
         current = { active: true, ssid: parsed.ssid, passphrase: parsed.pass, hostIp: HOST_IP }
         logger.info(`Direct mode active (WinRT tethering): ssid=${parsed.ssid}`)
+        recordEvent('net', 'Direct mode started', { mode: 'winrt', ssid: parsed.ssid, hostIp: HOST_IP })
         return current
       }
       logger.warn('WinRT tethering returned no AccessPointConfiguration — falling back to netsh')
@@ -184,11 +186,17 @@ export async function startDirectMode(): Promise<DirectModeStatus> {
     }
 
     current = await startLegacyNetsh()
+    if (current.active) {
+      recordEvent('net', 'Direct mode started', { mode: 'netsh', ssid: current.ssid, hostIp: HOST_IP })
+    } else {
+      recordEvent('net', 'Direct mode failed', { mode: 'netsh', error: current.error })
+    }
     return current
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error(`startDirectMode failed: ${msg}`)
     current = { active: false, ssid: '', passphrase: '', hostIp: HOST_IP, error: msg }
+    recordEvent('net', 'Direct mode failed', { error: msg })
     return current
   }
 }
@@ -206,10 +214,12 @@ export async function stopDirectMode(): Promise<DirectModeStatus> {
       await runPowerShell('netsh wlan stop hostednetwork')
     }
     logger.info('Direct mode stopped')
+    recordEvent('net', 'Direct mode stopped', {})
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error(`stopDirectMode failed: ${msg}`)
     current = { active: false, ssid: '', passphrase: '', hostIp: HOST_IP, error: msg }
+    recordEvent('net', 'Direct mode stopped', { error: msg })
     return current
   }
   current = { active: false, ssid: '', passphrase: '', hostIp: HOST_IP }

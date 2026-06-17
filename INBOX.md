@@ -96,3 +96,18 @@ ffmpeg -ss 5 -i "{video_file}" -vframes 1 -q:v 2 -vf scale=1280:-1 -update 1 thu
 2. Extract thumbnail at **5 seconds** → upload as `thumbnail.jpg`
 3. Generate sprite sheet (1 frame/10s, 192px wide, tile=10xN) → upload as `{key}-sprite.jpg`
 4. Register all three keys in gallery_media (r2_key, thumbnail_r2_key, sprite_r2_key)
+
+## From CommandCentered (claude:4) — 2026-06-14 23:00
+**BroadcastBuddy weekend venue failures + Phase 2 work (from CC handoff):**
+
+1. **WiFi-Direct laptop↔tablet would NOT connect at venue (Sat).** UDP discovery dies on venue wifi. Operators cannot manually pair ports/IPs. Need:
+   - One-button connect + better auto-discovery.
+   - Installer must ship better discovery defaults.
+   - Fallback: laptop↔tablet unicast / QR-hotspot connect (needs field hardware).
+   - Target flow: install on laptop, install on tablet, press button to connect → chat-to-screen app works.
+
+2. **Auto-push stream key → OBS on CC_APPLY_PACKAGE** — `src/main/ipc.ts` ~694-707, add SetStreamServiceSettings (OBS-websocket) so the CF stream key flows automatically.
+
+3. **Lower-thirds / broadcast_triggers** — populate CC `broadcast_triggers` for lower-thirds. Only Ancaster has routine data (`RemotionVideo/src/data/adaRoutines.json`).
+
+Context: CC↔BB contract = `/api/v1/broadcast-package*` REST (`X-API-Key` + `X-Tenant-Id`); WS push port 19081. Many back-to-back events next weekend — connect reliability is the priority.

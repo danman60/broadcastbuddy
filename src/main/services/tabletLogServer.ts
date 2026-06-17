@@ -15,9 +15,46 @@
  */
 
 import http, { IncomingMessage, ServerResponse } from 'http'
+import fs from 'fs'
+import path from 'path'
+import { app } from 'electron'
 import { createLogger } from '../logger'
 
 const logger = createLogger('tablet-log')
+
+// Routine tablet logs (VideoDecoder stats every 5s) used to land in main.log,
+// flooding it so the failure-window detail rotated out within ~1 day. Route
+// info/debug tablet lines to a SEPARATE dedicated file so main.log keeps the
+// real signal. error/warn still go to main.log so problems stay visible.
+let tabletLogPath: string | null = null
+let tabletLogFailures = 0
+const MAX_TABLET_LOG_FAILURES_BEFORE_QUIET = 5
+
+function getTabletLogPath(): string {
+  if (tabletLogPath) return tabletLogPath
+  tabletLogPath = path.join(app.getPath('userData'), 'logs', 'tablet.log')
+  try {
+    fs.mkdirSync(path.dirname(tabletLogPath), { recursive: true })
+  } catch { /* best-effort */ }
+  return tabletLogPath
+}
+
+/** Best-effort append to tablet.log — never throws. */
+function writeTabletLogLine(line: string): void {
+  if (tabletLogFailures >= MAX_TABLET_LOG_FAILURES_BEFORE_QUIET) return
+  try {
+    fs.appendFile(getTabletLogPath(), line + '\n', (err) => {
+      if (err) {
+        tabletLogFailures++
+        if (tabletLogFailures === MAX_TABLET_LOG_FAILURES_BEFORE_QUIET) {
+          logger.warn(`tablet.log write failures (${tabletLogFailures}) — muting further warnings`)
+        }
+      }
+    })
+  } catch {
+    tabletLogFailures++
+  }
+}
 
 const PORT = 8766
 const HOST = '0.0.0.0'
@@ -93,10 +130,15 @@ function handleTabletLog(req: IncomingMessage, res: ServerResponse): void {
       const level = normalizeLevel(entry.level)
       const tag = typeof entry.tag === 'string' && entry.tag.length > 0 ? entry.tag : 'log'
       const line = `[tablet:${host}] ${tag}: ${entry.msg}`
+      // Real problems (error/warn) stay in main.log so they remain visible.
+      // Routine/info/debug (incl. the 5s VideoDecoder stats) go ONLY to the
+      // dedicated tablet.log so they stop overwriting main.log.
       if (level === 'error') logger.error(line)
       else if (level === 'warn') logger.warn(line)
-      else if (level === 'debug') logger.debug(line)
-      else logger.info(line)
+      else {
+        const stamp = new Date().toISOString()
+        writeTabletLogLine(`${stamp} [${level}] ${line}`)
+      }
       accepted++
     }
 

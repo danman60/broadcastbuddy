@@ -22,6 +22,7 @@
 
 import { execFile } from 'child_process'
 import { createLogger } from '../logger'
+import { recordEvent } from './events'
 import { WifiDirectP2PStatus } from '../../shared/types'
 
 const logger = createLogger('wifi-direct-p2p')
@@ -114,16 +115,19 @@ export async function startWifiDirectP2P(): Promise<WifiDirectP2PStatus> {
         active: true,
         publisherStatus: parsed?.status,
       }
+      recordEvent('net', 'Wi-Fi Direct started', { publisherStatus: parsed?.status })
       return current
     }
     const msg = (res.stderr || res.stdout || `exit ${res.code}`).trim()
     logger.warn(`Wi-Fi Direct advertisement failed: ${msg}`)
     current = { active: false, error: msg }
+    recordEvent('net', 'Wi-Fi Direct failed', { error: msg })
     return current
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error(`startWifiDirectP2P failed: ${msg}`)
     current = { active: false, error: msg }
+    recordEvent('net', 'Wi-Fi Direct failed', { error: msg })
     return current
   }
 }
@@ -138,6 +142,7 @@ export async function stopWifiDirectP2P(): Promise<WifiDirectP2PStatus> {
   }
   logger.info('Wi-Fi Direct P2P stopped (scaffold — no persistent publisher to stop)')
   current = { active: false }
+  recordEvent('net', 'Wi-Fi Direct stopped', {})
   return current
 }
 
