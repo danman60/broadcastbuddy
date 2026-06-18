@@ -35,6 +35,7 @@ export type EventKind =
   | 'net'
   | 'system'
   | 'error'
+  | 'marker' // routine-change marker w/ OBS recording timecode → DaVinci Resolve markers
 
 export interface EventRecord {
   t: string // ISO timestamp

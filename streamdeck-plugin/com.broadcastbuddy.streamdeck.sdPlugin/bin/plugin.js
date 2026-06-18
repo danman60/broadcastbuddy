@@ -9503,7 +9503,7 @@ let NextAction = class NextAction extends SingletonAction {
         });
     }
     async onKeyDown(ev) {
-        sendCommand('nextTrigger');
+        sendCommand('nextRoutine'); // advance current routine (camera + marker), NEVER fire LT
         await ev.action.showOk();
     }
 };
@@ -9525,7 +9525,7 @@ let PrevAction = class PrevAction extends SingletonAction {
         });
     }
     async onKeyDown(ev) {
-        sendCommand('prevTrigger');
+        sendCommand('prevRoutine'); // retreat current routine (camera + marker), NEVER fire LT
         await ev.action.showOk();
     }
 };

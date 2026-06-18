@@ -18,7 +18,7 @@ export class NextAction extends SingletonAction {
   }
 
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    conn.sendCommand('nextTrigger')
+    conn.sendCommand('nextRoutine') // advance current routine (camera + marker), NEVER fire LT
     await ev.action.showOk()
   }
 }

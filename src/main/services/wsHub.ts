@@ -6,6 +6,8 @@ import {
   hideLowerThird,
   nextTrigger,
   prevTrigger,
+  nextRoutine,
+  prevRoutine,
   nextTriggerFull,
   toggleAutoFire,
   showTicker,
@@ -102,6 +104,12 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       break
     case 'prevTrigger':
       prevTrigger()
+      break
+    case 'nextRoutine':
+      nextRoutine()
+      break
+    case 'prevRoutine':
+      prevRoutine()
       break
     case 'nextFull':
       nextTriggerFull()

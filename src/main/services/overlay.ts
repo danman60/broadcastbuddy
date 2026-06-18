@@ -23,6 +23,34 @@ import { createLogger } from '../logger'
 import { recordEvent } from './events'
 import * as session from './session'
 import { applyRoutineForTrigger, deriveDancerCount } from './cameraDirector'
+import { getRecordStatus } from './obsConnection'
+
+// Record a routine-change MARKER stamped with the OBS recording timecode. On every
+// current-routine change (select / next / prev) we capture where we are in the OBS
+// recording so post-production can drop a DaVinci Resolve marker per routine. Detached
+// + guarded — never blocks/throws into selection. `recording:false` when OBS isn't
+// recording (marker still logged with wall-clock for reference). Filter the marker
+// log to recording===true to build the Resolve marker list.
+function markRoutine(t: Trigger | null): void {
+  if (!t) return
+  const wall = new Date().toISOString()
+  void (async () => {
+    try {
+      const rec = await getRecordStatus() // { active, paused, timecode }
+      recordEvent('marker', t.name, {
+        routineId: t.id,
+        routineName: t.name,
+        title: t.title,
+        dancerCount: t.dancerCount,
+        recordTimecode: rec?.timecode || '',
+        recording: rec?.active === true,
+        wall,
+      })
+    } catch {
+      recordEvent('marker', t.name, { routineId: t.id, routineName: t.name, recording: false, wall })
+    }
+  })()
+}
 
 const logger = createLogger('overlay')
 
@@ -217,6 +245,7 @@ export function selectTrigger(index: number): void {
     // playlist during a show with no on-screen graphics. No-op unless the
     // camera feature + Auto Mode are on. Never throws.
     applyRoutineForTrigger(triggers[index].dancerCount)
+    markRoutine(triggers[index]) // log OBS-recording timecode for this routine
     notifyChange()
   }
 }
@@ -281,6 +310,7 @@ export function nextTrigger(): void {
   advanceIndex(true)
   applyTriggerToOverlay(triggers[selectedIndex])
   applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
+  markRoutine(triggers[selectedIndex])
   notifyChange()
   if (autoFireEnabled) {
     setTimeout(() => fireLowerThird(), 300)
@@ -292,10 +322,34 @@ export function prevTrigger(): void {
   advanceIndex(false)
   applyTriggerToOverlay(triggers[selectedIndex])
   applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
+  markRoutine(triggers[selectedIndex])
   notifyChange()
   if (autoFireEnabled) {
     setTimeout(() => fireLowerThird(), 300)
   }
+}
+
+// Advance/retreat the CURRENT routine for camera framing + recording markers
+// WITHOUT ever firing a lower third (ignores autoFire). This is the show-time
+// navigation: the operator steps through routines so the OBSBOT reframes and a
+// marker is logged, with zero on-screen graphics. Use nextTriggerFull / fireLT
+// when a lower third IS wanted.
+export function nextRoutine(): void {
+  if (triggers.length === 0) return
+  advanceIndex(true)
+  applyTriggerToOverlay(triggers[selectedIndex])
+  applyRoutineForTrigger(triggers[selectedIndex].dancerCount)
+  markRoutine(triggers[selectedIndex])
+  notifyChange()
+}
+
+export function prevRoutine(): void {
+  if (triggers.length === 0) return
+  advanceIndex(false)
+  applyTriggerToOverlay(triggers[selectedIndex])
+  applyRoutineForTrigger(triggers[selectedIndex].dancerCount)
+  markRoutine(triggers[selectedIndex])
+  notifyChange()
 }
 
 export function nextTriggerFull(): void {
