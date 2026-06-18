@@ -6,6 +6,7 @@ import { OverlayPreview } from './OverlayPreview'
 import { TriggerEditor } from './TriggerEditor'
 import { OverlayControls } from './OverlayControls'
 import { AdhocPanel } from './AdhocPanel'
+import { CameraPanel } from './CameraPanel'
 import { AnimationPanel } from './AnimationPanel'
 import { StylingPanel } from './StylingPanel'
 import { LogoManager } from './LogoManager'
@@ -109,6 +110,8 @@ export function App() {
               <AdhocPanel />
             </div>
           </div>
+          <div className="panel-group-label">Camera (OBSBOT)</div>
+          <CameraPanel />
           <div className="panel-group-label">Content &amp; Styling</div>
           <AnimationPanel />
           <StartingSoonPanel />
