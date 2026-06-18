@@ -21,15 +21,19 @@
  */
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import ws from 'ws'
-import { CcRelayConfig, CcRelayState } from '../../shared/types'
+import { CcRelayConfig, CcRelayState, ChatMessage } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
+import * as chatBridge from './chatBridge'
 
 const logger = createLogger('ccRelay')
 
 let config: CcRelayConfig | null = null
 let supabase: SupabaseClient | null = null
 let channel: RealtimeChannel | null = null
+// 2nd subscription: CC viewer-chat feed ('livestream:<streamEventId>' event
+// 'chat'). Armed only when config.chatChannel is present; fed into chatBridge.
+let chatChannel: RealtimeChannel | null = null
 let connected = false
 let reconnectTimer: NodeJS.Timeout | null = null
 let reconnectDelayMs = 2000
@@ -45,6 +49,10 @@ let onAdhoc: ((payload: unknown) => void) | null = null
 // Fired when an 'overlay-config' broadcast arrives — live editor sync from CC.
 // Payload is an OverlayStyling-shaped object ({ ...styling, layout, elements }).
 let onOverlayConfig: ((payload: unknown) => void) | null = null
+// Fired when a 'chat-message' broadcast arrives — CC operator pinned/unpinned a
+// viewer-chat message. Payload: { messageId, author, text, pinned }. Wired by
+// ipc.ts to drive the on-stream chat-message overlay.
+let onChatMessage: ((payload: unknown) => void) | null = null
 
 export function setOnStateChange(cb: () => void): void {
   onStateChange = cb
@@ -60,6 +68,10 @@ export function setOnAdhoc(cb: (payload: unknown) => void): void {
 
 export function setOnOverlayConfig(cb: (payload: unknown) => void): void {
   onOverlayConfig = cb
+}
+
+export function setOnChatMessage(cb: (payload: unknown) => void): void {
+  onChatMessage = cb
 }
 
 function notify(): void {
@@ -101,6 +113,69 @@ function teardownChannel(): void {
     try { void channel.unsubscribe() } catch { /* ignore */ }
     channel = null
   }
+  teardownChatFeed()
+}
+
+function teardownChatFeed(): void {
+  if (chatChannel) {
+    try { void chatChannel.unsubscribe() } catch { /* ignore */ }
+    chatChannel = null
+  }
+}
+
+/**
+ * Map a CC viewer-chat payload `{ id, name, text, timestamp, isAdmin, isPinned }`
+ * to the BB ChatMessage shape. Defensive — returns null on a malformed payload.
+ */
+function ccChatToMessage(payload: unknown): ChatMessage | null {
+  if (!payload || typeof payload !== 'object') return null
+  const p = payload as Record<string, unknown>
+  const id = typeof p.id === 'string' ? p.id : ''
+  const text = typeof p.text === 'string' ? p.text : ''
+  if (!id || !text) return null
+  return {
+    id,
+    author: typeof p.name === 'string' ? p.name : 'viewer',
+    text,
+    pinned: false, // operator pin is local-only; CC pin drives the chat-message overlay
+    hidden: false,
+    livestreamPinned: !!p.isPinned,
+    createdAt: typeof p.timestamp === 'number' ? p.timestamp : Date.now(),
+  }
+}
+
+/**
+ * Subscribe the SECOND channel — CC's full viewer-chat feed on
+ * `livestream:<streamEventId>` (event 'chat'). Dormant unless config.chatChannel
+ * is present. Each message is fed into chatBridge so the operator ChatPanel
+ * renders CC viewer chat alongside operator messages. Additive + non-fatal: a
+ * failure here never affects the primary relay channel.
+ */
+function connectChatFeed(): void {
+  if (!supabase || !config || !config.chatChannel) return
+  teardownChatFeed()
+  const name = config.chatChannel
+  logger.info(`Subscribing to CC viewer-chat feed ${name}`)
+  try {
+    chatChannel = supabase
+      .channel(name)
+      .on('broadcast', { event: 'chat' }, ({ payload }) => {
+        try {
+          const msg = ccChatToMessage(payload)
+          if (msg) chatBridge.ingestExternalMessage(msg)
+        } catch (err) {
+          logger.warn('CC chat-feed handler threw:', err instanceof Error ? err.message : err)
+        }
+      })
+      .subscribe((status) => {
+        logger.info(`CC viewer-chat feed status = ${status}`)
+        if (status === 'SUBSCRIBED') {
+          recordEvent('cc', `CC viewer-chat feed connected (${name})`)
+        }
+      })
+  } catch (err) {
+    logger.warn('connectChatFeed error:', err instanceof Error ? err.message : err)
+  }
 }
 
 function connectChannel(): void {
@@ -131,6 +206,11 @@ function connectChannel(): void {
           logger.warn('onOverlayConfig handler threw:', err instanceof Error ? err.message : err)
         }
       })
+      .on('broadcast', { event: 'chat-message' }, ({ payload }) => {
+        try { onChatMessage?.(payload) } catch (err) {
+          logger.warn('onChatMessage handler threw:', err instanceof Error ? err.message : err)
+        }
+      })
       .subscribe((status) => {
         logger.info(`Channel status = ${status}`)
         if (status === 'SUBSCRIBED') {
@@ -145,6 +225,10 @@ function connectChannel(): void {
           scheduleReconnect()
         }
       })
+
+    // 2nd subscription — CC viewer-chat feed (config-gated, additive, dormant
+    // when chatChannel is absent). Shares the same supabase client.
+    connectChatFeed()
   } catch (err) {
     logger.warn('connectChannel error:', err instanceof Error ? err.message : err)
     connected = false

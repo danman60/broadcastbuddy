@@ -310,6 +310,21 @@ export function getMessageById(id: string): ChatMessage | undefined {
   return messages.find((m) => m.id === id)
 }
 
+/**
+ * Ingest a chat message from an EXTERNAL source (the CC viewer-chat feed relayed
+ * by ccRelay over the `livestream:<streamEventId>` channel). Merges it into the
+ * same store the operator ChatPanel renders, so CC viewer messages show up
+ * alongside operator messages. Additive: does not touch the network or the
+ * postgres-backed `chat_messages` subscription. No-op on a malformed message.
+ *
+ * CC payload `{ id, name, text, timestamp, isAdmin, isPinned }` is mapped to the
+ * BB ChatMessage shape by the caller (ccRelay); this just merges + notifies.
+ */
+export function ingestExternalMessage(msg: ChatMessage): void {
+  if (!msg || !msg.id || !msg.text) return
+  if (mergeMessage(msg)) notify()
+}
+
 // ── Moderation ──────────────────────────────────────────────────────────────
 
 /** Boolean-column moderation flags we can update via setFlag. */

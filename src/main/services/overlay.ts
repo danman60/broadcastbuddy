@@ -779,6 +779,41 @@ export function hideFeatureCard(): void {
   recordEvent('overlay', 'Feature card hidden')
 }
 
+// ── Pinned chat-message overlay (CC viewer chat) ──────────────────
+// On-stream card showing a pinned viewer-chat message. Driven by CC's
+// 'chat-message' broadcast and by a local operator toggle. Server-side auto-hide
+// (matches the lower-third pattern — timers run in main, never the browser
+// source). Stays put when autoHideSeconds is 0 (manual hide only).
+
+let chatMessageTimer: NodeJS.Timeout | null = null
+
+export function showChatMessage(author: string, text: string): void {
+  overlayState.chatMessage = {
+    visible: true,
+    author: typeof author === 'string' ? author : '',
+    text: typeof text === 'string' ? text : '',
+  }
+  if (chatMessageTimer) clearTimeout(chatMessageTimer)
+  const seconds = overlayState.lowerThird.styling.autoHideSeconds
+  if (seconds > 0) {
+    chatMessageTimer = setTimeout(() => hideChatMessage(), seconds * 1000)
+  }
+  notifyChange()
+  logger.info(`Chat message overlay shown: ${overlayState.chatMessage.text.slice(0, 40)}`)
+  recordEvent('overlay', 'Pinned chat message shown', { author: overlayState.chatMessage.author })
+}
+
+export function hideChatMessage(): void {
+  if (chatMessageTimer) {
+    clearTimeout(chatMessageTimer)
+    chatMessageTimer = null
+  }
+  overlayState.chatMessage.visible = false
+  notifyChange()
+  logger.info('Chat message overlay hidden')
+  recordEvent('overlay', 'Pinned chat message hidden')
+}
+
 // Populate the feature card from the neighbouring trigger (next/prev), then
 // show it — same neighbour logic as the lower-third chip but rendered as the
 // full card. Does NOT advance playlist position. Returns false if no neighbour.

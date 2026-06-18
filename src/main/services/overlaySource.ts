@@ -928,6 +928,55 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
   }
   .bb-feature-card[data-mode="thatWas"].visible .bb-fc-kicker { animation: none; }
 
+  /* ── Pinned viewer-chat message overlay (CC live chat) ── */
+  .bb-chat-overlay {
+    position: absolute;
+    left: 48px;
+    bottom: 120px;
+    max-width: 520px;
+    min-width: 260px;
+    padding: 14px 20px 16px 20px;
+    box-sizing: border-box;
+    background: linear-gradient(135deg, rgba(20,22,40,0.92), rgba(36,30,66,0.92));
+    border-left: 4px solid var(--fc-accent, #667eea);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    font-family: var(--fc-font, -apple-system, 'Segoe UI', sans-serif);
+    opacity: 0;
+    transform: translateX(-120%);
+    transition: opacity 0.42s ease, transform 0.42s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 65;
+    pointer-events: none;
+  }
+  .bb-chat-overlay.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .bb-chat-overlay .bb-chat-author {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--fc-accent, #9aa8ff);
+    margin-bottom: 4px;
+  }
+  .bb-chat-overlay .bb-chat-author::before {
+    content: '\\1F4AC';
+    margin-right: 7px;
+    opacity: 0.9;
+  }
+  .bb-chat-overlay .bb-chat-text {
+    display: block;
+    font-size: 20px;
+    line-height: 1.35;
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .bb-chat-overlay .bb-chat-author:empty { display: none; }
+
   /* ── Ticker / Crawl ── */
   .ticker-bar {
     position: absolute;
@@ -1053,6 +1102,11 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
         <span class="bb-fc-next-title" id="bb-fc-next-title"></span>
       </div>
     </div>
+  </div>
+
+  <div id="bb-chat-overlay" class="bb-chat-overlay">
+    <span class="bb-chat-author" id="bb-chat-author"></span>
+    <span class="bb-chat-text" id="bb-chat-text"></span>
   </div>
 
   <script>
@@ -1372,6 +1426,24 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
         msg.overlay.companyLogo,
         msg.overlay.clientLogo
       );
+
+      // Pinned viewer-chat message overlay (CC live chat). Brand accent + font
+      // tracked from the live styling, mirroring the feature card.
+      if (msg.overlay.chatMessage) applyChatOverlay(msg.overlay.chatMessage, s);
+    }
+
+    function applyChatOverlay(cm, styling) {
+      var el = document.getElementById('bb-chat-overlay');
+      if (!el) return;
+      if (styling) {
+        if (styling.accentColor) el.style.setProperty('--fc-accent', styling.accentColor);
+        if (styling.fontFamily) el.style.setProperty('--fc-font', styling.fontFamily);
+      }
+      var authorEl = document.getElementById('bb-chat-author');
+      var textEl = document.getElementById('bb-chat-text');
+      if (authorEl) authorEl.textContent = cm.author || '';
+      if (textEl) textEl.textContent = cm.text || '';
+      el.classList.toggle('visible', !!cm.visible);
     }
 
     function applyClock(c) {

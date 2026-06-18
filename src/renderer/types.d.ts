@@ -192,6 +192,10 @@ interface ElectronAPI {
   overlayFeatureThatWas: (kicker?: string) => Promise<{ fired: boolean }>
   overlayFeatureHide: () => Promise<void>
 
+  // On-stream pinned chat-message overlay
+  overlayShowChatMessage: (author: string, text: string) => Promise<void>
+  overlayHideChatMessage: () => Promise<void>
+
   // Operator chat
   chatGetState: () => Promise<ChatState>
   chatReconfigure: () => Promise<ChatState>

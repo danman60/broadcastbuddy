@@ -119,6 +119,13 @@ export function ChatPanel() {
                           </button>
                           <button
                             className="btn-sm btn-loop-off"
+                            title="Show this message as an on-stream chat overlay"
+                            onClick={() => window.api.overlayShowChatMessage(m.author, m.text)}
+                          >
+                            Screen
+                          </button>
+                          <button
+                            className="btn-sm btn-loop-off"
                             title="Hide this message"
                             onClick={() => window.api.chatHide(m.id)}
                           >

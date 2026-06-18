@@ -305,6 +305,12 @@ contextBridge.exposeInMainWorld('api', {
   overlayFeatureHide: (): Promise<void> =>
     ipcRenderer.invoke(IPC.OVERLAY_FEATURE_HIDE),
 
+  // ── On-stream pinned chat-message overlay ─────────────────────
+  overlayShowChatMessage: (author: string, text: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_SHOW_CHAT_MESSAGE, author, text),
+  overlayHideChatMessage: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.OVERLAY_HIDE_CHAT_MESSAGE),
+
   // ── Operator chat ─────────────────────────────────────────────
   chatGetState: () => ipcRenderer.invoke(IPC.CHAT_GET_STATE),
   chatReconfigure: () => ipcRenderer.invoke(IPC.CHAT_RECONFIGURE),

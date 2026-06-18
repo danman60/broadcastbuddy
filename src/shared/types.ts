@@ -314,6 +314,10 @@ export interface OverlayState {
   clock: ClockState
   counter: CounterState
   featureCard: FeatureCardState
+  // Pinned viewer-chat message rendered as an on-stream lower-left card. Driven
+  // by CC's 'chat-message' broadcast (pinned:true shows, pinned:false hides) and
+  // by the local operator toggle. Server-side auto-hide; CSS slide-in animation.
+  chatMessage: { visible: boolean; author: string; text: string }
   gridVisible: boolean // operator leveling grid (rule-of-thirds) — off the live stream
 }
 
@@ -484,6 +488,11 @@ export interface CcRelayConfig {
   supabaseAnonKey: string
   tenantId: string
   eventId: string
+  // Optional CC viewer-chat feed channel ('livestream:<streamEventId>'). When
+  // present, ccRelay subscribes a SECOND channel and forwards CC 'chat' events
+  // into chatBridge's store so the operator ChatPanel renders them. Absent =
+  // dormant (no 2nd subscription).
+  chatChannel?: string
 }
 
 export interface CcRelayState {
@@ -696,6 +705,9 @@ export interface BroadcastPackage {
     channel?: string // 'bb:<tenantId>:<eventId>' (informational)
     supabaseUrl: string
     supabaseAnonKey: string
+    // CC viewer-chat feed channel ('livestream:<streamEventId>'). Config-driven;
+    // arms ccRelay's 2nd subscription so the operator ChatPanel shows CC chat.
+    chatChannel?: string
   }
 }
 
@@ -1059,6 +1071,10 @@ export const IPC = {
   OVERLAY_FEATURE_THAT_WAS: 'overlay:feature-that-was',
   OVERLAY_FEATURE_HIDE: 'overlay:feature-hide',
 
+  // On-stream pinned chat-message overlay (CC viewer chat)
+  OVERLAY_SHOW_CHAT_MESSAGE: 'overlay:show-chat-message', // ({author,text} show) | (null/pinned:false hide)
+  OVERLAY_HIDE_CHAT_MESSAGE: 'overlay:hide-chat-message',
+
   // Overlay leveling grid (operator-only rule-of-thirds)
   OVERLAY_GRID_TOGGLE: 'overlay:grid-toggle',
 
@@ -1290,6 +1306,7 @@ export const DEFAULT_OVERLAY_STATE: OverlayState = {
   clock: { visible: false, format: '12h', showSeconds: true },
   counter: { visible: false, value: 1, label: '' },
   featureCard: { visible: false, kicker: 'UP NEXT', title: '', subtitle: '', logoDataUrl: '', animateIn: 'slide-up', firedAt: 0 },
+  chatMessage: { visible: false, author: '', text: '' },
   gridVisible: false,
 }
 

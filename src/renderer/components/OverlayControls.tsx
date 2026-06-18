@@ -22,6 +22,7 @@ export function OverlayControls() {
   // Broadcast-chrome elements (clock / feature card)
   const clock = overlayState?.clock
   const featureCard = overlayState?.featureCard
+  const chatMessage = overlayState?.chatMessage
   const [fcKicker, setFcKicker] = useState('UP NEXT')
   const [fcTitle, setFcTitle] = useState('')
   const [fcSubtitle, setFcSubtitle] = useState('')
@@ -80,6 +81,11 @@ export function OverlayControls() {
   }
   async function handleFeatureHide() {
     await window.api.overlayFeatureHide()
+  }
+
+  // ── Pinned chat-message overlay (CC viewer chat) ──
+  async function handleChatOverlayHide() {
+    await window.api.overlayHideChatMessage()
   }
 
   async function handleLoopCycle() {
@@ -266,6 +272,14 @@ export function OverlayControls() {
                 title="Hide the full-screen feature card"
               >
                 Hide
+              </button>
+              <button
+                className="seg-btn seg-danger"
+                onClick={handleChatOverlayHide}
+                disabled={!chatMessage?.visible}
+                title="Hide the on-stream pinned chat message"
+              >
+                Hide Chat
               </button>
             </div>
           </div>

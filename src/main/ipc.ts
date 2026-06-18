@@ -161,6 +161,27 @@ function applyOverlayContent(content: unknown): void {
   }
 }
 
+/**
+ * Apply a relayed (or operator-triggered) pinned chat-message to the on-stream
+ * overlay. Payload from CC's 'chat-message' broadcast:
+ *   { messageId, author, text, pinned }  — pinned:true shows, false hides.
+ * Fully guarded so a malformed relay payload can't throw inside the callback.
+ */
+function applyRelayedChatMessage(payload: unknown): void {
+  const p = (payload ?? {}) as { author?: unknown; text?: unknown; pinned?: unknown }
+  const pinned = p.pinned !== false // default to show unless explicitly unpinned
+  if (pinned) {
+    const author = typeof p.author === 'string' ? p.author : ''
+    const text = typeof p.text === 'string' ? p.text : ''
+    if (!text) return
+    overlay.showChatMessage(author, text)
+  } else {
+    overlay.hideChatMessage()
+  }
+  pushState()
+  broadcastState()
+}
+
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
@@ -814,6 +835,9 @@ export function registerIpcHandlers(): void {
         supabaseAnonKey: rt.supabaseAnonKey,
         tenantId,
         eventId: resolvedEventId,
+        // Config-driven CC viewer-chat feed ('livestream:<streamEventId>').
+        // Absent → 2nd subscription stays dormant.
+        chatChannel: rt.chatChannel,
       })
     }
 
@@ -1473,6 +1497,21 @@ export function registerIpcHandlers(): void {
     broadcastState()
   })
 
+  // ── On-stream pinned chat-message overlay (CC viewer chat) ────────
+  // Operator-side show/hide (mirrors the CC 'chat-message' relay path). Used by
+  // the ChatPanel "show on screen" action and the OverlayControls toggle.
+  ipcMain.handle(IPC.OVERLAY_SHOW_CHAT_MESSAGE, (_e, author?: string, text?: string) => {
+    overlay.showChatMessage(typeof author === 'string' ? author : '', typeof text === 'string' ? text : '')
+    pushState()
+    broadcastState()
+  })
+
+  ipcMain.handle(IPC.OVERLAY_HIDE_CHAT_MESSAGE, () => {
+    overlay.hideChatMessage()
+    pushState()
+    broadcastState()
+  })
+
   // ── Operator chat (Supabase Realtime, off by default) ─────────
 
   // Push chat-state changes to the renderer.
@@ -1584,6 +1623,13 @@ export function registerIpcHandlers(): void {
   // layout + per-element styling) and push the new state to the browser source.
   ccRelay.setOnOverlayConfig((payload) => {
     applyRelayedOverlayConfig(payload)
+  })
+
+  // A relayed 'chat-message' broadcast (CC operator pinned/unpinned a viewer-chat
+  // message) drives the on-stream chat-message overlay. pinned:true shows it,
+  // pinned:false hides it.
+  ccRelay.setOnChatMessage((payload) => {
+    applyRelayedChatMessage(payload)
   })
 
   // Push relay connection-state changes to the renderer so the UI can show it.
