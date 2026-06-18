@@ -35,6 +35,10 @@ const logger = createLogger('camera')
 // host fallback when the feature is active but no cameraHost was typed.
 const DEFAULT_CAMERA_HOST = '192.168.88.10'
 
+// Continuous 10Hz commands — excluded from per-command logging so the joystick/zoom
+// stream doesn't flood the log. Discrete pose commands (recenter/preset/home/ai) log.
+const QUIET_CAM_LABELS = new Set(['nudge', 'zoom', 'nudge-xy', 'zoom-velocity'])
+
 // Lazily-resolved package module + connected Director singleton, keyed by the
 // host they were built for (so a host change rebuilds rather than reusing a
 // stale connection).
@@ -505,6 +509,10 @@ function withCam(label: string, fn: (cam: CameraHal) => void): void {
         const director = await getDirector(host)
         if (!director) return
         fn(director.cam)
+        // Log discrete pose-affecting commands (so the test log shows exactly what
+        // moved the camera, e.g. a recenter/preset that sent it "up"). Skip the
+        // continuous 10Hz joystick/zoom velocity labels — they would flood the log.
+        if (!QUIET_CAM_LABELS.has(label)) logger.info(`Camera cmd: ${label}`)
       } catch (err) {
         logger.error(`Camera ${label} failed:`, err)
       }
@@ -531,9 +539,15 @@ export function zoomCamera(target: number, speed: number): void {
   withCam('zoom', (cam) => cam.zoomTo(target, speed))
 }
 
-/** Recentre the gimbal. */
+/**
+ * Recentre = RETURN TO THE STAGE VIEW. Recalls the operator-set Home (wide stage)
+ * preset with AI off — NOT the camera's factory gimbal reset (which points at the
+ * unit's mechanical centre, i.e. "straight up" on this mount). The recital wants the
+ * camera to always fall back to the stage shot, so Recenter and Go-Home are the same
+ * return-to-stage action. (Set the stage view first via Set Home.)
+ */
 export function recenterCamera(): void {
-  withCam('recenter', (cam) => cam.resetGimbal())
+  goHomeViaCamera()
 }
 
 /** Recall stored preset n. */
