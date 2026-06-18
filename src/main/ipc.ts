@@ -186,6 +186,55 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
+// Push the RTMP server + stream key into OBS's custom stream service settings.
+// Idempotent — pushing the same values twice is a no-op for OBS. Does NOT start
+// streaming. Guards against clobbering OBS with blanks: OBS needs BOTH a server
+// and a key, so if either is empty we skip silently (the CC reflection rule may
+// carry a viewing link/embed without a stream key — that path must not reach here).
+export async function pushStreamSettingsToObs(
+  rtmpUrl: string,
+  streamKey: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!rtmpUrl || !streamKey) {
+    return { success: false, error: 'rtmpUrl and streamKey both required' }
+  }
+  try {
+    await obsConnection.sendRequest('SetStreamServiceSettings', {
+      streamServiceType: 'rtmp_custom',
+      streamServiceSettings: {
+        server: rtmpUrl,
+        key: streamKey,
+      },
+    })
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: (err as Error).message }
+  }
+}
+
+// Push the saved streamConfig to OBS whenever OBS (re)connects, covering the case
+// where an event/package was applied before OBS was up. Registered once at startup.
+obsConnection.onConnected(() => {
+  try {
+    const cfg = settings.get('streamConfig')
+    if (cfg?.rtmpUrl && cfg?.streamKey) {
+      pushStreamSettingsToObs(cfg.rtmpUrl, cfg.streamKey)
+        .then((r) => {
+          if (r.success) {
+            events.recordEvent('obs', 'Auto-pushed stream key to OBS on connect')
+          } else {
+            events.recordEvent('error', `Auto-push stream key on connect failed: ${r.error}`)
+          }
+        })
+        .catch((err) =>
+          events.recordEvent('error', `Auto-push stream key on connect threw: ${(err as Error).message}`),
+        )
+    }
+  } catch (err) {
+    events.recordEvent('error', `Auto-push stream key on connect threw: ${(err as Error).message}`)
+  }
+})
+
 export function registerIpcHandlers(): void {
   // ── Overlay control ──────────────────────────────────────────
 
@@ -559,18 +608,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.OBS_PUSH_STREAM_KEY, async (_e, rtmpUrl: string, streamKey: string) => {
-    try {
-      await obsConnection.sendRequest('SetStreamServiceSettings', {
-        streamServiceType: 'rtmp_custom',
-        streamServiceSettings: {
-          server: rtmpUrl,
-          key: streamKey,
-        },
-      })
-      return { success: true }
-    } catch (err) {
-      return { success: false, error: (err as Error).message }
-    }
+    return pushStreamSettingsToObs(rtmpUrl, streamKey)
   })
 
   // ── OBS Recording control ─────────────────────────────────────
@@ -744,6 +782,23 @@ export function registerIpcHandlers(): void {
       // without this the applied stream key/url is lost on restart (matches the
       // manual STREAM_CONFIG_SET handler which also writes to settings).
       settings.set('streamConfig', streamConfig)
+
+      // Auto-push to OBS if it's connected and we have both server + key. OBS
+      // needs both, so a CC reflection carrying only a viewing link/embed is
+      // skipped by pushStreamSettingsToObs. Failure must not throw out of the
+      // handler — catch + log.
+      if (obsConnection.isConnected() && streamConfig.rtmpUrl && streamConfig.streamKey) {
+        try {
+          const r = await pushStreamSettingsToObs(streamConfig.rtmpUrl, streamConfig.streamKey)
+          if (r.success) {
+            events.recordEvent('cc', 'Auto-pushed stream key to OBS on package apply')
+          } else {
+            events.recordEvent('error', `Auto-push stream key on apply failed: ${r.error}`)
+          }
+        } catch (err) {
+          events.recordEvent('error', `Auto-push stream key on apply threw: ${(err as Error).message}`)
+        }
+      }
     }
 
     // Apply company logo if available
