@@ -334,6 +334,17 @@ export function prevTrigger(): void {
 // navigation: the operator steps through routines so the OBSBOT reframes and a
 // marker is logged, with zero on-screen graphics. Use nextTriggerFull / fireLT
 // when a lower third IS wanted.
+// Re-apply the CURRENT routine's full camera framing (AI workmode + tracking speed
+// + zoom tier + onlyMe). Used when the operator flips AUTO on: enabling the AI
+// tracker alone leaves it on stale/default config (subject wanders out of frame);
+// this configures it to actually track the current routine. No-op + guarded inside
+// applyRoutineForTrigger when the feature/auto is off.
+export function applyCurrentRoutineFraming(): void {
+  if (selectedIndex >= 0 && selectedIndex < triggers.length) {
+    applyRoutineForTrigger(triggers[selectedIndex].dancerCount)
+  }
+}
+
 export function nextRoutine(): void {
   if (triggers.length === 0) return
   advanceIndex(true)

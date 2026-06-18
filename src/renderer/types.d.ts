@@ -138,6 +138,7 @@ interface ElectronAPI {
   // OBSBOT camera — probe + manual control (guarded; no-op unless active)
   cameraProbe: () => Promise<{ ok: boolean; host: string; reachable: boolean; error?: string }>
   cameraDiscover: () => Promise<{ found: boolean; host?: string; scanned: number; subnets: string[] }>
+  cameraApplyCurrent: () => Promise<{ ok: boolean }>
   cameraNudge: (args: {
     dir: 'up' | 'down' | 'left' | 'right'
     speed: number

@@ -1292,6 +1292,13 @@ export function registerIpcHandlers(): void {
     return result
   })
 
+  // Re-apply the current routine's full framing/tracking config (operator flipped
+  // AUTO on). Guarded inside applyRoutineForTrigger (no-op unless auto + host).
+  ipcMain.handle(IPC.CAMERA_APPLY_CURRENT, () => {
+    overlay.applyCurrentRoutineFraming()
+    return { ok: true }
+  })
+
   ipcMain.handle(
     IPC.CAMERA_NUDGE,
     (_e, args: { dir: 'up' | 'down' | 'left' | 'right'; speed: number; stop?: boolean }) => {

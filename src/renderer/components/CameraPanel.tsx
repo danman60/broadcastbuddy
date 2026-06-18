@@ -256,18 +256,29 @@ function CameraPanelActive(): React.ReactElement {
   }, [deadzone, expo])
 
   // ── AUTO/MANUAL toggle ──
+  // AUTO/MANUAL drives BOTH the live AI tracker AND cameraAutoMode (the routine-
+  // follow gate) so the dashboard button stays in sync with the Settings "Auto Mode"
+  // checkbox — picking AUTO here is what lets routine changes command the camera.
   const toggleAi = useCallback(async () => {
     const next = !aiEnabledRef.current
     aiEnabledRef.current = next
     setAiEnabled(next)
     await window.api.cameraSetAiEnable({ on: next })
-  }, [])
+    const updated = await window.api.settingsSet('cameraAutoMode', next)
+    setSettings(updated)
+    // Enabling AUTO: configure the AI tracker for the CURRENT routine (workmode,
+    // tracking speed, framing) — bare AI-enable leaves it on stale config.
+    if (next) await window.api.cameraApplyCurrent()
+  }, [setSettings])
 
   const setAi = useCallback(async (on: boolean) => {
     aiEnabledRef.current = on
     setAiEnabled(on)
     await window.api.cameraSetAiEnable({ on })
-  }, [])
+    const updated = await window.api.settingsSet('cameraAutoMode', on)
+    setSettings(updated)
+    if (on) await window.api.cameraApplyCurrent()
+  }, [setSettings])
 
   // ── Zoom rocker (hold-to-zoom) ──
   const startZoom = useCallback((dir: 'in' | 'out') => {

@@ -1034,6 +1034,7 @@ export const IPC = {
   CAMERA_SET_AI_ENABLE: 'camera:set-ai-enable', // master AI tracking on/off (interlock + toggle)
   CAMERA_GET_STATE: 'camera:get-state',         // live gimbal/zoom readout (never throws)
   CAMERA_DISCOVER: 'camera:discover',           // scan local subnets for the OBSBOT → auto-set cameraHost
+  CAMERA_APPLY_CURRENT: 'camera:apply-current', // re-apply current routine framing (AUTO-enable → real tracking)
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',
