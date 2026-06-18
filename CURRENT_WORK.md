@@ -1,5 +1,53 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-18 Session (PM) — Camera follows CURRENT routine without firing lower thirds
+
+**Goal:** during a show, operator advances the playlist to track which routine is live → OBSBOT auto-frames the group/solo by dancer count — but NO lower third fires on the OBS output (graphics off during recital).
+
+**Changes (built, tsc clean, NOT yet committed / NOT yet on DART):**
+- **Decoupled camera from the visible fire.** `applyRoutineForTrigger()` now runs on `selectTrigger()` + `nextTrigger()`/`prevTrigger()` (current-routine selection/nav) — overlay.ts. Previously it fired ONLY inside `fireLowerThird()` (the visible overlay). `fireLowerThird` call kept too (harmless idempotent re-apply; covers autoFire/manual fire). Selection never sets `lowerThird.visible` → zero on-screen graphics.
+- **dancerCount auto-derived from routine NAME on import/startup.** New `deriveDancerCount(name)` in cameraDirector.ts: Solo→1, Duet→2 (keyword or bare "A & B"/"A/B"), Trio→3, Quartet→4, any other named routine→8 (group default = multi full-body, never stuck), no name→undefined. Runs in `fillDancerCounts()` at every chokepoint: `setTriggers`, `addTrigger` (CC package + manual create), `loadSessionState` (startup restore). Explicit counts (FieldMapper/TriggerEditor/CC) ALWAYS win — derivation only fills `undefined`.
+- **Why name-parse:** no numeric dancer counts exist anywhere — Ancaster is a standalone recital, not in CompPortal; `adaRoutines.json` has only act/num/group/song. Routine TYPE (all the camera framing needs) is encoded in the 32 group names. Validated parse: 5 solo→1, 2 duet→2, 1 trio→3, rest→group 8.
+- Recital framing floor (`fullBody`) already enforced in `@compsync/camera` framingProfile.ts — solos = single-subject full-body track, groups = multi full-body widening. No tight crops ever. Q "solos tighter?" = moot, floor clamps it.
+
+**Framing tuning (obsbot-control @compsync/camera, dist rebuilt clean):**
+- **Solo** → trackingSpeed 2→**3 (Fast)**: chase the lone dancer, head-to-toe, single-subject onlyMe. Safety space = fullBody headroom (already).
+- **Duet/Trio** → trackingSpeed 2→**3 (Fast)**: keep ALL in frame as they spread, multi, fullBody.
+- **GROUP BREATHING (NEW)** — slow near-imperceptible AutoZoom in/out so a group shot is never static. **AI-tier oscillation** (NOT manual /ptz/zoom — avoids contention with AI AutoZoom): alternates `setAutoZoom` between base tier + one step wider, both ≥ recital floor, so the group stays framed. fullBody↔P16 (small_group), P16↔P24 (large_group), P24↔P16 (production). Half-cycle 14s (~28s full breath, TUNABLE). Solo/duet/trio do NOT breathe.
+  - `breathingPartnerTier()` in framingTier.ts; `breathe`/`breathingTiers` on FramingProfile; `Director.applyBreathTier(tier)` primitive.
+  - BB `cameraDirector.ts`: `startBreathing`/`stopBreathing` timer (unref'd); started in `applyRoutineForTrigger` for group routines when `cameraBreathing !== false`; stopped on solo/duet/trio select, `goHomeViaCamera` (F4 panic), and `invalidateDirector`. Read fresh each routine change.
+  - **Kill-switch:** `cameraBreathing` setting (default true) — Settings UI "Group Breathing" checkbox under OBSBOT Camera group. types.ts + settings.ts + Settings.tsx + generic settingsSet IPC.
+
+**🔴 BREATHING IS HARDWARE-UNVERIFIED — MUST test on DART+Tail2 before the show.** AI-tier oscillation is the safer of two approaches (chosen over manual-zoom-AutoZoom-off) but how smoothly the Tail 2 transitions between AutoZoom tiers is untested. F4 / breathing-off is the kill path.
+
+**Files this change:** BB — overlay.ts, cameraDirector.ts, settings.ts, shared/types.ts, renderer/components/Settings.tsx. obsbot-control — profiles/framingTier.ts, profiles/framingProfile.ts, director/Director.ts (dist rebuilt).
+
+**Next:** commit + push (both repos; obsbot-control has NO remote — local commit only) → Windows build on FIRMAMENT (sync obsbot-control to D:\projects\obsbot-control per the junction/devDep gotcha) → deploy DART → **hardware test:** (1) selecting/advancing playlist frames camera, NO lower third; (2) solo chase, duet/trio hold spread; (3) group breathing smooth + kill-switch + F4 stop. Then venue router test (Fri Jun 19, Ancaster 6:15 PM).
+
+---
+
+## 2026-06-18 Session — OBSBOT Tail 2 hardware bring-up (DART) — ALL CONTROL VERIFIED LIVE
+
+**Camera physically plugged into DART (USB-C). Bring-up done; first live test = recital TOMORROW (2026-06-19).**
+
+**Verified on real hardware:**
+- **USB-C = UVC video ONLY** (Class Camera + audio + COM5 serial). `/usb/mode` is only `uvc`/`mtp` — NO RNDIS/network over USB. Single-cable "USB=video+control" assumption is DEAD.
+- **Control = REST over Wi-Fi.** Camera in station mode joined DART home LAN at `http://192.168.0.163:80/camera/sdk`. (NOT 192.168.88.10 — that's AP-mode only.) `@compsync/camera` RestCamera HAL targets exactly these endpoints.
+- **PTZ + zoom CONFIRMED live:** ran full locate-wide→pan-center→zoom on a target via UVC ffmpeg stills. `/ptz/gimbalcontrol` velocity (yaw neg=pan left, pitch pos=tilt up), `/ptz/zoom` ratio+speed (USE speed:10 — low speed creeps).
+- **AI tracking + framing CONFIRMED:** `/ai/workmode` single+group STICK *only with a human in frame* (empty room → reverts `none`; PUT returns 200 either way — that was the whole "blocker"). `/ai/human/zoomtype fullBody` works once tracking active. Tiers A/B/C all GREEN.
+- **OBSBOT Center OVERRIDES REST** (reset my zoom while open) — **MUST be CLOSED during shows.** REST control works concurrent with OBS consuming the UVC video (separate channels: video=USB, control=Wi-Fi).
+- UVC is single-consumer (OBS vs ffmpeg fight for video); video+control coexist fine.
+
+**🔴 CRITICAL recital-day gotcha — camera IP changes at venue.** `192.168.0.163` is DART's *home* LAN. At the venue (different router) the Tail 2 gets a different DHCP IP → BB `cameraHost` must be re-set or control is dead. Options offered to user: (a) set camera STATIC IP tonight (most reliable), (b) re-probe venue subnet on-site (ARP-scan for REST :80), (c) add BB auto-discovery (net-new code). **User decision pending — this is the #1 risk for tomorrow.**
+
+**Recital-day checklist:** camera on same Wi-Fi as DART → get IP → BB cameraHost; OBSBOT Center CLOSED; OBS pulls video over USB-C UVC; AI single+fullBody (never tighter — recital floor); AI engages with dancers in frame.
+
+**Open items (user to decide before tomorrow):** static IP vs on-site re-probe vs BB auto-discovery; whether to wire+verify BB `cameraHost` control end-to-end through the app (not yet done — all testing was raw REST). Durable findings saved to memory `project_obsbot_tail2_capture` (CompPortal memory dir).
+
+**Reason for /fresh:** long session (asteroid deploy → field logging → Tail 2 bring-up); clearing context before recital-day work.
+
+---
+
 ## 2026-06-16 Session — Field logging + PTZ build/deploy to DART
 **Goal met:** DART now runs `572fbbb` (logging + PTZ), built on FIRMAMENT, deployed + verified live.
 - **Weekend failure diagnosed** (June 13 event): no-router transports failed. Wi-Fi Direct = experimental/unverified. Phone-hotspot connect failed; operator fell back to legacy "ScreenDesk" which worked over the same hotspot → BB is the fault, not the network. Root cause candidates: multi-homed `getLocalIp()` (wifiDisplay.ts:108-110, 192.168/10 tie at priority 0 → can advertise unreachable OBS-LAN IP) and/or hotspot AP isolation. Failure-window logs had rotated out (tablet video-stats flood `main.log` in ~1 day).

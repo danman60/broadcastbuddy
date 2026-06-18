@@ -49,6 +49,7 @@ const store = new Store<AppSettings>({
     cameraTrackingSpeed: 2,
     cameraFramingMode: 'recital',
     cameraPort: 80,
+    cameraBreathing: true, // slow AutoZoom in/out on group routines (kill-switch)
   },
 })
 

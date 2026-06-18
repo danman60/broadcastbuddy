@@ -422,6 +422,7 @@ export interface AppSettings {
   cameraTrackingSpeed?: number // OBSBOT track-speed mode 0–5. Default 2 (slow).
   cameraFramingMode?: 'recital' | 'competition' // Director framing floor. Default 'recital'.
   cameraPort?: number // camera HTTP port. Default 80.
+  cameraBreathing?: boolean // slow AutoZoom in/out on group routines. Default true (kill-switch).
   // ── PTZ control panel tuning (all optional; defaults applied in the renderer
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.

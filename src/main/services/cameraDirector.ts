@@ -59,8 +59,18 @@ interface CameraHal {
   connect: () => Promise<void>
 }
 
+// The applied-routine shape the Director returns — only the breathing fields we use.
+interface AppliedRoutine {
+  type: string
+  profile: {
+    breathe: boolean
+    breathingTiers: [string, string]
+  }
+}
+
 interface CameraDirector {
-  applyRoutine: (r: { dancerCount: number }) => unknown
+  applyRoutine: (r: { dancerCount: number }) => AppliedRoutine
+  applyBreathTier: (tier: string) => void
   saveHome: (name?: string) => unknown
   goHome: () => unknown
   cam: CameraHal
@@ -151,8 +161,48 @@ async function getDirector(host: string): Promise<CameraDirector | null> {
 
 /** Drop any cached Director so the next call rebuilds (after a settings change). */
 function invalidateDirector(): void {
+  stopBreathing() // the old Director is going away — kill its breathing loop
   directorHost = null
   directorPromise = null
+}
+
+// ── Group breathing oscillation ──────────────────────────────────
+// A slow, near-imperceptible AutoZoom in/out on GROUP routines so the shot is
+// never perfectly static. Implemented as an AI-tier toggle (NOT a manual /ptz/zoom
+// loop) so it never contends with AI AutoZoom — both ends are AutoZoom tiers ≥ the
+// recital floor, so the group always stays framed. Solos/duets/trios do not breathe.
+let breathTimer: ReturnType<typeof setInterval> | null = null
+let breathIndex = 0
+
+// Half-cycle = base→partner; full in-and-out breath ≈ 2× this. ~14s half → ~28s
+// full cycle: slow enough to read as "alive", not as a zoom move. TUNABLE.
+const BREATH_HALF_PERIOD_MS = 14_000
+
+function stopBreathing(): void {
+  if (breathTimer) {
+    clearInterval(breathTimer)
+    breathTimer = null
+  }
+}
+
+/**
+ * Start the breathing oscillation between two AutoZoom tiers. The base tier is
+ * already applied by applyRoutine(); this steps to the partner first, then alternates
+ * on a slow timer. Detached/guarded — a tick failure is logged, never thrown.
+ */
+function startBreathing(director: CameraDirector, tiers: [string, string]): void {
+  stopBreathing()
+  breathIndex = 0 // 0 = base (currently applied); first tick steps to the partner
+  breathTimer = setInterval(() => {
+    try {
+      breathIndex = breathIndex === 0 ? 1 : 0
+      director.applyBreathTier(tiers[breathIndex])
+    } catch (err) {
+      logger.error('Camera breathing tick failed:', err)
+    }
+  }, BREATH_HALF_PERIOD_MS)
+  // Never let the breathing timer hold the process open.
+  if (typeof breathTimer.unref === 'function') breathTimer.unref()
 }
 
 /**
@@ -161,6 +211,48 @@ function invalidateDirector(): void {
  * carries a numeric dancerCount. With Auto Mode off this is byte-identical to the
  * pre-feature fire path. Never throws — failures are logged only.
  */
+/**
+ * Derive a routine's dancer count from its NAME when no explicit count was set.
+ * Recital programmes encode the routine TYPE in the name (Solo / Duet / Trio /
+ * Group / class names) — and that type is all the camera framing needs
+ * (dancerCount → routineType → framingProfile). This is a FALLBACK only: an
+ * explicit count (FieldMapper / TriggerEditor / CC package) always wins, so this
+ * never overwrites a real number.
+ *
+ * Returns:
+ *   1  for a solo
+ *   2  for a duet (keyword, or a bare "A & B" / "A/B" two-name title)
+ *   3  for a trio
+ *   4  for a quartet
+ *   8  for any other named routine (group default → multi full-body framing)
+ *   undefined when there's no name to read (camera stays put — no-op).
+ *
+ * Tunable: the group default (8) lands in the small_group band (full-body, multi)
+ * which is the safe recital default — wide enough that the camera always frames a
+ * group rather than getting stuck. Bands live in @compsync/camera routineType.ts.
+ */
+export function deriveDancerCount(name: string | undefined): number | undefined {
+  if (!name || !name.trim()) return undefined
+  const n = name.toLowerCase()
+
+  // Explicit size keywords win first (a name like "Jazz/Tap Group" is a group,
+  // not a duet — so group/ensemble/etc. are checked before the "&" / "/" rule).
+  if (/\bsolo\b/.test(n)) return 1
+  if (/\bduets?\b/.test(n)) return 2
+  if (/\btrios?\b/.test(n)) return 3
+  if (/\bquartets?\b/.test(n)) return 4
+  if (/\b(group|groups|finale|production|ensemble|company|team|line|troupe|class|squad)\b/.test(n)) return 8
+
+  // No size keyword: a bare two-name title ("Cassia & Rowan", "Anna/Beth") reads
+  // as a duet. Guard against matching "&"/"/" inside a larger group title — only
+  // fires when the title is short and contains exactly one separator.
+  const sep = (n.match(/\s[&/]\s|&|\//g) || []).length
+  if (sep === 1 && name.trim().split(/\s+/).length <= 5) return 2
+
+  // Named routine, no size signal → group default (wide full-body, never stuck).
+  return 8
+}
+
 export function applyRoutineForTrigger(dancerCount: number | undefined): void {
   try {
     const s = settings.getAll()
@@ -175,8 +267,20 @@ export function applyRoutineForTrigger(dancerCount: number | undefined): void {
       try {
         const director = await getDirector(host)
         if (!director) return
-        director.applyRoutine({ dancerCount })
-        logger.info(`Applied camera routine (dancerCount=${dancerCount})`)
+        const applied = director.applyRoutine({ dancerCount })
+        logger.info(`Applied camera routine (dancerCount=${dancerCount}, type=${applied?.type})`)
+
+        // GROUP BREATHING — start the slow AutoZoom oscillation for group routines
+        // when the operator hasn't disabled it. Solos/duets/trios (breathe=false)
+        // and breathing-off both fall through to stopBreathing(), so switching from a
+        // group to a solo cleanly halts any in-flight breath.
+        const breathingOn = settings.getAll().cameraBreathing !== false // default ON
+        if (breathingOn && applied?.profile?.breathe && applied.profile.breathingTiers) {
+          startBreathing(director, applied.profile.breathingTiers)
+          logger.info(`Camera breathing started (${applied.profile.breathingTiers.join('<->')})`)
+        } else {
+          stopBreathing()
+        }
       } catch (err) {
         logger.error('Camera applyRoutine failed:', err)
       }
@@ -221,6 +325,8 @@ export function goHomeViaCamera(): void {
   try {
     const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
+
+    stopBreathing() // panic / between routines — halt any group breathing
 
     void (async () => {
       try {

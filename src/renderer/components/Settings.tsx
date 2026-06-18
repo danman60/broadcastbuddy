@@ -28,6 +28,7 @@ export function Settings() {
   const [cameraTrackingSpeed, setCameraTrackingSpeed] = useState(2)
   const [cameraFramingMode, setCameraFramingMode] = useState<'recital' | 'competition'>('recital')
   const [cameraPort, setCameraPort] = useState(80)
+  const [cameraBreathing, setCameraBreathing] = useState(true)
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -112,6 +113,7 @@ export function Settings() {
       )
       setCameraFramingMode(settings.cameraFramingMode === 'competition' ? 'competition' : 'recital')
       setCameraPort(typeof settings.cameraPort === 'number' ? settings.cameraPort : 80)
+      setCameraBreathing(settings.cameraBreathing !== false)
     }
     checkObsStatus()
     refreshMonitors()
@@ -354,6 +356,7 @@ export function Settings() {
     await window.api.settingsSet('cameraTrackingSpeed', cameraTrackingSpeed)
     await window.api.settingsSet('cameraFramingMode', cameraFramingMode)
     await window.api.settingsSet('cameraPort', cameraPort)
+    await window.api.settingsSet('cameraBreathing', cameraBreathing)
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -486,6 +489,17 @@ export function Settings() {
               <option value={4}>4 — Crazy</option>
               <option value={5}>5 — Custom</option>
             </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Group Breathing</label>
+            <input
+              type="checkbox"
+              checked={cameraBreathing}
+              onChange={(e) => setCameraBreathing(e.target.checked)}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
+              Slow AutoZoom in/out on group routines so the shot is never static
+            </span>
           </div>
           <div className="settings-field-inline">
             <label style={{ minWidth: 100 }}>Framing Mode</label>

@@ -22,7 +22,7 @@ import { buildOverlayHTML } from './overlaySource'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
 import * as session from './session'
-import { applyRoutineForTrigger } from './cameraDirector'
+import { applyRoutineForTrigger, deriveDancerCount } from './cameraDirector'
 
 const logger = createLogger('overlay')
 
@@ -151,11 +151,28 @@ export function clearAllTriggers(): void {
 
 // ── Trigger management ───────────────────────────────────────────
 
+// Fill each trigger's dancerCount from its NAME when no explicit count is present.
+// Runs at every import/startup chokepoint so the OBSBOT camera can auto-frame by
+// routine type without manual data entry. Mutates in place; explicit counts win.
+function fillDancerCounts(list: Trigger[]): void {
+  for (const t of list) {
+    if (typeof t.dancerCount !== 'number' || Number.isNaN(t.dancerCount)) {
+      const derived = deriveDancerCount(t.name)
+      if (derived !== undefined) t.dancerCount = derived
+    }
+  }
+}
+
 export function setTriggers(t: Trigger[]): void {
+  fillDancerCounts(t)
   triggers = t
 }
 
 export function addTrigger(t: Trigger): void {
+  if (typeof t.dancerCount !== 'number' || Number.isNaN(t.dancerCount)) {
+    const derived = deriveDancerCount(t.name)
+    if (derived !== undefined) t.dancerCount = derived
+  }
   triggers.push(t)
 }
 
@@ -195,6 +212,11 @@ export function selectTrigger(index: number): void {
   if (index >= 0 && index < triggers.length) {
     selectedIndex = index
     applyTriggerToOverlay(triggers[index])
+    // CURRENT-ROUTINE camera framing — follows the selected routine WITHOUT
+    // firing a lower third. Lets the operator drive the OBSBOT through the
+    // playlist during a show with no on-screen graphics. No-op unless the
+    // camera feature + Auto Mode are on. Never throws.
+    applyRoutineForTrigger(triggers[index].dancerCount)
     notifyChange()
   }
 }
@@ -258,6 +280,7 @@ export function nextTrigger(): void {
   if (triggers.length === 0) return
   advanceIndex(true)
   applyTriggerToOverlay(triggers[selectedIndex])
+  applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
   notifyChange()
   if (autoFireEnabled) {
     setTimeout(() => fireLowerThird(), 300)
@@ -268,6 +291,7 @@ export function prevTrigger(): void {
   if (triggers.length === 0) return
   advanceIndex(false)
   applyTriggerToOverlay(triggers[selectedIndex])
+  applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
   notifyChange()
   if (autoFireEnabled) {
     setTimeout(() => fireLowerThird(), 300)
@@ -777,6 +801,7 @@ export function loadSessionState(
   savedNotes?: Note[],
   savedStreamConfig?: StreamConfig,
 ): void {
+  fillDancerCounts(sessionTriggers)
   triggers = sessionTriggers
   // Restore saved index or default to 0
   selectedIndex = savedSelectedIndex !== undefined && savedSelectedIndex >= 0 && savedSelectedIndex < triggers.length
