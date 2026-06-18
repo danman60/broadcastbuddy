@@ -110,8 +110,12 @@ export function App() {
               <AdhocPanel />
             </div>
           </div>
-          <div className="panel-group-label">Camera (OBSBOT)</div>
-          <CameraPanel />
+          {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
+            <>
+              <div className="panel-group-label">Camera (OBSBOT)</div>
+              <CameraPanel />
+            </>
+          )}
           <div className="panel-group-label">Content &amp; Styling</div>
           <AnimationPanel />
           <StartingSoonPanel />

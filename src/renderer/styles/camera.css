@@ -130,6 +130,18 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
   touch-action: none;
+  /* Contain nipplejs's stacking so the dial can't float over the AUTO/MANUAL
+     buttons or the Settings overlay (nipplejs sets a high z-index on its nodes). */
+  isolation: isolate;
+  overflow: hidden;
+}
+/* Keep nipplejs's injected nodes inside the zone's stacking context + box. */
+.camera-joystick-zone .nipplejs-collection,
+.camera-joystick-zone .nipple,
+.camera-joystick-zone .front,
+.camera-joystick-zone .back {
+  z-index: 1 !important;
+  position: absolute !important;
 }
 
 .camera-joystick-block {

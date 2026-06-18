@@ -161,38 +161,57 @@ function CameraPanelActive(): React.ReactElement {
 
   // ── nipplejs joystick → shared desiredState ──
   useEffect(() => {
-    if (!zoneRef.current) return
-    const manager: NippleManager = nipplejs.create({
-      zone: zoneRef.current,
-      mode: 'static',
-      position: { left: '50%', top: '50%' },
-      color: 'rgba(129,140,248,0.9)',
-      size: 96,
-      restJoystick: true,
-    })
-    nippleRef.current = manager
+    let manager: NippleManager | null = null
+    let recreateTimer: ReturnType<typeof setTimeout> | null = null
 
-    // vector.x = right(+)/left(-); vector.y = up(+)/down(-) (screen-up positive).
-    // v1 handlers receive a SINGLE event object { type, target, data }.
-    manager.on('move', (evt) => {
-      const v = evt?.data?.vector
-      if (!v) return
-      const mult = panSpeedRef.current
-      const yaw = v.x * GIMBAL_SCALE * mult
-      const pitch = v.y * GIMBAL_SCALE * mult // up on stick → tilt up (no inversion)
-      // Interlock: any deflection forces AI off + latches manual.
-      maybeLatchManual()
-      control.setGimbal(yaw, pitch)
-    })
+    const bind = (m: NippleManager): void => {
+      // vector.x = right(+)/left(-); vector.y = up(+)/down(-) (screen-up positive).
+      m.on('move', (evt) => {
+        const v = evt?.data?.vector
+        if (!v) return
+        const mult = panSpeedRef.current
+        maybeLatchManual() // any deflection forces AI off + latches manual
+        control.setGimbal(v.x * GIMBAL_SCALE * mult, v.y * GIMBAL_SCALE * mult)
+      })
+      m.on('end', () => {
+        control.setGimbal(0, 0)
+        control.stopAllNow()
+      })
+    }
 
-    manager.on('end', () => {
-      // Crisp stop on release — don't wait for the next tick.
-      control.setGimbal(0, 0)
-      control.stopAllNow()
-    })
+    const create = (): void => {
+      if (!zoneRef.current) return
+      if (manager) { manager.destroy(); manager = null }
+      manager = nipplejs.create({
+        zone: zoneRef.current,
+        mode: 'static',
+        position: { left: '50%', top: '50%' },
+        color: 'rgba(129,140,248,0.9)',
+        size: 96,
+        restJoystick: true,
+      })
+      nippleRef.current = manager
+      bind(manager)
+    }
+
+    create()
+
+    // nipplejs (static) caches the zone's SCREEN rect at create time. The right-panel
+    // scrolls, so after a scroll the dial's grab area drifts away from where it's
+    // drawn ("can't grab the dial"). Recreate once scroll/resize settles to re-align.
+    const scroller = zoneRef.current?.closest('.right-panel') as HTMLElement | null
+    const schedule = (): void => {
+      if (recreateTimer) clearTimeout(recreateTimer)
+      recreateTimer = setTimeout(create, 150)
+    }
+    scroller?.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
 
     return () => {
-      manager.destroy()
+      if (recreateTimer) clearTimeout(recreateTimer)
+      scroller?.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (manager) manager.destroy()
       nippleRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
