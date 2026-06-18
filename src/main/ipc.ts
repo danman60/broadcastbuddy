@@ -31,6 +31,8 @@ import {
   zoomCameraVelocity,
   setCameraAiEnable,
   getCameraState,
+  discoverCamera,
+  resetCameraConnection,
 } from './services/cameraDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1276,6 +1278,18 @@ export function registerIpcHandlers(): void {
   // throw, so these handlers invoke and acknowledge. NO UI yet (later wave).
   ipcMain.handle(IPC.CAMERA_PROBE, async () => {
     return probeCameraConnection()
+  })
+
+  // Auto-discovery: scan local subnets for the OBSBOT. On a hit, persist it as the
+  // camera host and drop any stale Director so the next action reconnects to the
+  // new IP. Returns the discovery result for the renderer to reflect.
+  ipcMain.handle(IPC.CAMERA_DISCOVER, async () => {
+    const result = await discoverCamera()
+    if (result.found && result.host) {
+      settings.set('cameraHost', result.host)
+      resetCameraConnection()
+    }
+    return result
   })
 
   ipcMain.handle(

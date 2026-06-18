@@ -1033,6 +1033,7 @@ export const IPC = {
   CAMERA_ZOOM_VELOCITY: 'camera:zoom-velocity', // hold-to-zoom velocity / stop
   CAMERA_SET_AI_ENABLE: 'camera:set-ai-enable', // master AI tracking on/off (interlock + toggle)
   CAMERA_GET_STATE: 'camera:get-state',         // live gimbal/zoom readout (never throws)
+  CAMERA_DISCOVER: 'camera:discover',           // scan local subnets for the OBSBOT → auto-set cameraHost
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

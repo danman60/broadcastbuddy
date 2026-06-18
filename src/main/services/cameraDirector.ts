@@ -24,6 +24,7 @@
  *    (this file is bundled CJS) so a static ESM import can't break the build.
  *  - Isolated here so the feature is easy to remove or extend.
  */
+import * as os from 'os'
 import { createLogger } from '../logger'
 import * as settings from './settings'
 import type { AppSettings } from '../../shared/types'
@@ -358,6 +359,92 @@ export interface CameraProbeResult {
  * NEVER throws — always resolves a result object. Backs a connection-status
  * indicator (UI added later).
  */
+// ── Auto-discovery ───────────────────────────────────────────────
+// Scan the private /24 subnet(s) this machine is on for the OBSBOT and return
+// its IP. The camera answers GET <host>/camera/sdk/ai/workmode with 200 — that's
+// the discovery signature (verified on real Tail 2). Works at any venue regardless
+// of DHCP, no mDNS/extra deps. Used to auto-fill cameraHost when the camera's IP
+// changes (the #1 field-failure risk).
+
+export interface CameraDiscoverResult {
+  found: boolean
+  host?: string
+  scanned: number
+  subnets: string[]
+}
+
+/** The /24 prefixes (e.g. "192.168.0") for each non-internal PRIVATE IPv4 iface.
+ * Skips Tailscale CGNAT (100.64/10), link-local, and public addresses. */
+function privateSubnetPrefixes(): string[] {
+  const prefixes = new Set<string>()
+  const ifaces = os.networkInterfaces()
+  for (const list of Object.values(ifaces)) {
+    if (!list) continue
+    for (const ni of list) {
+      if (ni.internal || ni.family !== 'IPv4') continue
+      const m = ni.address.match(/^(\d+)\.(\d+)\.(\d+)\.\d+$/)
+      if (!m) continue
+      const A = Number(m[1]), B = Number(m[2])
+      const isPrivate =
+        A === 10 || (A === 172 && B >= 16 && B <= 31) || (A === 192 && B === 168)
+      if (isPrivate) prefixes.add(`${m[1]}.${m[2]}.${m[3]}`)
+    }
+  }
+  return [...prefixes]
+}
+
+/** Probe one IP for the OBSBOT REST signature. Returns the IP on a 200, else null. */
+async function probeObsbot(ip: string, port: number, timeoutMs: number): Promise<string | null> {
+  const portPart = port === 80 ? '' : `:${port}`
+  const url = `http://${ip}${portPart}/camera/sdk/ai/workmode`
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: ctrl.signal })
+    return res.ok ? ip : null
+  } catch {
+    return null // unreachable / timeout / non-OBSBOT — not the camera
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Discover the OBSBOT on the local network. Scans each private /24 in chunks,
+ * returns the first host answering the REST signature. Never throws.
+ */
+export async function discoverCamera(): Promise<CameraDiscoverResult> {
+  const port = resolvePort(settings.getAll())
+  const subnets = privateSubnetPrefixes()
+  const CHUNK = 64
+  const TIMEOUT_MS = 1200
+  let scanned = 0
+  try {
+    for (const prefix of subnets) {
+      const ips = Array.from({ length: 254 }, (_, i) => `${prefix}.${i + 1}`)
+      for (let i = 0; i < ips.length; i += CHUNK) {
+        const chunk = ips.slice(i, i + CHUNK)
+        const results = await Promise.all(chunk.map((ip) => probeObsbot(ip, port, TIMEOUT_MS)))
+        scanned += chunk.length
+        const hit = results.find((r) => r !== null)
+        if (hit) {
+          logger.info(`Camera discovered at ${hit} (scanned ${scanned} on ${subnets.join(', ')})`)
+          return { found: true, host: hit, scanned, subnets }
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('Camera discovery failed:', err)
+  }
+  logger.info(`Camera discovery: none found (scanned ${scanned}, subnets ${subnets.join(', ') || 'none'})`)
+  return { found: false, scanned, subnets }
+}
+
+/** Drop the cached Director (after a host change) so the next call reconnects. */
+export function resetCameraConnection(): void {
+  invalidateDirector()
+}
+
 export async function probeCameraConnection(): Promise<CameraProbeResult> {
   try {
     const host = resolveCameraHost()

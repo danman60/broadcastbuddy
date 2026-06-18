@@ -225,6 +225,8 @@ contextBridge.exposeInMainWorld('api', {
   // ── OBSBOT camera — probe + manual control (guarded; no-op unless active) ──
   cameraProbe: (): Promise<{ ok: boolean; host: string; reachable: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.CAMERA_PROBE),
+  cameraDiscover: (): Promise<{ found: boolean; host?: string; scanned: number; subnets: string[] }> =>
+    ipcRenderer.invoke(IPC.CAMERA_DISCOVER),
   cameraNudge: (args: {
     dir: 'up' | 'down' | 'left' | 'right'
     speed: number

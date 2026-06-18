@@ -37,16 +37,69 @@ export function CameraPanel(): React.ReactElement {
   const featureActive = autoMode || host.length > 0
 
   if (!featureActive) {
-    return (
-      <div className="camera-off">
-        <div className="camera-off-icon">📷</div>
-        <div>Camera off</div>
-        <div className="camera-off-hint">Enable in Settings (Auto Mode or a camera host) to control the OBSBOT.</div>
-      </div>
-    )
+    return <CameraOff />
   }
 
   return <CameraPanelActive />
+}
+
+/**
+ * Off-state — the camera feature is inactive (no host + no auto mode). Auto-runs a
+ * one-shot network discovery on mount and offers a manual "Find Camera" retry. On a
+ * hit it sets cameraHost (persisted in main + reflected in the store) which flips
+ * the feature ON → CameraPanelActive mounts and connects. No polling otherwise.
+ */
+function CameraOff(): React.ReactElement {
+  const setSettings = useStore((s) => s.setSettings)
+  const [scanning, setScanning] = useState(false)
+  const [msg, setMsg] = useState('')
+  const autoRan = useRef(false)
+
+  const discover = useCallback(async () => {
+    setScanning(true)
+    setMsg('Scanning the network for the OBSBOT…')
+    try {
+      const r = await window.api.cameraDiscover()
+      if (r.found && r.host) {
+        const s = useStore.getState().settings
+        if (s) setSettings({ ...s, cameraHost: r.host })
+        setMsg(`Found camera at ${r.host}`)
+      } else {
+        setMsg(
+          `No camera found (scanned ${r.scanned} on ${r.subnets.join(', ') || 'no LAN'}). ` +
+          `Power it on + same Wi-Fi as this PC, then retry.`,
+        )
+      }
+    } catch (e) {
+      setMsg('Discovery failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setScanning(false)
+    }
+  }, [setSettings])
+
+  useEffect(() => {
+    if (autoRan.current) return
+    autoRan.current = true
+    void discover()
+  }, [discover])
+
+  return (
+    <div className="camera-off">
+      <div className="camera-off-icon">📷</div>
+      <div>{scanning ? 'Searching…' : 'Camera off'}</div>
+      <div className="camera-off-hint">
+        {msg || 'Auto-finds the camera on the network, or set a host in Settings.'}
+      </div>
+      <button
+        className="camera-btn wide"
+        disabled={scanning}
+        onClick={() => void discover()}
+        style={{ marginTop: 8 }}
+      >
+        {scanning ? 'Scanning…' : 'Find Camera'}
+      </button>
+    </div>
+  )
 }
 
 function CameraPanelActive(): React.ReactElement {
@@ -264,6 +317,19 @@ function CameraPanelActive(): React.ReactElement {
     setSettings(updated)
   }, [setSettings])
 
+  // Re-discover the camera on the network (e.g. its DHCP IP changed at a venue).
+  // On a hit, repoints cameraHost; the next probe/action reconnects to the new IP.
+  const [scanning, setScanning] = useState(false)
+  const findCamera = useCallback(async () => {
+    setScanning(true)
+    try {
+      const r = await window.api.cameraDiscover()
+      if (r.found && r.host) await persist('cameraHost', r.host)
+    } finally {
+      setScanning(false)
+    }
+  }, [persist])
+
   // ── Home / Recenter ──
   const goHome = (): void => { void window.api.cameraGoHome() }
   const recenter = (): void => { void window.api.cameraRecenter() }
@@ -283,6 +349,9 @@ function CameraPanelActive(): React.ReactElement {
         <span className="camera-host">{resolvedHost || 'resolving…'}</span>
         <button className="camera-btn small" onClick={() => void probe()} disabled={probing}>
           {probing ? '…' : 'Probe'}
+        </button>
+        <button className="camera-btn small" onClick={() => void findCamera()} disabled={scanning} title="Scan the network for the camera (use if its IP changed)">
+          {scanning ? '…' : 'Find'}
         </button>
       </div>
 

@@ -6,8 +6,40 @@ import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
 import { StreamDeckPluginSection } from './StreamDeckPluginSection'
 import '../styles/settings.css'
 
+// Tabbed Settings (pattern from CompSyncElectronApp): each existing .settings-group
+// is mapped to a tab by its title; an effect show/hides groups by the active tab, so
+// the section JSX below needs no changes. Add a new group's title prefix here to slot
+// it under a tab (falls back to General if unmatched).
+const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
+  { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
+  { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
+  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera'] },
+  { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
+  { id: 'network', label: 'Network', sections: ['Tablet Display', 'Operator Chat'] },
+  { id: 'tools', label: 'Tools', sections: ['Stream Deck Plugin'] },
+]
+function tabForSection(title: string): string {
+  for (const t of SETTINGS_TABS) {
+    if (t.sections.some((s) => title.startsWith(s) || s.startsWith(title))) return t.id
+  }
+  return 'general'
+}
+
 export function Settings() {
   const { settings, setSettings, setShowSettings } = useStore()
+  const [activeTab, setActiveTab] = useState<string>('general')
+
+  // Tabbed Settings: show only the active tab's .settings-group sections. Reads
+  // each group's title and matches via tabForSection. Re-runs on tab/settings
+  // change (settings change can add/remove conditional sections).
+  useEffect(() => {
+    const root = document.querySelector('.settings-body')
+    if (!root) return
+    root.querySelectorAll<HTMLElement>('.settings-group').forEach((g) => {
+      const title = (g.querySelector('.settings-group-title')?.textContent || '').trim()
+      g.style.display = tabForSection(title) === activeTab ? '' : 'none'
+    })
+  }, [activeTab, settings])
 
   const [httpPort, setHttpPort] = useState(19080)
   const [wsPort, setWsPort] = useState(19081)
@@ -379,7 +411,18 @@ export function Settings() {
           Close
         </button>
       </div>
-      <div className="settings-body">
+      <div className="settings-tabbar">
+        {SETTINGS_TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`settings-tab${activeTab === t.id ? ' active' : ''}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="settings-body" data-active-tab={activeTab}>
         <div className="settings-group">
           <div className="settings-group-title">Server</div>
           <div className="settings-field-inline">
