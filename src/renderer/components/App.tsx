@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { useStore, initStoreListeners, loadInitialState } from '../store/useStore'
 import { Header } from './Header'
 import { TriggerList } from './TriggerList'
@@ -39,6 +39,10 @@ export function App() {
   const showVisualEditor = useStore((s) => s.showVisualEditor)
   const showStartingSoonEditor = useStore((s) => s.showStartingSoonEditor)
   const draggingRef = useRef(false)
+  // App-level success toast — fires ONLY when the main process VERIFIED (via
+  // OBS read-back) that the stream key actually landed in OBS, never on a blind
+  // Set. Always mounted so it shows regardless of which panel is open.
+  const [obsToast, setObsToast] = useState<string | null>(null)
 
   // Drag the divider to resize the left (playlist) panel. We mutate the DOM
   // width live during the drag for smoothness and commit to the store (which
@@ -83,8 +87,24 @@ export function App() {
     }).catch(() => { /* ignore */ })
   }, [])
 
+  // Subscribe to the verified stream-key-synced push from main. Mount-once.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    window.api.on('obs:stream-key-synced', (p) => {
+      const ev = (p as { event?: string })?.event
+      setObsToast(ev ? `Stream key synced to OBS — ${ev}` : 'Stream key synced to OBS')
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => setObsToast(null), 3000)
+    })
+    return () => {
+      if (timer) clearTimeout(timer)
+      window.api.removeAllListeners('obs:stream-key-synced')
+    }
+  }, [])
+
   return (
     <div className={`app-layout${compactMode ? ' compact' : ''}`}>
+      {obsToast && <div className="obs-sync-toast">✓ {obsToast}</div>}
       <Header />
       <div className="app-body">
         <div

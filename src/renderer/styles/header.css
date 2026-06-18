@@ -176,6 +176,35 @@
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* App-level success toast for verified OBS stream-key sync. Fixed bottom-center,
+   green success tint, non-blocking, above all panels/overlays. Mirrors the
+   .header-toast pill so it reads as a confirmation in normal + compact modes. */
+.obs-sync-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--success, #22c55e);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 20px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  z-index: 4000;
+  pointer-events: none;
+  max-width: 90vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: obs-sync-toast-in 0.22s ease;
+}
+
+@keyframes obs-sync-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Header Input Group */
 .header-input-group {
   display: flex;

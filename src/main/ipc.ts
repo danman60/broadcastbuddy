@@ -194,9 +194,10 @@ function generateId(): string {
 export async function pushStreamSettingsToObs(
   rtmpUrl: string,
   streamKey: string,
-): Promise<{ success: boolean; error?: string }> {
+  context?: { event?: string },
+): Promise<{ success: boolean; verified: boolean; error?: string }> {
   if (!rtmpUrl || !streamKey) {
-    return { success: false, error: 'rtmpUrl and streamKey both required' }
+    return { success: false, verified: false, error: 'rtmpUrl and streamKey both required' }
   }
   try {
     await obsConnection.sendRequest('SetStreamServiceSettings', {
@@ -206,9 +207,44 @@ export async function pushStreamSettingsToObs(
         key: streamKey,
       },
     })
-    return { success: true }
+    // success = "the Set call didn't throw". Now VERIFY it actually landed by
+    // reading the settings back out of OBS (websocket v5). Do NOT throw on a
+    // verify mismatch — return verified:false with a reason so callers/log can
+    // see the Set succeeded but the read-back disagreed.
+    let verified = false
+    let verifyError: string | undefined
+    try {
+      const read = (await obsConnection.sendRequest('GetStreamServiceSettings')) as {
+        streamServiceType?: string
+        streamServiceSettings?: { server?: string; key?: string }
+      }
+      const s = read?.streamServiceSettings ?? {}
+      const serverMatch = s.server === rtmpUrl
+      // OBS usually returns the key; when it does and it's non-empty, require an
+      // exact key match. But OBS can mask/omit the key in the read-back — in that
+      // case (empty/absent key) we can't compare it, so a server match alone is
+      // treated as verified (key-masking fallback).
+      const returnedKey = typeof s.key === 'string' ? s.key : ''
+      const keyMatch = returnedKey ? returnedKey === streamKey : true
+      verified = serverMatch && keyMatch
+      if (!verified) {
+        verifyError = !serverMatch
+          ? `server mismatch (got "${s.server ?? ''}")`
+          : 'stream key read-back mismatch'
+      }
+    } catch (verr) {
+      verifyError = `read-back failed: ${(verr as Error).message}`
+    }
+
+    if (verified) {
+      sendToAllWindows('obs:stream-key-synced', {
+        event: context?.event || '',
+        server: rtmpUrl,
+      })
+    }
+    return { success: true, verified, error: verified ? undefined : verifyError }
   } catch (err) {
-    return { success: false, error: (err as Error).message }
+    return { success: false, verified: false, error: (err as Error).message }
   }
 }
 
@@ -218,10 +254,17 @@ obsConnection.onConnected(() => {
   try {
     const cfg = settings.get('streamConfig')
     if (cfg?.rtmpUrl && cfg?.streamKey) {
-      pushStreamSettingsToObs(cfg.rtmpUrl, cfg.streamKey)
+      pushStreamSettingsToObs(cfg.rtmpUrl, cfg.streamKey, {
+        event: session.getCurrentSession()?.name || '',
+      })
         .then((r) => {
           if (r.success) {
-            events.recordEvent('obs', 'Auto-pushed stream key to OBS on connect')
+            events.recordEvent(
+              'obs',
+              r.verified
+                ? 'Auto-pushed + verified stream key in OBS on connect'
+                : `Auto-pushed stream key on connect but verify failed: ${r.error}`,
+            )
           } else {
             events.recordEvent('error', `Auto-push stream key on connect failed: ${r.error}`)
           }
@@ -608,7 +651,9 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.OBS_PUSH_STREAM_KEY, async (_e, rtmpUrl: string, streamKey: string) => {
-    return pushStreamSettingsToObs(rtmpUrl, streamKey)
+    return pushStreamSettingsToObs(rtmpUrl, streamKey, {
+      event: session.getCurrentSession()?.name || '',
+    })
   })
 
   // ── OBS Recording control ─────────────────────────────────────
@@ -789,9 +834,26 @@ export function registerIpcHandlers(): void {
       // handler — catch + log.
       if (obsConnection.isConnected() && streamConfig.rtmpUrl && streamConfig.streamKey) {
         try {
-          const r = await pushStreamSettingsToObs(streamConfig.rtmpUrl, streamConfig.streamKey)
+          // BroadcastPackage has no client.name/event.title — the real name
+          // fields are event.eventName / client.organization. Fall back to the
+          // live session name if the package omits both.
+          const eventName =
+            pkg.event?.eventName ||
+            pkg.client?.organization ||
+            session.getCurrentSession()?.name ||
+            ''
+          const r = await pushStreamSettingsToObs(
+            streamConfig.rtmpUrl,
+            streamConfig.streamKey,
+            { event: eventName },
+          )
           if (r.success) {
-            events.recordEvent('cc', 'Auto-pushed stream key to OBS on package apply')
+            events.recordEvent(
+              'cc',
+              r.verified
+                ? 'Auto-pushed + verified stream key in OBS on package apply'
+                : `Auto-pushed stream key on apply but verify failed: ${r.error}`,
+            )
           } else {
             events.recordEvent('error', `Auto-push stream key on apply failed: ${r.error}`)
           }
