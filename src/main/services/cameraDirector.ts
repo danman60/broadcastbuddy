@@ -401,7 +401,19 @@ async function probeObsbot(ip: string, port: number, timeoutMs: number): Promise
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
     const res = await fetch(url, { signal: ctrl.signal })
-    return res.ok ? ip : null
+    if (!res.ok) return null
+    // A 200 is NOT enough: a router/gateway (typically x.x.x.1) answers ANY path
+    // with its admin HTML page (200 + "<!DOCTYPE …"). The OBSBOT returns the REST
+    // JSON `{"mode": "..."}`. Require a JSON body carrying `mode` so the gateway's
+    // HTML catch-all can't masquerade as the camera.
+    const text = await res.text()
+    try {
+      const body = JSON.parse(text)
+      if (body && typeof body === 'object' && 'mode' in body) return ip
+    } catch {
+      /* HTML / non-JSON → not the camera */
+    }
+    return null
   } catch {
     return null // unreachable / timeout / non-OBSBOT — not the camera
   } finally {
