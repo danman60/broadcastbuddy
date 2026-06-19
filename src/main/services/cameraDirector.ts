@@ -59,10 +59,27 @@ interface CameraHal {
   setPreset: (id: number, name?: string) => void
   deletePreset: (id: number) => void
   setTrackingSpeed: (mode: number) => void
+  setExposureMode: (mode: 'auto' | 'manual') => void
+  setEvBias: (ev: number) => void
+  setManualIso: (iso: number) => void
+  setManualShutter: (shutter: string) => void
+  setWhiteBalance: (mode: 'auto' | 'daylight' | 'fluorescent' | 'tungsten' | 'cloudy' | 'manual', temperature?: number) => void
+  setAfMode: (mode: 'afc' | 'afs' | 'mf') => void
+  setManualFocus: (position: number) => void
   getGimbalPos: (deviceIndex?: number) => void | Promise<unknown>
   getZoomInfo: (deviceIndex?: number) => void | Promise<unknown>
   connect: () => Promise<void>
 }
+
+/** Manual image-control command from the operator panel (white balance / exposure / focus). */
+export type CameraImageControl =
+  | { kind: 'exposureMode'; mode: 'auto' | 'manual' }
+  | { kind: 'evBias'; ev: number }
+  | { kind: 'iso'; iso: number }
+  | { kind: 'shutter'; shutter: string }
+  | { kind: 'whiteBalance'; mode: 'auto' | 'daylight' | 'fluorescent' | 'tungsten' | 'cloudy' | 'manual'; temperature?: number }
+  | { kind: 'afMode'; mode: 'afc' | 'afs' | 'mf' }
+  | { kind: 'manualFocus'; position: number }
 
 // The applied-routine shape the Director returns — only the breathing fields we use.
 interface AppliedRoutine {
@@ -568,6 +585,21 @@ export function deleteCameraPreset(id: number): void {
 /** Set the OBSBOT tracking-speed mode (0–5). */
 export function setCameraTrackingSpeed(mode: number): void {
   withCam('set-tracking-speed', (cam) => cam.setTrackingSpeed(mode))
+}
+
+/** Apply a manual image control (white balance / exposure / focus) from the operator panel. */
+export function setCameraImageControl(c: CameraImageControl): void {
+  withCam(`image:${c.kind}`, (cam) => {
+    switch (c.kind) {
+      case 'exposureMode': cam.setExposureMode(c.mode); break
+      case 'evBias': cam.setEvBias(c.ev); break
+      case 'iso': cam.setManualIso(c.iso); break
+      case 'shutter': cam.setManualShutter(c.shutter); break
+      case 'whiteBalance': cam.setWhiteBalance(c.mode, c.temperature); break
+      case 'afMode': cam.setAfMode(c.mode); break
+      case 'manualFocus': cam.setManualFocus(c.position); break
+    }
+  })
 }
 
 /**

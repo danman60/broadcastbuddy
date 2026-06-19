@@ -249,6 +249,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.CAMERA_SET_AUTO_MODE, args),
   cameraSetTrackingSpeed: (args: { mode: number }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.CAMERA_SET_TRACKING_SPEED, args),
+  cameraImageControl: (args: Record<string, unknown>): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_IMAGE_CONTROL, args),
 
   // ── OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state) ──
   cameraNudgeXY: (args: { yaw: number; pitch: number; stop?: boolean }): Promise<{ ok: boolean }> =>

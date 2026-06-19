@@ -466,6 +466,9 @@ function CameraPanelActive(): React.ReactElement {
         <button className="camera-btn" onClick={recenter}>Recenter</button>
       </div>
 
+      {/* ── Image: White Balance / Exposure / Focus ── */}
+      <CameraImageControls />
+
       {/* ── Gamepad indicator ── */}
       <div className="camera-gamepad">
         <span className={'pad-dot' + (padLabel ? ' on' : '')} />
@@ -569,6 +572,120 @@ function CameraPreview({
               : 'Pick a camera to frame the wide shot'}
           {/* keep the video element mounted-but-hidden so srcObject can attach */}
           <video ref={videoRef} style={{ display: 'none' }} muted playsInline />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Manual image controls: White Balance / Exposure / Focus ──────────────────
+// Fire-and-forget against the OBSBOT REST /image/* endpoints (guarded server-side;
+// no-op unless the camera is active). Local UI state only — the camera is the
+// source of truth; these just push operator intent.
+const WB_MODES = ['auto', 'daylight', 'fluorescent', 'tungsten', 'cloudy', 'manual'] as const
+const ISO_STEPS = [100, 200, 400, 800, 1600, 3200, 6400]
+const SHUTTER_STEPS = ['1/30', '1/50', '1/60', '1/100', '1/120', '1/200', '1/500', '1/1000', '1/2000']
+
+function CameraImageControls(): React.JSX.Element {
+  const api = window.api
+  const [wb, setWb] = useState<(typeof WB_MODES)[number]>('auto')
+  const [temp, setTemp] = useState(5600)
+  const [expMode, setExpMode] = useState<'auto' | 'manual'>('auto')
+  const [ev, setEv] = useState(0)
+  const [iso, setIso] = useState(800)
+  const [shutter, setShutter] = useState('1/100')
+  const [afMode, setAfMode] = useState<'afc' | 'afs' | 'mf'>('afc')
+  const [focus, setFocus] = useState(50)
+
+  return (
+    <div className="camera-image-controls">
+      <div className="camera-section-title">Image — White Balance · Exposure · Focus</div>
+
+      {/* White Balance */}
+      <div className="cam-img-row">
+        <label>White Bal</label>
+        <select
+          value={wb}
+          onChange={(e) => {
+            const mode = e.target.value as (typeof WB_MODES)[number]
+            setWb(mode)
+            void api.cameraImageControl({ kind: 'whiteBalance', mode, temperature: mode === 'manual' ? temp : undefined })
+          }}
+        >
+          {WB_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      {wb === 'manual' && (
+        <div className="cam-img-row">
+          <label>Temp {temp}K</label>
+          <input
+            type="range" min={2800} max={8000} step={100} value={temp}
+            onChange={(e) => setTemp(Number(e.target.value))}
+            onMouseUp={() => void api.cameraImageControl({ kind: 'whiteBalance', mode: 'manual', temperature: temp })}
+          />
+        </div>
+      )}
+
+      {/* Exposure mode */}
+      <div className="cam-img-row">
+        <label>Exposure</label>
+        <div className="cam-img-toggle">
+          {(['auto', 'manual'] as const).map((m) => (
+            <button
+              key={m}
+              className={'camera-btn' + (expMode === m ? ' active' : '')}
+              onClick={() => { setExpMode(m); void api.cameraImageControl({ kind: 'exposureMode', mode: m }) }}
+            >{m}</button>
+          ))}
+        </div>
+      </div>
+      {expMode === 'auto' ? (
+        <div className="cam-img-row">
+          <label>EV {ev > 0 ? '+' : ''}{ev.toFixed(1)}</label>
+          <input
+            type="range" min={-3} max={3} step={0.3} value={ev}
+            onChange={(e) => setEv(Number(e.target.value))}
+            onMouseUp={() => void api.cameraImageControl({ kind: 'evBias', ev })}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="cam-img-row">
+            <label>ISO</label>
+            <select value={iso} onChange={(e) => { const v = Number(e.target.value); setIso(v); void api.cameraImageControl({ kind: 'iso', iso: v }) }}>
+              {ISO_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="cam-img-row">
+            <label>Shutter</label>
+            <select value={shutter} onChange={(e) => { setShutter(e.target.value); void api.cameraImageControl({ kind: 'shutter', shutter: e.target.value }) }}>
+              {SHUTTER_STEPS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </>
+      )}
+
+      {/* Focus */}
+      <div className="cam-img-row">
+        <label>Focus</label>
+        <div className="cam-img-toggle">
+          {(['afc', 'afs', 'mf'] as const).map((m) => (
+            <button
+              key={m}
+              className={'camera-btn' + (afMode === m ? ' active' : '')}
+              onClick={() => { setAfMode(m); void api.cameraImageControl({ kind: 'afMode', mode: m }) }}
+            >{m.toUpperCase()}</button>
+          ))}
+        </div>
+      </div>
+      {afMode === 'mf' && (
+        <div className="cam-img-row">
+          <label>Focus {focus}</label>
+          <input
+            type="range" min={0} max={100} step={1} value={focus}
+            onChange={(e) => setFocus(Number(e.target.value))}
+            onMouseUp={() => void api.cameraImageControl({ kind: 'manualFocus', position: focus })}
+          />
         </div>
       )}
     </div>

@@ -1044,6 +1044,7 @@ export const IPC = {
   CAMERA_DELETE_PRESET: 'camera:delete-preset', // delete stored preset id
   CAMERA_SET_AUTO_MODE: 'camera:set-auto-mode', // persist auto-mode opt-in
   CAMERA_SET_TRACKING_SPEED: 'camera:set-tracking-speed', // OBSBOT track-speed mode
+  CAMERA_IMAGE_CONTROL: 'camera:image-control', // manual white balance / exposure / focus
 
   // OBSBOT camera — PTZ control panel (Wave 2/3). High-rate joystick/gamepad path
   // + zoom velocity + AI interlock + live state readout. All guarded; no-op when

@@ -153,6 +153,15 @@ interface ElectronAPI {
     on: boolean
   }) => Promise<{ ok: boolean; host?: string; reachable?: boolean; error?: string }>
   cameraSetTrackingSpeed: (args: { mode: number }) => Promise<{ ok: boolean }>
+  cameraImageControl: (args:
+    | { kind: 'exposureMode'; mode: 'auto' | 'manual' }
+    | { kind: 'evBias'; ev: number }
+    | { kind: 'iso'; iso: number }
+    | { kind: 'shutter'; shutter: string }
+    | { kind: 'whiteBalance'; mode: 'auto' | 'daylight' | 'fluorescent' | 'tungsten' | 'cloudy' | 'manual'; temperature?: number }
+    | { kind: 'afMode'; mode: 'afc' | 'afs' | 'mf' }
+    | { kind: 'manualFocus'; position: number }
+  ) => Promise<{ ok: boolean }>
 
   // OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state)
   cameraNudgeXY: (args: { yaw: number; pitch: number; stop?: boolean }) => Promise<{ ok: boolean }>
