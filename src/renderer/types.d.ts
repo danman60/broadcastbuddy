@@ -168,6 +168,7 @@ interface ElectronAPI {
     | { kind: 'autoZoom'; aiMode: 0 | 1; tier: number }
     | { kind: 'onlyMe'; on: boolean }
     | { kind: 'zoomLevel'; level: number }
+    | { kind: 'record'; on: boolean }
   ) => Promise<{ ok: boolean }>
 
   // OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state)

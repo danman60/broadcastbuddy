@@ -63,6 +63,7 @@ interface CameraHal {
   setAiMode: (mode: 0 | 1) => void
   setAutoZoom: (aiMode: 0 | 1, tier: number) => void
   setOnlyMe: (on: boolean) => void
+  setRecording: (on: boolean) => void
   setExposureMode: (mode: 'auto' | 'manual') => void
   setEvBias: (ev: number) => void
   setManualIso: (iso: number) => void
@@ -598,6 +599,7 @@ export type CameraControl =
   | { kind: 'autoZoom'; aiMode: 0 | 1; tier: number }
   | { kind: 'onlyMe'; on: boolean }
   | { kind: 'zoomLevel'; level: number }
+  | { kind: 'record'; on: boolean }
 
 export function setCameraControl(c: CameraControl): void {
   withCam(`ctrl:${c.kind}`, (cam) => {
@@ -607,6 +609,7 @@ export function setCameraControl(c: CameraControl): void {
       case 'autoZoom': cam.setAutoZoom(c.aiMode, c.tier); break
       case 'onlyMe': cam.setOnlyMe(c.on); break
       case 'zoomLevel': cam.setZoom(c.level); break
+      case 'record': cam.setRecording(c.on); break
     }
   })
 }

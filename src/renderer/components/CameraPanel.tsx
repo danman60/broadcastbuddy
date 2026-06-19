@@ -719,6 +719,7 @@ function CameraTrackingControls(): React.JSX.Element {
   const [tier, setTier] = useState(2) // Wide default
   const [onlyMe, setOnlyMe] = useState(false)
   const [zoom, setZoom] = useState(0)
+  const [recording, setRecording] = useState(false)
 
   return (
     <div className="camera-image-controls">
@@ -788,6 +789,18 @@ function CameraTrackingControls(): React.JSX.Element {
           onChange={(e) => setZoom(Number(e.target.value))}
           onMouseUp={() => void api.cameraControl({ kind: 'zoomLevel', level: zoom })}
         />
+      </div>
+
+      {/* Record to camera SD card */}
+      <div className="cam-img-row">
+        <label>SD Record</label>
+        <button
+          className={'camera-btn' + (recording ? ' danger' : '')}
+          style={{ flex: 1 }}
+          onClick={() => { const next = !recording; setRecording(next); void api.cameraControl({ kind: 'record', on: next }) }}
+        >
+          {recording ? '⏺ Recording — Stop' : 'Start SD Recording'}
+        </button>
       </div>
     </div>
   )
