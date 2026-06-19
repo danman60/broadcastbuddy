@@ -116,6 +116,24 @@ export function StreamInfoPanel() {
             </div>
           </div>
 
+          {/* Manual stream-key sync to OBS (with verified toast) */}
+          <div className="stream-obs-push">
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={pushToObs}
+              disabled={obsStatus === 'pushing' || (!config.rtmpUrl && !config.streamKey)}
+              title="Push the current stream key + RTMP to OBS and verify it landed"
+            >
+              {obsStatus === 'pushing' ? 'Syncing…'
+                : obsStatus === 'done' ? '✓ Synced to OBS'
+                : obsStatus === 'error' ? '✗ Sync failed'
+                : 'Sync Key → OBS'}
+            </button>
+            {obsStatus === 'error' && obsError && (
+              <span className="stream-obs-hint" style={{ color: '#ef4444' }}>{obsError}</span>
+            )}
+          </div>
+
           {/* OBS stream control + replay buffer */}
           <div className="stream-obs-push">
             <button

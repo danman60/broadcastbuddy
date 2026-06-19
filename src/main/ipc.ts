@@ -485,6 +485,19 @@ export function registerIpcHandlers(): void {
         s.streamConfig,
       )
       pushState()
+      // The session carries its own stream key/rtmp (from the CC package it was
+      // built from). loadSessionState only sets the in-memory value, so without
+      // this the persisted streamConfig + OBS keep the PREVIOUS event's key.
+      // Persist it (so an OBS reconnect re-pushes the right key) AND push now.
+      const sc = s.streamConfig
+      if (sc && sc.rtmpUrl && sc.streamKey) {
+        settings.set('streamConfig', sc)
+        if (obsConnection.isConnected()) {
+          void pushStreamSettingsToObs(sc.rtmpUrl, sc.streamKey, {
+            event: s.name,
+          }).catch((err) => logger.error('Push stream key on session load failed:', err))
+        }
+      }
     }
     return s
   })
