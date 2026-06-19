@@ -266,6 +266,8 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
     letter-spacing: 4px;
     opacity: 0;
     transition: opacity 0.5s ease;
+    /* Legible over any backdrop (incl. full-frame video cover). */
+    text-shadow: 0 2px 18px rgba(0,0,0,0.55), 0 0 2px rgba(0,0,0,0.4);
   }
   .ss-countdown.active { opacity: 1; }
   .ss-accent-line {
@@ -303,6 +305,37 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
   .starting-soon > .ss-grain,
   .starting-soon > .ss-vignette,
   .starting-soon > .ss-slideshow { z-index: 0; }
+
+  /* ── Full-frame cover backdrop (opaque looping MP4) + legibility scrim ──
+     #ss-backdrop sits below the ambient/text layers (z-index:0). It's opaque
+     (background:#000) so it fully covers the OBS program below when active.
+     The scrim (z-index:1) is a soft radial darkening shown only when a video
+     backdrop is active, so the countdown/title read cleanly over busy footage.
+     Both are absolutely positioned and pulled out of the centered flex flow. */
+  .starting-soon > #ss-backdrop {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    background: #000;
+    display: none; /* shown only when a cover video is active */
+  }
+  .starting-soon > #ss-backdrop.active { display: block; }
+  .starting-soon > #ss-backdrop-scrim {
+    position: absolute; inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 80% 70% at 50% 50%,
+      rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.72) 100%);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .starting-soon > #ss-backdrop-scrim.active { opacity: 1; }
+  /* Raise the live text layers above the backdrop + scrim so they always read. */
+  .starting-soon > .ss-countdown,
+  .starting-soon > .ss-title,
+  .starting-soon > .ss-subtitle,
+  .starting-soon > .ss-welcome { z-index: 5; }
 
   .ss-gradient-bg {
     position: absolute; inset: 0; z-index: 0;
@@ -1046,6 +1079,11 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
   </div>
 
   <div id="starting-soon" class="starting-soon">
+    <!-- Full-frame "cover" backdrop (opaque MP4 loop). FIRST child so it paints
+         behind everything. src is set/cleared by applyStartingSoon — the element
+         truly unloads (src removed + load()) when hidden, so zero decode cost. -->
+    <video id="ss-backdrop" loop muted playsinline></video>
+    <div id="ss-backdrop-scrim"></div>
     <div class="ss-gradient-bg" id="ss-gradient-bg"></div>
     <div class="ss-bloom" id="ss-bloom"></div>
     <div class="ss-grain"></div>
@@ -1627,6 +1665,40 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       }
     }
 
+    // True-unload the cover backdrop: pause, clear src, and load() so the
+    // browser releases the decoder. Load-bearing — guarantees zero decode cost
+    // whenever the SS is not visible or cover mode is off.
+    function ssUnloadBackdrop() {
+      var v = document.getElementById('ss-backdrop');
+      var scrim = document.getElementById('ss-backdrop-scrim');
+      if (scrim) scrim.classList.remove('active');
+      if (!v) return;
+      try { v.pause(); } catch (e) {}
+      if (v.getAttribute('src')) {
+        v.removeAttribute('src');
+        try { v.load(); } catch (e) {} // forces the decoder to release
+      }
+      v.classList.remove('active');
+    }
+
+    // Apply the cover backdrop for a given SS state. Only (re)sets src when the
+    // URL changed, so an unrelated state push doesn't restart the loop.
+    function ssApplyBackdrop(ss) {
+      var v = document.getElementById('ss-backdrop');
+      var scrim = document.getElementById('ss-backdrop-scrim');
+      if (!v) return;
+      var wantCover = ss && ss.visible && ss.backdropMode === 'cover' && ss.backdropVideoUrl;
+      if (!wantCover) { ssUnloadBackdrop(); return; }
+      if (v.getAttribute('src') !== ss.backdropVideoUrl) {
+        v.setAttribute('src', ss.backdropVideoUrl);
+        try { v.load(); } catch (e) {}
+      }
+      v.classList.add('active');
+      if (scrim) scrim.classList.add('active');
+      var p = v.play();
+      if (p && p.catch) p.catch(function () {}); // autoplay can reject; muted loop retries on next push
+    }
+
     function applyStartingSoon(ss, companyLogo, clientLogo) {
       var ssEl = document.getElementById('starting-soon');
       var ssTitleEl = document.getElementById('ss-title');
@@ -1634,7 +1706,7 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       var ssCountEl = document.getElementById('ss-countdown');
       var ssAccent = document.getElementById('ss-accent');
 
-      if (!ss) { ssEl.classList.remove('visible'); return; }
+      if (!ss) { ssEl.classList.remove('visible'); ssUnloadBackdrop(); return; }
 
       // ── Tenant (company) + client logos — shown by default on the SS scene ──
       var ssCompany = document.getElementById('ss-company-logo');
@@ -1682,6 +1754,12 @@ export function buildOverlayHTML(state: OverlayState, wsPort: number): string {
       } else {
         ssEl.classList.remove('visible');
       }
+
+      // ── Full-frame cover backdrop (opaque MP4 loop) ──────────────────
+      // Load + play only when visible AND cover mode AND a URL is set; in every
+      // other case unload the element (clear src) so it costs zero decode while
+      // the overlay browser source stays live for in-show lower-thirds.
+      ssApplyBackdrop(ss);
 
       // Countdown
       if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }

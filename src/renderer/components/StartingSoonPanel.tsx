@@ -197,6 +197,30 @@ export function StartingSoonPanel() {
             </div>
           </div>
 
+          {/* Full-frame cover backdrop (looping MP4 behind the countdown) */}
+          <div className="ss-media-block">
+            <label className="ss-media-toggle">
+              <input
+                type="checkbox"
+                checked={ss.backdropMode === 'cover'}
+                onChange={(e) => update({ backdropMode: e.target.checked ? 'cover' : 'none' })}
+              />
+              Cover Mode (full-frame video backdrop)
+            </label>
+            <div className="ss-field">
+              <label>Backdrop video (full-frame loop)</label>
+              <input
+                type="text"
+                value={ss.backdropVideoUrl ?? ''}
+                onChange={(e) => update({ backdropVideoUrl: e.target.value })}
+                placeholder="https://… looping .mp4"
+              />
+              <span className="ss-hint">
+                Opaque MP4 fills the frame with the countdown over it. Unloads when hidden (zero CPU).
+              </span>
+            </div>
+          </div>
+
           {/* Pre-show media stack */}
           <div className={`ss-media-section${mediaCollapsed ? ' collapsed' : ''}`}>
             <div className="ss-media-header" onClick={() => setMediaCollapsed(!mediaCollapsed)}>

@@ -240,6 +240,13 @@ export interface StartingSoonState {
   accentColor: string
   sectionLabel?: string // optional cinematic section badge text (e.g. "ACT TWO"); empty/absent = no badge
   media?: StartingSoonMedia // optional pre-show ambient media stack (all off by default)
+  // Full-frame "cover" backdrop slot (distinct from media.videoUrl, which is an
+  // inset framed window). When backdropMode==='cover' && backdropVideoUrl is set,
+  // a looping opaque MP4 fills the frame behind the countdown/text. Absent/empty
+  // or backdropMode==='none' → renders exactly as before. The browser source
+  // unloads the video element on hide (zero decode cost when inactive).
+  backdropVideoUrl?: string // full-frame looping MP4 URL (http(s) or BB-served). Empty/absent = no video backdrop.
+  backdropMode?: 'cover' | 'none' // 'cover' = full-frame object-fit:cover opaque backdrop. Default 'none'.
   layout?: SSElementLayout // optional per-element drag placement/style (scene editor)
   design?: SSDesign // optional one-tap design (gradient/fonts/weights)
 }

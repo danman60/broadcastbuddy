@@ -139,6 +139,8 @@ function applyOverlayContent(content: unknown): void {
     if (str(s.completionText) !== undefined) ssUpdates.completionText = str(s.completionText)
     if (num(s.countdownSeconds) !== undefined) ssUpdates.countdownSeconds = num(s.countdownSeconds)
     if (bool(s.showCountdown) !== undefined) ssUpdates.showCountdown = bool(s.showCountdown)
+    if (str(s.backdropVideoUrl) !== undefined) ssUpdates.backdropVideoUrl = str(s.backdropVideoUrl)
+    if (s.backdropMode === 'cover' || s.backdropMode === 'none') ssUpdates.backdropMode = s.backdropMode
     const media: Record<string, unknown> = {}
     if (bool(s.showVisualizer) !== undefined) media.showVisualizer = bool(s.showVisualizer)
     if (bool(s.showVideo) !== undefined) media.showVideo = bool(s.showVideo)
