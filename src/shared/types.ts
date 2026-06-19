@@ -1045,6 +1045,7 @@ export const IPC = {
   CAMERA_SET_AUTO_MODE: 'camera:set-auto-mode', // persist auto-mode opt-in
   CAMERA_SET_TRACKING_SPEED: 'camera:set-tracking-speed', // OBSBOT track-speed mode
   CAMERA_IMAGE_CONTROL: 'camera:image-control', // manual white balance / exposure / focus
+  CAMERA_CONTROL: 'camera:control', // tracking speed / AI mode / framing tier / only-me / zoom level
 
   // OBSBOT camera — PTZ control panel (Wave 2/3). High-rate joystick/gamepad path
   // + zoom velocity + AI interlock + live state readout. All guarded; no-op when

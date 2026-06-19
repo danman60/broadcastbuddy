@@ -466,6 +466,9 @@ function CameraPanelActive(): React.ReactElement {
         <button className="camera-btn" onClick={recenter}>Recenter</button>
       </div>
 
+      {/* ── Tracking / Subject / Framing / Zoom ── */}
+      <CameraTrackingControls />
+
       {/* ── Image: White Balance / Exposure / Focus ── */}
       <CameraImageControls />
 
@@ -688,6 +691,104 @@ function CameraImageControls(): React.JSX.Element {
           />
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Tracking / Subject / Framing / Zoom — the live "OBSBOT Center replacement"
+// suite so the operator can run the camera entirely from BB with OBSBOT Center
+// closed. Fire-and-forget against /ai/* and /ptz/zoom (guarded server-side).
+const TRACK_SPEEDS = [
+  { mode: 0, label: 'S.Lazy' },
+  { mode: 1, label: 'Lazy' },
+  { mode: 2, label: 'Slow' },
+  { mode: 3, label: 'Fast' },
+  { mode: 4, label: 'Crazy' },
+]
+const FRAMING_TIERS = [
+  { tier: 0, label: 'Tight' },
+  { tier: 1, label: 'Med' },
+  { tier: 2, label: 'Wide' },
+  { tier: 3, label: 'Widest' },
+]
+
+function CameraTrackingControls(): React.JSX.Element {
+  const api = window.api
+  const [speed, setSpeed] = useState(3) // Fast default (recital)
+  const [subject, setSubject] = useState<0 | 1>(1) // 1 = group default
+  const [tier, setTier] = useState(2) // Wide default
+  const [onlyMe, setOnlyMe] = useState(false)
+  const [zoom, setZoom] = useState(0)
+
+  return (
+    <div className="camera-image-controls">
+      <div className="camera-section-title">Tracking · Subject · Framing · Zoom</div>
+
+      {/* Follow / tracking speed */}
+      <div className="cam-img-row">
+        <label>Follow spd</label>
+        <div className="cam-img-toggle">
+          {TRACK_SPEEDS.map((s) => (
+            <button
+              key={s.mode}
+              className={'camera-btn' + (speed === s.mode ? ' active' : '')}
+              onClick={() => { setSpeed(s.mode); void api.cameraControl({ kind: 'trackingSpeed', mode: s.mode }) }}
+            >{s.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Subject mode */}
+      <div className="cam-img-row">
+        <label>Subject</label>
+        <div className="cam-img-toggle">
+          {([[0, 'Single'], [1, 'Group']] as const).map(([m, lbl]) => (
+            <button
+              key={m}
+              className={'camera-btn' + (subject === m ? ' active' : '')}
+              onClick={() => { setSubject(m); void api.cameraControl({ kind: 'aiMode', mode: m }) }}
+            >{lbl}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Framing tier */}
+      <div className="cam-img-row">
+        <label>Framing</label>
+        <div className="cam-img-toggle">
+          {FRAMING_TIERS.map((f) => (
+            <button
+              key={f.tier}
+              className={'camera-btn' + (tier === f.tier ? ' active' : '')}
+              onClick={() => { setTier(f.tier); void api.cameraControl({ kind: 'autoZoom', aiMode: subject, tier: f.tier }) }}
+            >{f.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Only Me lock */}
+      <div className="cam-img-row">
+        <label>Only Me</label>
+        <div className="cam-img-toggle">
+          {([[false, 'Off'], [true, 'On']] as const).map(([v, lbl]) => (
+            <button
+              key={String(v)}
+              className={'camera-btn' + (onlyMe === v ? ' active' : '')}
+              onClick={() => { setOnlyMe(v); void api.cameraControl({ kind: 'onlyMe', on: v }) }}
+            >{lbl}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Absolute zoom level */}
+      <div className="cam-img-row">
+        <label>Zoom {zoom}</label>
+        <input
+          type="range" min={0} max={100} step={1} value={zoom}
+          onChange={(e) => setZoom(Number(e.target.value))}
+          onMouseUp={() => void api.cameraControl({ kind: 'zoomLevel', level: zoom })}
+        />
+      </div>
     </div>
   )
 }

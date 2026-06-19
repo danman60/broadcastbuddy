@@ -28,6 +28,8 @@ import {
   setCameraTrackingSpeed,
   setCameraImageControl,
   type CameraImageControl,
+  setCameraControl,
+  type CameraControl,
   setCameraAutoMode,
   nudgeCameraXY,
   zoomCameraVelocity,
@@ -1488,6 +1490,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.CAMERA_IMAGE_CONTROL, (_e, args: CameraImageControl) => {
     setCameraImageControl(args)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CAMERA_CONTROL, (_e, args: CameraControl) => {
+    setCameraControl(args)
     return { ok: true }
   })
 

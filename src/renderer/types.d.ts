@@ -162,6 +162,13 @@ interface ElectronAPI {
     | { kind: 'afMode'; mode: 'afc' | 'afs' | 'mf' }
     | { kind: 'manualFocus'; position: number }
   ) => Promise<{ ok: boolean }>
+  cameraControl: (args:
+    | { kind: 'trackingSpeed'; mode: number }
+    | { kind: 'aiMode'; mode: 0 | 1 }
+    | { kind: 'autoZoom'; aiMode: 0 | 1; tier: number }
+    | { kind: 'onlyMe'; on: boolean }
+    | { kind: 'zoomLevel'; level: number }
+  ) => Promise<{ ok: boolean }>
 
   // OBSBOT camera — PTZ control panel (high-rate joystick/gamepad + state)
   cameraNudgeXY: (args: { yaw: number; pitch: number; stop?: boolean }) => Promise<{ ok: boolean }>

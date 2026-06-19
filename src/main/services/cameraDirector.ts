@@ -59,6 +59,10 @@ interface CameraHal {
   setPreset: (id: number, name?: string) => void
   deletePreset: (id: number) => void
   setTrackingSpeed: (mode: number) => void
+  setZoom: (level: number) => void
+  setAiMode: (mode: 0 | 1) => void
+  setAutoZoom: (aiMode: 0 | 1, tier: number) => void
+  setOnlyMe: (on: boolean) => void
   setExposureMode: (mode: 'auto' | 'manual') => void
   setEvBias: (ev: number) => void
   setManualIso: (iso: number) => void
@@ -585,6 +589,26 @@ export function deleteCameraPreset(id: number): void {
 /** Set the OBSBOT tracking-speed mode (0–5). */
 export function setCameraTrackingSpeed(mode: number): void {
   withCam('set-tracking-speed', (cam) => cam.setTrackingSpeed(mode))
+}
+
+/** Tracking / framing / zoom controls (the live "OBSBOT Center replacement" suite). */
+export type CameraControl =
+  | { kind: 'trackingSpeed'; mode: number }
+  | { kind: 'aiMode'; mode: 0 | 1 }
+  | { kind: 'autoZoom'; aiMode: 0 | 1; tier: number }
+  | { kind: 'onlyMe'; on: boolean }
+  | { kind: 'zoomLevel'; level: number }
+
+export function setCameraControl(c: CameraControl): void {
+  withCam(`ctrl:${c.kind}`, (cam) => {
+    switch (c.kind) {
+      case 'trackingSpeed': cam.setTrackingSpeed(c.mode); break
+      case 'aiMode': cam.setAiMode(c.mode); break
+      case 'autoZoom': cam.setAutoZoom(c.aiMode, c.tier); break
+      case 'onlyMe': cam.setOnlyMe(c.on); break
+      case 'zoomLevel': cam.setZoom(c.level); break
+    }
+  })
 }
 
 /** Apply a manual image control (white balance / exposure / focus) from the operator panel. */
