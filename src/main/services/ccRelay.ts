@@ -31,14 +31,32 @@ const logger = createLogger('ccRelay')
 let config: CcRelayConfig | null = null
 let supabase: SupabaseClient | null = null
 let channel: RealtimeChannel | null = null
-// 2nd subscription: CC viewer-chat feed ('livestream:<streamEventId>' event
-// 'chat'). Armed only when config.chatChannel is present; fed into chatBridge.
-let chatChannel: RealtimeChannel | null = null
 let connected = false
 let reconnectTimer: NodeJS.Timeout | null = null
 let reconnectDelayMs = 2000
 let consecutiveFailures = 0
 let started = false // user/auto-armed — auto-reconnect on failures
+
+// ── CC viewer-chat feed (SELF-CONTAINED, ported from CSE chatBridge.ts) ───────
+// The viewer-chat feed is the ONLY inbound path for CC viewer chat → operator
+// ChatPanel (CC publishes viewer chat on a Supabase *broadcast* channel
+// `livestream:<streamEventId>` event 'chat'; it never writes to a postgres
+// `chat_messages` table, so BB's chatBridge postgres subscription gets nothing).
+//
+// It deliberately does NOT depend on the primary relay's tenantId/eventId. The
+// prior implementation nested this inside connectChannel(), which bailed when
+// `tenantId` was empty (ipc.ts only had tenantId when a CC connection was saved
+// with one) — so an operator who applied a package without a saved tenantId got
+// an empty chat panel all night (2026-06-19 Ancaster). Now it arms from
+// url+anonKey+chatChannel alone, with its own client, subscribe-status logging,
+// and exponential-backoff reconnect — exactly like CSE's chatBridge.
+let chatSupabase: SupabaseClient | null = null
+let chatChannelSub: RealtimeChannel | null = null
+let chatChannelName = ''
+let chatStarted = false
+let chatReconnectTimer: NodeJS.Timeout | null = null
+let chatReconnectDelayMs = 2000
+let chatConsecutiveFailures = 0
 
 let onStateChange: (() => void) | null = null
 // Fired when a 'package' broadcast arrives — wired by ipc.ts to apply it via the
@@ -113,19 +131,15 @@ function teardownChannel(): void {
     try { void channel.unsubscribe() } catch { /* ignore */ }
     channel = null
   }
-  teardownChatFeed()
-}
-
-function teardownChatFeed(): void {
-  if (chatChannel) {
-    try { void chatChannel.unsubscribe() } catch { /* ignore */ }
-    chatChannel = null
-  }
 }
 
 /**
  * Map a CC viewer-chat payload `{ id, name, text, timestamp, isAdmin, isPinned }`
  * to the BB ChatMessage shape. Defensive — returns null on a malformed payload.
+ *
+ * `timestamp` is an ISO-8601 STRING on the wire (CC's ChatMessageWire), not a
+ * number — the old code only accepted `number` and silently fell back to
+ * Date.now() for every message. Now we parse the ISO string too.
  */
 function ccChatToMessage(payload: unknown): ChatMessage | null {
   if (!payload || typeof payload !== 'object') return null
@@ -133,6 +147,13 @@ function ccChatToMessage(payload: unknown): ChatMessage | null {
   const id = typeof p.id === 'string' ? p.id : ''
   const text = typeof p.text === 'string' ? p.text : ''
   if (!id || !text) return null
+  let createdAt = Date.now()
+  if (typeof p.timestamp === 'number') {
+    createdAt = p.timestamp
+  } else if (typeof p.timestamp === 'string') {
+    const parsed = Date.parse(p.timestamp)
+    if (!Number.isNaN(parsed)) createdAt = parsed
+  }
   return {
     id,
     author: typeof p.name === 'string' ? p.name : 'viewer',
@@ -140,25 +161,75 @@ function ccChatToMessage(payload: unknown): ChatMessage | null {
     pinned: false, // operator pin is local-only; CC pin drives the chat-message overlay
     hidden: false,
     livestreamPinned: !!p.isPinned,
-    createdAt: typeof p.timestamp === 'number' ? p.timestamp : Date.now(),
+    createdAt,
   }
 }
 
+// ── CC viewer-chat feed: self-contained subscription (CSE chatBridge pattern) ──
+
+function teardownChatFeed(): void {
+  if (chatReconnectTimer) {
+    clearTimeout(chatReconnectTimer)
+    chatReconnectTimer = null
+  }
+  if (chatChannelSub) {
+    try { void chatChannelSub.unsubscribe() } catch { /* ignore */ }
+    chatChannelSub = null
+  }
+  if (chatSupabase) {
+    try { chatSupabase.realtime.disconnect() } catch { /* ignore */ }
+    chatSupabase = null
+  }
+}
+
+function scheduleChatReconnect(): void {
+  if (!chatStarted) return
+  if (chatReconnectTimer) clearTimeout(chatReconnectTimer)
+  chatConsecutiveFailures++
+  chatReconnectDelayMs = Math.min(2000 * 2 ** Math.min(chatConsecutiveFailures - 1, 4), 30000)
+  logger.info(`CC viewer-chat feed: reconnecting in ${chatReconnectDelayMs}ms (attempt ${chatConsecutiveFailures})`)
+  chatReconnectTimer = setTimeout(() => {
+    chatReconnectTimer = null
+    connectChatFeed()
+  }, chatReconnectDelayMs)
+}
+
 /**
- * Subscribe the SECOND channel — CC's full viewer-chat feed on
- * `livestream:<streamEventId>` (event 'chat'). Dormant unless config.chatChannel
- * is present. Each message is fed into chatBridge so the operator ChatPanel
- * renders CC viewer chat alongside operator messages. Additive + non-fatal: a
- * failure here never affects the primary relay channel.
+ * Subscribe CC's viewer-chat feed on `livestream:<streamEventId>` (event 'chat')
+ * with its OWN Supabase client, independent of the primary relay channel. Armed
+ * by armChatFeed() whenever supabaseUrl + supabaseAnonKey + chatChannel are
+ * present — no tenantId required. Each message is fed into chatBridge so the
+ * operator ChatPanel renders CC viewer chat. Ported from CSE chatBridge.ts:
+ * dedicated client + setAuth + subscribe-status handling + backoff reconnect.
  */
 function connectChatFeed(): void {
-  if (!supabase || !config || !config.chatChannel) return
-  teardownChatFeed()
-  const name = config.chatChannel
-  logger.info(`Subscribing to CC viewer-chat feed ${name}`)
+  if (!config || !config.supabaseUrl || !config.supabaseAnonKey || !chatChannelName) return
+  // Fresh client per (re)connect so a dead socket can't wedge the channel join.
+  if (chatChannelSub) {
+    try { void chatChannelSub.unsubscribe() } catch { /* ignore */ }
+    chatChannelSub = null
+  }
+  if (chatSupabase) {
+    try { chatSupabase.realtime.disconnect() } catch { /* ignore */ }
+    chatSupabase = null
+  }
   try {
-    chatChannel = supabase
-      .channel(name)
+    chatSupabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      // Electron Node 20 lacks global WebSocket — supply `ws` as transport.
+      realtime: {
+        transport: ws as unknown as typeof WebSocket,
+        params: { apikey: config.supabaseAnonKey, eventsPerSecond: 10 },
+      },
+    })
+    // Belt-and-suspenders: some Supabase projects require the channel join to
+    // carry an access token even for public broadcast channels (CSE pattern).
+    try { chatSupabase.realtime.setAuth(config.supabaseAnonKey) } catch (err) {
+      logger.warn('CC viewer-chat feed: setAuth failed:', err instanceof Error ? err.message : err)
+    }
+
+    logger.info(`Subscribing to CC viewer-chat feed ${chatChannelName}`)
+    chatChannelSub = chatSupabase
+      .channel(chatChannelName, { config: { broadcast: { self: false, ack: false } } })
       .on('broadcast', { event: 'chat' }, ({ payload }) => {
         try {
           const msg = ccChatToMessage(payload)
@@ -167,15 +238,40 @@ function connectChatFeed(): void {
           logger.warn('CC chat-feed handler threw:', err instanceof Error ? err.message : err)
         }
       })
-      .subscribe((status) => {
-        logger.info(`CC viewer-chat feed status = ${status}`)
+      .subscribe((status, err) => {
+        logger.info(`CC viewer-chat feed status = ${status}${err ? ` err=${err.message}` : ''}`)
         if (status === 'SUBSCRIBED') {
-          recordEvent('cc', `CC viewer-chat feed connected (${name})`)
+          chatConsecutiveFailures = 0
+          chatReconnectDelayMs = 2000
+          recordEvent('cc', `CC viewer-chat feed connected (${chatChannelName})`)
+        } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          scheduleChatReconnect()
         }
       })
   } catch (err) {
     logger.warn('connectChatFeed error:', err instanceof Error ? err.message : err)
+    scheduleChatReconnect()
   }
+}
+
+/**
+ * Arm (or re-arm) the CC viewer-chat feed from config. Idempotent: tears down
+ * any prior feed first. Dormant when chatChannel is absent (no StreamEvent
+ * linked at package build → CC ships chatChannel: null). Independent of the
+ * primary relay's readiness, so it survives an empty tenantId.
+ */
+function armChatFeed(): void {
+  teardownChatFeed()
+  chatStarted = false
+  if (!config || !config.supabaseUrl || !config.supabaseAnonKey || !config.chatChannel) {
+    logger.info('CC viewer-chat feed: no chatChannel — staying dormant')
+    return
+  }
+  chatChannelName = config.chatChannel
+  chatStarted = true
+  chatConsecutiveFailures = 0
+  chatReconnectDelayMs = 2000
+  connectChatFeed()
 }
 
 function connectChannel(): void {
@@ -225,10 +321,6 @@ function connectChannel(): void {
           scheduleReconnect()
         }
       })
-
-    // 2nd subscription — CC viewer-chat feed (config-gated, additive, dormant
-    // when chatChannel is absent). Shares the same supabase client.
-    connectChatFeed()
   } catch (err) {
     logger.warn('connectChannel error:', err instanceof Error ? err.message : err)
     connected = false
@@ -245,8 +337,15 @@ function connectChannel(): void {
 export function init(cfg: CcRelayConfig | undefined): void {
   disconnect()
   config = cfg ?? null
+
+  // The viewer-chat feed arms INDEPENDENTLY of the primary relay's readiness.
+  // It needs only supabaseUrl + supabaseAnonKey + chatChannel (no tenantId), so
+  // an operator who applies a package without a saved tenantId still gets live
+  // chat in the operator panel. armChatFeed() no-ops when chatChannel is absent.
+  armChatFeed()
+
   if (!isReady()) {
-    logger.info('CC relay disabled or not configured — staying dormant')
+    logger.info('CC relay (package channel) disabled or not configured — staying dormant')
     notify()
     return
   }
@@ -263,6 +362,7 @@ export function disconnect(): void {
     reconnectTimer = null
   }
   teardownChannel()
+  teardownChatFeed()
   supabase = null
   connected = false
   notify()

@@ -418,6 +418,10 @@ export interface AppSettings {
   slowZoom?: SlowZoomSettings
   obsTransitionRevert?: boolean
   chatConfig?: ChatConfig
+  // Persisted CC→BB live relay config (incl. viewer-chat feed chatChannel) so a
+  // mid-show BB restart re-arms the relay + chat feed without re-applying the
+  // package. Written on package-apply; read at IPC registration startup.
+  ccRelayConfig?: CcRelayConfig
   dayChecklistLastShown?: string // YYYY-MM-DD the start-of-day modal last auto-shown
   hotkeys?: HotkeyConfig
   // OBSBOT camera host (IP). Empty/unset = camera integration OFF (complete

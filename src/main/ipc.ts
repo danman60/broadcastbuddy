@@ -53,7 +53,7 @@ import * as streamDeckPlugin from './services/streamDeckPlugin'
 import * as overlayPanels from './services/overlayPanels'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
-import type { ChatConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView, UserStylePreset } from '../shared/types'
+import type { ChatConfig, CcRelayConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView, UserStylePreset } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -964,17 +964,29 @@ export function registerIpcHandlers(): void {
     const resolvedEventId = pkg.eventId || eventId || ''
     const cc = settings.get('ccConfig') as { tenantId?: string } | undefined
     const tenantId = cc?.tenantId || ''
-    if (rt && rt.supabaseUrl && rt.supabaseAnonKey && tenantId && resolvedEventId) {
-      ccRelay.init({
+    // Call ccRelay.init whenever the package carries Supabase realtime creds —
+    // NOT gated on tenantId. The PRIMARY relay channel (bb:<tenant>:<event>)
+    // still only connects when tenantId+eventId are present (ccRelay.isReady),
+    // but the VIEWER-CHAT feed (livestream:<streamEventId>) arms independently
+    // inside init() and needs no tenantId. Gating the whole init on tenantId is
+    // what left the operator chat panel empty all night (2026-06-19 Ancaster):
+    // the package was applied via API fetch with no saved tenantId, so init
+    // never ran and the chat feed never subscribed.
+    if (rt && rt.supabaseUrl && rt.supabaseAnonKey) {
+      const relayCfg: CcRelayConfig = {
         enabled: true,
         supabaseUrl: rt.supabaseUrl,
         supabaseAnonKey: rt.supabaseAnonKey,
         tenantId,
         eventId: resolvedEventId,
-        // Config-driven CC viewer-chat feed ('livestream:<streamEventId>').
-        // Absent → 2nd subscription stays dormant.
+        // CC viewer-chat feed ('livestream:<streamEventId>'). Absent (no linked
+        // StreamEvent at package build) → feed stays dormant.
         chatChannel: rt.chatChannel,
-      })
+      }
+      // Persist so a mid-show BB restart re-arms the relay + chat feed at
+      // startup without re-applying the package (see registration block).
+      settings.set('ccRelayConfig', relayCfg)
+      ccRelay.init(relayCfg)
     }
 
     // Arm the operator chat bridge from the SAME realtime block. It was fully
@@ -1782,6 +1794,11 @@ export function registerIpcHandlers(): void {
   ccRelay.setOnStateChange(() => {
     sendToAllWindows(IPC.CC_RELAY_STATE_UPDATE, ccRelay.getState())
   })
+
+  // Re-arm the CC relay + viewer-chat feed from persisted config at startup, so
+  // a mid-show BB restart restores live chat without re-applying the package.
+  // No-ops (and stays dormant) when nothing was ever applied.
+  ccRelay.init(settings.get('ccRelayConfig') as CcRelayConfig | undefined)
 
   ipcMain.handle(IPC.CC_RELAY_GET_STATE, () => {
     return ccRelay.getState()
