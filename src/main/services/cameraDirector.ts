@@ -86,26 +86,35 @@ export type CameraImageControl =
   | { kind: 'afMode'; mode: 'afc' | 'afs' | 'mf' }
   | { kind: 'manualFocus'; position: number }
 
-// The applied-routine shape the Director returns — only the breathing fields we use.
-interface AppliedRoutine {
-  type: string
-  profile: {
-    breathe: boolean
-    breathingTiers: [string, string]
-  }
-}
-
 interface CameraDirector {
-  applyRoutine: (r: { dancerCount: number }) => AppliedRoutine
-  applyBreathTier: (tier: string) => void
   saveHome: (name?: string) => unknown
   goHome: () => unknown
   cam: CameraHal
 }
 
+/**
+ * The routine-lifecycle CADENCE state machine (from @compsync/camera). This REPLACES
+ * the old dancerCount → framing-tier model: every routine (solo … production) runs the
+ * same ESTABLISH → PUSH → AUTO_HOLD cadence, always group/multi, full-body, onlyMe OFF.
+ * The dancer count is no longer used for framing. See RoutineCadence.ts in the package.
+ */
+interface RoutineCadence {
+  onRoutineStart: () => void
+  onRoutineEnd: () => void
+  onSubjectLost: () => void
+  onSubjectPresent: () => void
+  reArmGroupAi: () => void
+  saveWideHome: (name?: string) => void
+  goIdleWide: () => void
+  dispose: () => void
+  readonly current: string
+}
+
 let cameraModulePromise: Promise<CameraModule | null> | null = null
 let directorPromise: Promise<CameraDirector | null> | null = null
 let directorHost: string | null = null
+// One cadence per connected Director (built from the same HAL). Rebuilt on host change.
+let cadence: RoutineCadence | null = null
 
 async function loadCameraModule(): Promise<CameraModule | null> {
   if (!cameraModulePromise) {
@@ -170,11 +179,19 @@ async function getDirector(host: string): Promise<CameraDirector | null> {
       try {
         const mod = await loadCameraModule()
         if (!mod) return null
-        const { Director, RestCamera } = mod
+        const { Director, RestCamera, RoutineCadence } = mod as CameraModule & {
+          RoutineCadence: new (cam: unknown, opts?: unknown) => RoutineCadence
+        }
         const s = settings.getAll()
         const cam = new RestCamera({ host, port: resolvePort(s), dryRun: false })
         const director = new Director(cam, { mode: resolveFramingMode(s) }) as unknown as CameraDirector
         await director.cam.connect()
+        // Build the routine-lifecycle cadence on the SAME connected HAL. Log state
+        // transitions through the camera logger so the field log shows the lifecycle.
+        cadence = new RoutineCadence(cam, {
+          onTransition: (from: string, to: string) =>
+            logger.info(`Camera cadence: ${from} → ${to}`),
+        })
         logger.info(`OBSBOT camera connected at ${host}`)
         return director
       } catch (err) {
@@ -188,56 +205,20 @@ async function getDirector(host: string): Promise<CameraDirector | null> {
 
 /** Drop any cached Director so the next call rebuilds (after a settings change). */
 function invalidateDirector(): void {
-  stopBreathing() // the old Director is going away — kill its breathing loop
+  if (cadence) {
+    try { cadence.dispose() } catch { /* ignore */ }
+    cadence = null
+  }
   directorHost = null
   directorPromise = null
 }
 
-// ── Group breathing oscillation ──────────────────────────────────
-// A slow, near-imperceptible AutoZoom in/out on GROUP routines so the shot is
-// never perfectly static. Implemented as an AI-tier toggle (NOT a manual /ptz/zoom
-// loop) so it never contends with AI AutoZoom — both ends are AutoZoom tiers ≥ the
-// recital floor, so the group always stays framed. Solos/duets/trios do not breathe.
-let breathTimer: ReturnType<typeof setInterval> | null = null
-let breathIndex = 0
+// ── Breathing oscillation REMOVED ────────────────────────────────
+// The old group "breathing" AutoZoom oscillation fought the camera's own AutoZoom
+// (two things driving the framing tier) and is gone entirely. The routine-lifecycle
+// CADENCE (RoutineCadence) now owns all framing motion: snap-wide → slow push →
+// hand off to GROUP AutoZoom, which dynamically frames everyone. No oscillation.
 
-// Half-cycle = base→partner; full in-and-out breath ≈ 2× this. ~14s half → ~28s
-// full cycle: slow enough to read as "alive", not as a zoom move. TUNABLE.
-const BREATH_HALF_PERIOD_MS = 14_000
-
-function stopBreathing(): void {
-  if (breathTimer) {
-    clearInterval(breathTimer)
-    breathTimer = null
-  }
-}
-
-/**
- * Start the breathing oscillation between two AutoZoom tiers. The base tier is
- * already applied by applyRoutine(); this steps to the partner first, then alternates
- * on a slow timer. Detached/guarded — a tick failure is logged, never thrown.
- */
-function startBreathing(director: CameraDirector, tiers: [string, string]): void {
-  stopBreathing()
-  breathIndex = 0 // 0 = base (currently applied); first tick steps to the partner
-  breathTimer = setInterval(() => {
-    try {
-      breathIndex = breathIndex === 0 ? 1 : 0
-      director.applyBreathTier(tiers[breathIndex])
-    } catch (err) {
-      logger.error('Camera breathing tick failed:', err)
-    }
-  }, BREATH_HALF_PERIOD_MS)
-  // Never let the breathing timer hold the process open.
-  if (typeof breathTimer.unref === 'function') breathTimer.unref()
-}
-
-/**
- * Fire-and-forget camera framing for a trigger going live. No-op (returns
- * immediately) unless ALL of: Auto Mode is ON, a host resolves, and the trigger
- * carries a numeric dancerCount. With Auto Mode off this is byte-identical to the
- * pre-feature fire path. Never throws — failures are logged only.
- */
 /**
  * Derive a routine's dancer count from its NAME when no explicit count was set.
  * Recital programmes encode the routine TYPE in the name (Solo / Duet / Trio /
@@ -280,34 +261,34 @@ export function deriveDancerCount(name: string | undefined): number | undefined 
   return 8
 }
 
-export function applyRoutineForTrigger(dancerCount: number | undefined): void {
+/**
+ * Routine advance → run the lifecycle CADENCE (the camera "follows" the routine).
+ *
+ * BB calls this on select / next / prev / fire, so each is treated as a routine
+ * START: onRoutineStart() runs ESTABLISH → PUSH → AUTO_HOLD (always group/multi,
+ * full-body, onlyMe OFF). The `dancerCount` param is RETAINED only for call-site
+ * compatibility (and trigger-name logging) — the cadence does NOT use it: there is
+ * no per-routine dancer-count framing tier anymore.
+ *
+ * No-op unless Auto Mode is ON and a host resolves. With Auto Mode off this is
+ * byte-identical to the pre-feature fire path. Never throws — failures logged only.
+ */
+export function applyRoutineForTrigger(dancerCount?: number | undefined): void {
   try {
     const s = settings.getAll()
     // Auto-Mode guard: trigger-driven framing ONLY when the operator opted in.
     if (s.cameraAutoMode !== true) return // feature/auto OFF — complete no-op
     const host = resolveCameraHost(s)
     if (!host) return
-    if (typeof dancerCount !== 'number' || Number.isNaN(dancerCount)) return
 
     // Run async, detached — the show flow does not await the camera.
     void (async () => {
       try {
         const director = await getDirector(host)
-        if (!director) return
-        const applied = director.applyRoutine({ dancerCount })
-        logger.info(`Applied camera routine (dancerCount=${dancerCount}, type=${applied?.type})`)
-
-        // GROUP BREATHING — start the slow AutoZoom oscillation for group routines
-        // when the operator hasn't disabled it. Solos/duets/trios (breathe=false)
-        // and breathing-off both fall through to stopBreathing(), so switching from a
-        // group to a solo cleanly halts any in-flight breath.
-        const breathingOn = settings.getAll().cameraBreathing !== false // default ON
-        if (breathingOn && applied?.profile?.breathe && applied.profile.breathingTiers) {
-          startBreathing(director, applied.profile.breathingTiers)
-          logger.info(`Camera breathing started (${applied.profile.breathingTiers.join('<->')})`)
-        } else {
-          stopBreathing()
-        }
+        if (!director || !cadence) return
+        // Every routine runs the SAME cadence — no count-derived framing.
+        cadence.onRoutineStart()
+        logger.info(`Camera cadence: onRoutineStart (dancerCount hint=${dancerCount ?? 'n/a'}, ignored for framing)`)
       } catch (err) {
         logger.error('Camera applyRoutine failed:', err)
       }
@@ -319,9 +300,12 @@ export function applyRoutineForTrigger(dancerCount: number | undefined): void {
 }
 
 /**
- * Store the camera's CURRENT pose as the Home (wide stage) preset. The operator
- * manually frames the full stage, then calls this to capture it. No-op unless the
- * camera feature is active. Detached + try/catch — never throws into the UI.
+ * "Set Wide-Home": store the camera's CURRENT pose as the Home (wide stage) preset
+ * that IDLE_WIDE / ESTABLISH recall. The operator manually frames the full stage,
+ * then calls this to capture it. Routed through the cadence (same Home preset slot)
+ * when available so the state machine and manual save stay in lock-step; falls back
+ * to director.saveHome(). No-op unless the camera feature is active. Detached +
+ * try/catch — never throws into the UI.
  */
 export function saveHomeViaCamera(): void {
   try {
@@ -332,8 +316,9 @@ export function saveHomeViaCamera(): void {
       try {
         const director = await getDirector(host)
         if (!director) return
-        director.saveHome()
-        logger.info('Saved camera Home preset (operator-framed wide stage)')
+        if (cadence) cadence.saveWideHome()
+        else director.saveHome()
+        logger.info('Saved camera Wide-Home preset (operator-framed wide stage)')
       } catch (err) {
         logger.error('Camera saveHome failed:', err)
       }
@@ -342,6 +327,9 @@ export function saveHomeViaCamera(): void {
     logger.error('saveHomeViaCamera guard failed:', err)
   }
 }
+
+/** "Set Wide-Home" alias — the operator-facing name for saveHomeViaCamera(). */
+export const setWideHomeViaCamera = saveHomeViaCamera
 
 /**
  * Safety / panic: recall the static wide Home preset with AI tracking OFF. Used
@@ -353,14 +341,17 @@ export function goHomeViaCamera(): void {
     const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
 
-    stopBreathing() // panic / between routines — halt any group breathing
-
     void (async () => {
       try {
         const director = await getDirector(host)
         if (!director) return
-        director.goHome()
-        logger.info('Camera went to Home (safety wide, AI off)')
+        // Route through the cadence (goIdleWide) when available: it cancels any
+        // in-flight ESTABLISH→PUSH→AUTO_HOLD cascade and lost-timer, then does the
+        // AI-off + Home recall — keeping the state machine coherent. Falls back to
+        // director.goHome() (identical wire) if the cadence isn't built yet.
+        if (cadence) cadence.goIdleWide()
+        else director.goHome()
+        logger.info('Camera went to Home (safety wide, AI off, cadence IDLE_WIDE)')
       } catch (err) {
         logger.error('Camera goHome failed:', err)
       }
@@ -656,6 +647,70 @@ export function zoomCameraVelocity(dir: 'in' | 'out', speed: number, stop = fals
 /** Master AI tracking on/off (used by the auto/manual interlock + toggle). */
 export function setCameraAiEnable(on: boolean): void {
   withCam('set-ai-enable', (cam) => cam.setAiEnable(on))
+}
+
+// ── Routine cadence: operator self-heal + lifecycle hooks ─────────────────────
+// These drive the RoutineCadence state machine directly (not the HAL). All no-op
+// when the camera feature/director isn't built yet. Detached + guarded.
+
+/** Run `fn` against the connected cadence, detached + guarded. No-op when inactive. */
+function withCadence(label: string, fn: (c: RoutineCadence) => void): void {
+  try {
+    const host = resolveCameraHost()
+    if (!host) return // feature OFF — complete no-op
+    void (async () => {
+      try {
+        await getDirector(host) // ensures `cadence` is built
+        if (!cadence) return
+        fn(cadence)
+        logger.info(`Camera cadence cmd: ${label} (state=${cadence.current})`)
+      } catch (err) {
+        logger.error(`Camera cadence ${label} failed:`, err)
+      }
+    })()
+  } catch (err) {
+    logger.error(`${label} cadence guard failed:`, err)
+  }
+}
+
+/**
+ * SELF-HEAL: re-arm GROUP AI now (operator pressed "re-arm Auto", or a workmode poll
+ * saw the camera revert to `none`). Re-enters AUTO_HOLD directly — group/multi AI,
+ * full-body AutoZoom, onlyMe OFF — so the operator never has to manually re-press
+ * Auto after the camera drops its subject. See RoutineCadence.reArmGroupAi.
+ */
+export function reArmCameraGroupAi(): void {
+  withCadence('reArmGroupAi', (c) => c.reArmGroupAi())
+}
+
+/**
+ * Subject-lost signal in. The cadence arms a grace timer (SUBJECT_LOST_MS) and, if
+ * the lost state persists, falls back to IDLE_WIDE (static wide). SIGNAL SOURCE is
+ * BENCH-TBD: the intended trigger is a GET /ai/workmode poll seeing `none`. No
+ * hardware readback wired yet — see RoutineCadence.onSubjectLost TODO.
+ */
+export function notifyCameraSubjectLost(): void {
+  withCadence('onSubjectLost', (c) => c.onSubjectLost())
+}
+
+/** Subject-present signal in. Cancels the lost grace timer; self-heals back to AUTO_HOLD if we'd drifted to IDLE_WIDE. */
+export function notifyCameraSubjectPresent(): void {
+  withCadence('onSubjectPresent', (c) => c.onSubjectPresent())
+}
+
+/**
+ * Wider/Tighter framing nudge for AUTO_HOLD. Steps the GROUP AutoZoom tier on the HAL
+ * (multi mode), NEVER tighter than full body (tier 5, the recital floor). 'wider'
+ * opens toward the long-shot tiers (6, 7); 'tighter' steps back toward 5. This drives
+ * the SAME AutoZoom channel the cadence hands off to, so it rides on top of tracking.
+ */
+let groupFramingTier = 5 // current AUTO_HOLD AutoZoom tier (5=fullBody floor … 7=widest)
+export function nudgeCameraFraming(dir: 'wider' | 'tighter'): void {
+  withCam('framing-nudge', (cam) => {
+    const next = dir === 'wider' ? groupFramingTier + 1 : groupFramingTier - 1
+    groupFramingTier = Math.max(5, Math.min(7, next)) // clamp [fullBody floor … widest]
+    cam.setAutoZoom(1, groupFramingTier) // multi-mode AutoZoom tier
+  })
 }
 
 /**
