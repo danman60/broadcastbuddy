@@ -1,5 +1,36 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-20 PM — 7Att SHOW: camera-director R&D (BIG outcome) — `docs/research/ptz-telemetry/`
+Live 7Attitudes show used as a data-capture + prototyping session for our OWN camera director
+(OBSBOT built-in AI proven unusable). Three docs are the deliverable:
+- **FINDINGS.md** — OBSBOT AI faults (overshoots zoom 5–6×/clips, chases breakaways, GRABS AUDIENCE,
+  no geo-fence, drops out); tier≠fixed-ratio; pan-faces mechanic; stage-boundary method; exposure
+  bug root cause (BB sends `evbias` as int → 400; must be FLOAT + mode=auto).
+- **DIRECTOR-BUILD-SPEC.md** — full build spec for our own director. Detection VALIDATED
+  (YOLOv8m, 97.5% on a live routine, tight boxes 0.8–0.95 under colored washes). Audience detected
+  as persons → geo-fence mandatory. Detect at stage-filling ~2.5×, not camera-min. ByteTrack holds
+  IDs when detection good (tracking quality = detection quality; needs high FPS → local UVC).
+- **Working POC:** `director_persist.py` — closed loop (OBS GetSourceScreenshot → YOLO → stage-mask
+  → union bbox → drive gimbal/zoom via REST). Ran LIVE: framed whole groups centered (where OBSBOT
+  clipped), held the full-cast finale wide, slow push-in + recenter + pull-to-keep-all. Operator
+  policy: "always subtle push-in, never lose a dancer."
+- Tooling: `obsshot.py` (OBS WS read-only screenshot — OBSBOT = OBS input `Video Capture Device 2`),
+  `cam.sh` (REST drive: home/zoom/move/frame/state), `detect.py`/`track.py`, `.venv` (gitignored).
+- Dataset captured: frames/ (curated evidence) + numbers/burst/fastburst/hires (raw) + telemetry
+  jsonl. NEXT: build director as a DART service; bench-tune via TV-playing-recorded-footage rig
+  (validated approach — YOLO detects on-screen people). Stagecoach Sun = 2nd lighting set + lit-stage
+  boundary calibration.
+- Camera left: AI off, Home wide. Loggers stopped. Tunnel may be open.
+
+## 2026-06-20 12:14 EDT — FRESH RESTART (Sat, 7Att show delayed/upcoming, Stagecoach Sun)
+**Read `.claude-crash-transcript.md` first** — it has the full handoff. Headlines:
+- **Camera tracking BIG FIND:** cadence used `fullBody` (5.3× = too tight, the bug). Live tier-sweep: halfBody 12× / fullBody 5.3× / P16 3.3× / **P24 2.6× (widest)**. FIX = group floor P24/P16, never fullBody. Spec: Next→wide Home→slow push to P24→never let dancers exit (else hold Home + AI pan-only). Data in `docs/research/ptz-telemetry/`. **Telemetry logger running (bg, 2s poll, 192.168.2.91).**
+- DART = UI-redesign build `a8fe352` (deployed today per operator). **Set-Home button regression** (use direct REST `PUT /ptz/preset {operation:set,id:1}`). Camera Home preset 1 set wide. Exposure 400-locks while AI tracking.
+- 7Att session loaded (21 triggers, AutoFire OFF, key matches CC). SS+logo on desktop+R2. Stagecoach SS "Tale as Old as Time"+logo on R2 (no triggers needed).
+- **Reason for fresh:** very long session (camera firefight + UI redesign + show ops). Operator will tell the new session when the show starts.
+
+
+
 ## 2026-06-19 PM/overnight — Ancaster show + post-show fixes (next: 7Att Sat 11:00, Stagecoach Sun 17:30)
 
 **Ancaster ran.** Stream had a poster-stuck-on-watch-page scare (CC-side: watch player only mounts on `stream_event.status==='LIVE'`; CF auto-detect missed it. CC shipped a time-gate — player auto-reveals 30 min pre-show — covers tomorrow, no BB go-live POST needed). OBS key/server verified correct mid-show; root was OBS not restarted after key set.
