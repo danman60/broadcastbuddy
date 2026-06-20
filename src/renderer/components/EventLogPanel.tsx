@@ -68,7 +68,7 @@ export function EventLogPanel() {
         <span className="chevron">{collapsed ? '▸' : '▾'}</span>
       </div>
       {!collapsed && (
-        <div style={{ padding: '6px 12px 10px' }}>
+        <div className="event-log-body" style={{ padding: '6px 12px 10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <select
               value={filter}
@@ -84,7 +84,9 @@ export function EventLogPanel() {
           </div>
           <div
             style={{
-              maxHeight: 220,
+              flex: '1 1 auto',
+              minHeight: 160,
+              maxHeight: 'none',
               overflowY: 'auto',
               border: '1px solid var(--border)',
               borderRadius: 6,

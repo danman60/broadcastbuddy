@@ -66,3 +66,22 @@ test('expand every panel + segment the right column', async () => {
     }
   }
 })
+
+// Phase-2 verification: confirm the rail's TabbedCard tab strips actually
+// switch content. Each click selects a .settings-tab by label, then shoots the
+// card so the PNGs can be diffed for distinct content per tab.
+test('rail tabbed cards switch content', async () => {
+  async function clickTab(label: string) {
+    const tab = window.locator('.settings-tab', { hasText: label }).first()
+    await tab.click({ timeout: 1500 })
+    await window.waitForTimeout(350)
+  }
+  // Content card: Look (default) -> Starting Soon.
+  await clickTab('Starting Soon')
+  await shot('tab-startingsoon.png')
+  // Broadcast card: Package, then Recording.
+  await clickTab('Package')
+  await shot('tab-package.png')
+  await clickTab('Recording')
+  await shot('tab-recording.png')
+})

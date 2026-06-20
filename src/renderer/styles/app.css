@@ -61,6 +61,26 @@
   padding: 16px;
   align-content: start;
 }
+/* Event Log grows to fill the center's remaining height so the live stack fills
+   the column instead of leaving a blank gap below it. */
+.center-log-fill {
+  flex: 1 1 auto;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+}
+.center-log-fill > .panel-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.center-log-fill .event-log-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 /* RIGHT — Show Rail: fixed width, vertical card stack, its own scroll. */
 .show-rail {
@@ -139,27 +159,6 @@
   padding: 16px;
   border: 1px solid var(--border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-
-/* Section grouping for the right panel — gives the long panel stack a clear
-   scannable hierarchy (Live Control / Content / Broadcast / Monitoring). */
-.panel-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-secondary);
-  padding-bottom: 6px;
-  margin-top: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.panel-group-label:first-child {
-  margin-top: 0;
-}
-.compact .panel-group-label {
-  font-size: 10px;
-  margin-top: 2px;
-  padding-bottom: 3px;
 }
 
 .panel-section-title {

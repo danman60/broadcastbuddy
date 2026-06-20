@@ -44,6 +44,10 @@ export function App() {
   // OBS read-back) that the stream key actually landed in OBS, never on a blind
   // Set. Always mounted so it shows regardless of which panel is open.
   const [obsToast, setObsToast] = useState<string | null>(null)
+  // Rail Camera card is collapsed by default — when the camera is off it only
+  // shows a "Searching…" placeholder, which is wasted rail height. Operator
+  // expands it on demand. Reuses the .panel-section collapse pattern.
+  const [cameraCollapsed, setCameraCollapsed] = useState(true)
 
   // Drag the divider to resize the left (playlist) panel. We mutate the DOM
   // width live during the drag for smoothness and commit to the store (which
@@ -131,13 +135,21 @@ export function App() {
             <TriggerEditor />
             <AdhocPanel />
             <GalleryPanel />
-            <EventLogPanel />
+            <div className="center-log-fill">
+              <EventLogPanel />
+            </div>
           </div>
           {/* RIGHT — Show Rail: fixed-width vertical card stack with its own
               scroll. Camera · Content (tabbed) · Broadcast (tabbed) · Chat. */}
           <aside className="show-rail">
             {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
-              <CameraPanel />
+              <div className={`panel-section${cameraCollapsed ? ' collapsed' : ''}`}>
+                <div className="panel-section-title" onClick={() => setCameraCollapsed(!cameraCollapsed)}>
+                  Camera (OBSBOT)
+                  <span className="chevron">{cameraCollapsed ? '▸' : '▾'}</span>
+                </div>
+                {!cameraCollapsed && <CameraPanel />}
+              </div>
             )}
             <TabbedCard
               title="Content"
