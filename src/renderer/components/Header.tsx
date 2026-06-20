@@ -510,6 +510,29 @@ export function Header() {
           Tablet
         </button>
 
+        {/* View / mode switches pulled out of the Tools grab-bag (inline) */}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setCompactMode(!compactMode)}
+          title="Toggle compact mode"
+        >
+          ⊟ Compact{compactMode ? ' ON' : ''}
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => void window.api.overlayModeToggle()}
+          title="Hide the main window and float always-on-top control panels over OBS"
+        >
+          ⧉ Overlay
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowSettings(true)}
+          title="Open settings"
+        >
+          ⚙ Settings
+        </button>
+
         {/* Tools Menu */}
         <div style={{ position: 'relative' }}>
           <button
@@ -577,41 +600,10 @@ export function Header() {
                 style={{
                   display: 'block', width: '100%', padding: '8px 12px',
                   background: 'none', color: 'var(--text-primary)',
-                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
-                }}
-              >
-                End-of-Day Checklist
-              </button>
-              <button
-                onClick={() => { setCompactMode(!compactMode); setShowToolsMenu(false) }}
-                style={{
-                  display: 'block', width: '100%', padding: '8px 12px',
-                  background: 'none', color: 'var(--text-primary)',
-                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
-                }}
-              >
-                Compact Mode {compactMode ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={() => { void window.api.overlayModeToggle(); setShowToolsMenu(false) }}
-                style={{
-                  display: 'block', width: '100%', padding: '8px 12px',
-                  background: 'none', color: 'var(--text-primary)',
-                  textAlign: 'left', fontSize: 13, borderBottom: '1px solid var(--border)',
-                }}
-                title="Hide the main window and float always-on-top control panels over OBS"
-              >
-                Overlay Mode
-              </button>
-              <button
-                onClick={() => { setShowSettings(true); setShowToolsMenu(false) }}
-                style={{
-                  display: 'block', width: '100%', padding: '8px 12px',
-                  background: 'none', color: 'var(--text-primary)',
                   textAlign: 'left', fontSize: 13,
                 }}
               >
-                Settings
+                End-of-Day Checklist
               </button>
             </div>
           )}

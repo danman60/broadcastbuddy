@@ -17,6 +17,7 @@ export function OverlayControls() {
 
   const [autoFire, setAutoFire] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [graphicsCollapsed, setGraphicsCollapsed] = useState(false)
   const gridVisible = overlayState?.gridVisible ?? false
 
   // Broadcast-chrome elements (clock / feature card)
@@ -49,10 +50,7 @@ export function OverlayControls() {
     await window.api.overlayGridToggle()
   }
 
-  // ── OBSBOT camera safety (no-op unless a cameraHost is configured) ──
-  async function handleCameraSetHome() {
-    await window.api.cameraSetHome()
-  }
+  // ── OBSBOT panic-wide (no-op unless a cameraHost is configured) ──
   async function handleCameraGoWide() {
     await window.api.cameraGoHome()
   }
@@ -157,6 +155,7 @@ export function OverlayControls() {
   const hasPrev = total > 0 && (wraps || selectedIndex > 0)
 
   return (
+    <>
     <div className={`panel-section${collapsed ? ' collapsed' : ''}`}>
       <div className="panel-section-title" onClick={() => setCollapsed(!collapsed)}>
         Playlist Controls
@@ -226,6 +225,69 @@ export function OverlayControls() {
             </div>
           </div>
 
+          {/* ── OBSBOT panic-wide (no-op unless a camera host is set). Set-Home lives in CameraPanel. ── */}
+          <div className="ctl-row ctl-camera">
+            <button
+              className="btn-bulk btn-bulk-accent"
+              onClick={handleCameraGoWide}
+              title="Panic / between-routines — instantly return the camera to the static wide Home shot (AI tracking off). Hotkey: F4"
+            >
+              Go Wide
+            </button>
+            <span className="ctl-camera-hint">Panic return to the wide Home shot. Set Home in the Camera panel.</span>
+          </div>
+
+          {/* ── Feature card composer ── */}
+          <div className="ctl-row ctl-composer">
+            <input
+              type="text"
+              className="ctl-text-input ctl-kicker"
+              value={fcKicker}
+              onChange={(e) => setFcKicker(e.target.value)}
+              placeholder="Kicker"
+              title="Feature card kicker (UP NEXT / THAT WAS / custom)"
+            />
+            <input
+              type="text"
+              className="ctl-text-input"
+              value={fcTitle}
+              onChange={(e) => setFcTitle(e.target.value)}
+              placeholder="Title"
+              title="Feature card title"
+            />
+            <input
+              type="text"
+              className="ctl-text-input"
+              value={fcSubtitle}
+              onChange={(e) => setFcSubtitle(e.target.value)}
+              placeholder="Subtitle"
+              title="Feature card subtitle"
+            />
+            <button
+              className="btn-bulk btn-bulk-accent"
+              onClick={handleFeatureShow}
+              disabled={!fcTitle.trim()}
+              title="Show a custom full-screen feature card"
+            >
+              Show
+            </button>
+          </div>
+
+          <div className="controls-shortcuts-hint">
+            Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* ── Graphics: secondary reveal/toggle controls split out of the live hero ── */}
+    <div className={`panel-section${graphicsCollapsed ? ' collapsed' : ''}`}>
+      <div className="panel-section-title" onClick={() => setGraphicsCollapsed(!graphicsCollapsed)}>
+        Graphics
+        <span className="chevron">{graphicsCollapsed ? '▸' : '▾'}</span>
+      </div>
+      {!graphicsCollapsed && (
+        <div className="ctl">
           {/* ── Reveal: Up Next / That Was for Lower-Third + Feature Card ── */}
           <div className="ctl-row ctl-reveal">
             <span className="ctl-mini-label" title="Lower-third graphics">LT</span>
@@ -316,67 +378,9 @@ export function OverlayControls() {
               Secs {clock?.showSeconds ? 'ON' : 'OFF'}
             </button>
           </div>
-
-          {/* ── OBSBOT camera safety controls (no-op unless a camera host is set) ── */}
-          <div className="ctl-row ctl-camera">
-            <button
-              className="btn-bulk"
-              onClick={handleCameraSetHome}
-              title="Frame the full stage manually on the camera first, then click to store it as the wide Home shot."
-            >
-              Set Home (Wide)
-            </button>
-            <button
-              className="btn-bulk btn-bulk-accent"
-              onClick={handleCameraGoWide}
-              title="Panic / between-routines — instantly return the camera to the static wide Home shot (AI tracking off). Hotkey: F4"
-            >
-              Go Wide
-            </button>
-            <span className="ctl-camera-hint">Frame the full stage manually first, then Set Home.</span>
-          </div>
-
-          {/* ── Feature card composer ── */}
-          <div className="ctl-row ctl-composer">
-            <input
-              type="text"
-              className="ctl-text-input ctl-kicker"
-              value={fcKicker}
-              onChange={(e) => setFcKicker(e.target.value)}
-              placeholder="Kicker"
-              title="Feature card kicker (UP NEXT / THAT WAS / custom)"
-            />
-            <input
-              type="text"
-              className="ctl-text-input"
-              value={fcTitle}
-              onChange={(e) => setFcTitle(e.target.value)}
-              placeholder="Title"
-              title="Feature card title"
-            />
-            <input
-              type="text"
-              className="ctl-text-input"
-              value={fcSubtitle}
-              onChange={(e) => setFcSubtitle(e.target.value)}
-              placeholder="Subtitle"
-              title="Feature card subtitle"
-            />
-            <button
-              className="btn-bulk btn-bulk-accent"
-              onClick={handleFeatureShow}
-              disabled={!fcTitle.trim()}
-              title="Show a custom full-screen feature card"
-            >
-              Show
-            </button>
-          </div>
-
-          <div className="controls-shortcuts-hint">
-            Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
-          </div>
         </div>
       )}
     </div>
+    </>
   )
 }

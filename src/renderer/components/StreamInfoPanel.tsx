@@ -152,24 +152,6 @@ export function StreamInfoPanel() {
             <span className="stream-obs-hint">Requires OBS connected (replay needs the buffer enabled)</span>
           </div>
 
-          {/* Push to OBS */}
-          {(config.rtmpUrl || config.streamKey) && (
-            <div className="stream-obs-push">
-              <button
-                className={`btn btn-sm ${obsStatus === 'done' ? 'btn-success' : obsStatus === 'error' ? 'btn-danger' : 'btn-primary'}`}
-                onClick={pushToObs}
-                disabled={obsStatus === 'pushing'}
-              >
-                {obsStatus === 'pushing' ? 'Pushing...'
-                  : obsStatus === 'done' ? 'Pushed to OBS'
-                  : obsStatus === 'error' ? 'Failed'
-                  : 'Push to OBS'}
-              </button>
-              {obsError && <span className="stream-obs-error">{obsError}</span>}
-              <span className="stream-obs-hint">Sets stream service in OBS via WebSocket</span>
-            </div>
-          )}
-
           <div className="stream-field">
             <label>Viewing Link</label>
             <div className="stream-copy-row">

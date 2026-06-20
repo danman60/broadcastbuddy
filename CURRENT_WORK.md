@@ -1,5 +1,143 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-19 PM/overnight — Ancaster show + post-show fixes (next: 7Att Sat 11:00, Stagecoach Sun 17:30)
+
+**Ancaster ran.** Stream had a poster-stuck-on-watch-page scare (CC-side: watch player only mounts on `stream_event.status==='LIVE'`; CF auto-detect missed it. CC shipped a time-gate — player auto-reveals 30 min pre-show — covers tomorrow, no BB go-live POST needed). OBS key/server verified correct mid-show; root was OBS not restarted after key set.
+
+**THE Stream Deck saga — RESOLVED (`4dbb52a`):** the deck was never broken. Next presses always reached BB + advanced the engine (camera framing + OBS markers fired); the BB **window** just didn't refresh on WS/hotkey advances — `setOnStateChange` only called `wsHub.broadcastState()`, never `pushState()`. So deck face + wire updated, on-screen playlist stayed frozen → looked dead. Fix: callback now also `pushState()`. Deck **and** F6 both advance + refresh UI now (verified via live WS monitor: 5→6→7→8→9, lt:false). Deck phantom "Stream Deck Alpha" device existed but wasn't the cause.
+
+**Tonight's commits (all pushed origin/main):**
+- `c36604c` camera manual WB/exposure/focus controls (RestCamera image endpoints)
+- `f0052f3` full camera control suite (tracking/subject/framing/onlyMe/zoom) + **stream-key-on-session-load fix** (was in-memory only → OBS kept old key) + **"Sync Key→OBS" button**
+- `36f2006` camera SD-record button (`PUT /record/control`)
+- `ff195aa` **camera routine-cadence state machine** (IDLE_WIDE→ESTABLISH→PUSH→AUTO_HOLD; always group/multi, never single-lock, onlyMe off, full-body; breathing removed; replaces dancerCount→tier derivation). In `@compsync/camera` `src/director/RoutineCadence.ts` (dryRun-verified offline).
+- `76080ed` **chat fix** — CC viewer-chat self-arms from creds+chatChannel (was gated behind saved `tenantId` → empty all night); ISO timestamp parse fix. Stole CSE pattern.
+- `daff9eb` **playlist advance consolidation** — `nextRoutine`/`prevRoutine` now delegate to `nextTrigger`/`prevTrigger`; Auto-Fire (default OFF) is the ONLY fire switch. One advance for every surface.
+- `4dbb52a` UI-refresh fix (above).
+
+**DEPLOYED to DART:** through `daff9eb` (asar 10:52 PM). `4dbb52a` deploy in flight at wrap. DART on **battery, no charger** (was ~90%); ssh `dart` (100.90.103.121) drops when it's off the network → tailscale "offline" — operator must keep it on WiFi/hotspot for remote work.
+
+**OPEN / TOMORROW (bench-first, NO mid-show installs):**
+- **Camera cadence BENCH (~5 min at venue, needs the Tail 2):** (1) handoff jump when AI flips on at AUTO_HOLD; (2) push speed/target feel (consts target 45/speed 2/2.5s in RoutineCadence.ts); (3) group AutoZoom actually holds a full line (else Wider nudge→P16/P24); (4) subject-lost timing (3s).
+- **Subject-lost auto-poll NOT wired** — the self-heal (auto-return-to-wide + re-arm when dancers leave/enter mid-routine, so operator stops re-pressing Auto). Needs a `GET /ai/workmode` poll seeing `none`; bench the readback shape then wire. TODO in RoutineCadence.onSubjectPresent. Without it cadence only reacts to explicit advance.
+- **Chat:** confirm populates with a live CC stream (watch BB log `CC viewer-chat feed status = SUBSCRIBED`). Verify 7Att + Stagecoach `stream_events` linked (event_id set) so package carries `chatChannel`.
+- **Stagecoach (Sun): 0 triggers — programme not received.** Build session when user sends it.
+- **Advance tomorrow:** deck Next OR F6 (both work post-`4dbb52a`). Auto-Fire OFF = advance without firing LT.
+- CC items (not BB): chat-viewport-cap on watch site; stream-start time-gate (shipped `241862f`).
+- Camera SD-record: **can't record SD while UVC feeds OBS** (hardware-exclusive, documented [[project-obsbot-sd-uvc-exclusive]]). HDMI-out + capture card on a Tail Air would free UVC → enable SD record (Tail 2 has no HDMI).
+
+---
+
+## 2026-06-19 FRESH RESTART snapshot (show day — Ancaster tonight 6:15 PM)
+
+**Reason for /fresh:** very long session (chat wiring → OBS auto-sync → toast → pre-show cover → weekend show-prep). Clearing context.
+
+**Show-day state (all verified via primary source this session):**
+- **DART BB = latest `d379eab`** (installed, not running; operator relaunches from desktop shortcut).
+- **Ancaster (tonight):** session `ancasterda2026.json` populated — stream key + rtmp + watch link (`watch/ancaster-dance-arts-2026`, title-verified) from `commandcentered.stream_events`, 33 triggers, no BOM. Auto-loads (newest updatedAt).
+- **7Attitudes (Sat):** session `7attitudes2026.json` populated — key + rtmp + `watch/7attitudes-soaking-wet-2026`, 21 triggers, name dash normalized. **Operator must SELECT it Sat** (Ancaster wins boot). Backdrop MP4 hosted: `https://pub-86d237cf0ae94ad7bf69c6a1c365f0bb.r2.dev/assets/starting-soon/7attitudes-soaking-wet.mp4` (intro, not seamless loop).
+- **Tablet APK:** stays on `WiFiDirect-2026-06-13` (HEAD 46a293c). Decision: **use proper router/AP (same subnet), standard Connect — NOT the WiFi-Direct toggle** (that's the June13 wifi-display breakage). No rebuild. Real getLocalIp multi-homed fix (Phase 2, docs/plans/2026-06-16) still UNBUILT / bench-first.
+
+**Open items:**
+- **Stagecoach (Sun): programme not received → 0 triggers.** Build its session same as 7Att once user sends it.
+- Optional: Sat-morning bump of 7Att `updatedAt` so it auto-loads instead of operator-select.
+- 7Att seamless-hold backdrop variant (current is intro w/ exit fade).
+- CC watch-page beauty pass (all 3) was building CC-side by claude:15 (separate repo).
+- Features this session live on DART: CC live chat (`25876d9`), OBS auto-sync (`448846d`), verified stream-key toast (`4ac11c2`), pre-show cover backdrop+countdown (`d379eab`).
+
+---
+
+## 2026-06-18 Session (PM-5) — Weekend events readiness: OBS auto-sync + 7Attitudes session
+
+**Goal:** make the 3 weekend livestreams ready in BB (keys/triggers/URLs + OBS sync on connect). Verified data vs CC DB primary source (schema `commandcentered`, not `public`).
+
+**Data readiness (CC `commandcentered.stream_events`, all 3):** stream key + rtmp (`rtmps://live.cloudflare.com:443/live/`) + event_id link + public + chat = ✅ all 3. Triggers in CC `broadcast_triggers` = **0 for all 3** (131 global triggers belong to 2 unrelated March events). So lower-thirds come from LOCAL BB sessions, not CC.
+
+**Shipped + deployed to DART:**
+- **Pre-show cover backdrop + countdown-over-backdrop** `d379eab` — full-frame opaque `#ss-backdrop` (`<video>` loop) + `#ss-backdrop-scrim` in starting-soon overlay; `StartingSoonState.backdropVideoUrl`/`backdropMode:'cover'|'none'`; countdown/title raised to z5 (draws over MP4 or HTML backdrop); video TRUE-unloads on hide (pause+removeAttribute(src)+load → zero CPU when inactive); StartingSoonPanel "Cover Mode" + backdrop-URL controls; CC_APPLY + STARTING_SOON_UPDATE pass the fields. Spec: `docs/plans/2026-06-19-preshow-cover-countdown.md`. Built FIRMAMENT + installed DART (asar: ss-backdrop + backdropMode + ss-backdrop-scrim HIT). Screenshot DM'd. Decouples countdown (always live HTML top layer) from backdrop (MP4 for rich Remotion loops / HTML for live designs). Out-of-scope (later): CC package carrying backdropVideoUrl per event; LLM-generated SS ("deterministic form + LLM style eyes").
+  - **7Att backdrop asset rendered + hosted:** `StartingSoon7A` → MP4 (2.37MB, 30s, 1080p) at `https://pub-86d237cf0ae94ad7bf69c6a1c365f0bb.r2.dev/assets/starting-soon/7attitudes-soaking-wet.mp4` (R2 streamstage-galleries, curl 200 video/mp4). Operator pastes into Cover Mode. CAVEAT: it's an INTRO (fades out frames 750–900), not a seamless loop — needs a hold variant for long pre-show loops.
+- **Verified stream-key-synced toast** `4ac11c2` — `pushStreamSettingsToObs` now reads back via OBS `GetStreamServiceSettings` and confirms server(+key) match before emitting `'obs:stream-key-synced'` → app-level green toast "✓ Stream key synced to OBS — <event>" (App.tsx + `.obs-sync-toast` in header.css). Fires on all 3 push paths (apply / OBS-connect / manual) with active event name; ONLY on verified read-back. Built FIRMAMENT + installed DART (asar verified: obs-sync-toast + GetStreamServiceSettings hit). NOTE: build subagent committed+pushed+built then punted before install — deploy chain (copy→scp→`/S` install→verify) hand-finished via base64 `-EncodedCommand` PS (avoids ssh quote-mangling on spaced paths). Screenshot DM'd.
+- **OBS auto-sync** `448846d` — `pushStreamSettingsToObs()` (ipc.ts +67/-12). Pushes stream key/rtmp → OBS via `SetStreamServiceSettings` on (a) OBS-connect (`onConnected`, re-pushes saved streamConfig) and (b) `CC_APPLY_PACKAGE` (when `isConnected()`). No-op unless both rtmp+key present; never StartStream; catch+logged. Built on FIRMAMENT, installed (app.asar 16:39), `pushStreamSettingsToObs` verified in asar. Closes the long-standing CC-handoff TODO.
+- **7Attitudes session** `7attitudes2026.json` on DART (`%APPDATA%\broadcast-buddy\sessions\`, 21 triggers, no BOM). Built from the studio's emailed programme (Jun 18 11:12 update + 13:58 page-4 fix): "Let's Get Soaking Wet!", Sat Jun 20, 20 routines single act. Matches Ancaster trigger convention (title=routine, subtitle=name=dancer group, category "Act 1", type lower_third, dancerCount 8, title_card at order 0); reused Ancaster styling + StreamStage company logo. `updatedAt` set OLDER than Ancaster so Friday boot still auto-loads Ancaster; operator selects 7Att Saturday.
+
+**Event identity resolved:** Saturday = 7Attitudes "Let's Get Soaking Wet!" (streamEvent `46c104ab` → event `8a8101d3`). User initially said "Lindsay" — misspoke; confirmed same show. (There are 3 separate "7Attitudes" events in CC; the only one with triggers, `8c6a2155` "competitive showcase" 85, is a DIFFERENT March show — not Saturday's.)
+
+**Open:**
+- **Stagecoach (Sun) — 0 triggers, programme not received yet.** Build session same way once user sends it.
+- 7Att/Ancaster triggers are local-on-DART only, not in CC `broadcast_triggers` — fine for BB on-stream LTs; revisit only if the CC watch page needs them.
+- **Saturday operator flow:** relaunch BB (`448846d`) → load "7 Attitudes — Let's Get Soaking Wet!" session → apply CC 7Att package (fills key/rtmp/watch/chatChannel) → OBS auto-syncs.
+
+---
+
+## 2026-06-18 Session (PM-4) — CC live viewer-chat wired into BB (commit `25876d9`)
+
+**Task (from CC INBOX, claude:15):** consume CC's Supabase Realtime chat for this weekend's 3 livestreams (Fri Jun 19→Sun Jun 21, all on DART). Two streams, contract-matched.
+
+**DEPLOYED to DART** (app.asar 16:25, build `25876d9`) — installer `BroadcastBuddy-Setup-2026-06-18-chat.exe` (114.8 MB) built on FIRMAMENT, perMachine `/S` install. Verify hits: `bb-chat-overlay` ✅ `chat-message` ✅. Operator must relaunch from desktop shortcut.
+
+**CC side DONE + e2e-tested** (CC commit `ad93631`): viewer `'chat'` publish on `livestream:<streamEventId>` + `chatChannel` in package `.realtime`. CC also linked all 3 `stream_events.event_id` (were NULL → CF key + chatChannel came through empty). bbEventId now = parent Event id = BB package `bbChannel`. 3 chatChannels: Ancaster `livestream:eff3025e-…`, 7Attitudes `livestream:46c104ab-…`, Stagecoach `livestream:db39f490-…`.
+
+**Shipped (commit `25876d9` on origin/main, tsc clean, electron-vite build pass):**
+- **Stream 1 viewer feed:** ccRelay 2nd channel `livestream:<streamEventId>` broadcast event `'chat'`, payload `{id,name,text,timestamp,isAdmin,isPinned}` → mapped to BB `ChatMessage` → `chatBridge.ingestExternalMessage` → operator ChatPanel. Config-gated on `chatChannel`; dormant if absent; torn down in disconnect.
+- **Stream 2 pinned overlay:** existing `bb:<tenantId>:<eventId>` channel, NEW broadcast event `'chat-message'`, payload `{messageId,author,text,pinned}` → `applyRelayedChatMessage` → `OverlayState.chatMessage` → `.bb-chat-overlay` DOM (lower-left, server-side auto-hide). pinned:true show / false hide.
+- `chatChannel` read config-driven from package `.realtime.chatChannel`. No streamEventIds hardcoded.
+- Operator UI: ChatPanel "Screen" button fires overlay; "Hide Chat" in OverlayControls.
+- Files (10): types.ts, ccRelay.ts, chatBridge.ts, overlay.ts, overlaySource.ts, ipc.ts, preload/index.ts, renderer/types.d.ts, ChatPanel.tsx, OverlayControls.tsx.
+
+**Correction logged:** INBOX claim "chatBridge already subscribes `livestream:{competitionId}` event `'chat'`" was STALE — real chatBridge uses postgres_changes on `chat_messages` (`bb-chat:${eventId}`). CC viewer feed added as separate additive subscription, not a repoint.
+
+**Open / next before Fri 6:15:**
+- Both contract sides done + deployed. Remaining = **live chat validation on DART**: operator relaunches BB from desktop shortcut → load a weekend event (package carries `chatChannel`) → verify (1) CC viewer chat shows in operator ChatPanel, (2) pin/Screen burns `.bb-chat-overlay` on stream, (3) Hide clears it.
+- **CC watch-page beauty pass** (all 3) building CC-side by claude:15 — auto-screenshots on done; no BB action.
+
+---
+
+## 2026-06-18 Session (PM-3) — Live camera testing on DART; build `59cf0f1` deployed
+
+**Active task:** Live OBSBOT Tail 2 testing on DART for tomorrow's Ancaster recital (Fri Jun 19 6:15 PM). Iterating camera UX/behavior with operator at the machine.
+
+**DART current state:** build `59cf0f1` installed (app.asar 14:46). Camera live at **192.168.0.163** (cameraHost preset in config, no BOM). cameraAutoMode currently True. Ancaster session loaded (33 triggers). **Operator must relaunch BB from desktop shortcut after each install — GUI won't launch over ssh** (see [[project-dart-deploy-mechanics]]).
+
+**Shipped + deployed this session (commit chain on origin/main):**
+- `20bc141` camera follows current routine via select/Next/Prev (no LT fire); dancerCount derived from routine name on import/startup; group breathing (AI-tier oscillation) + kill-switch
+- `31913bb` persistent PTZ panel in main window (right-panel "Camera (OBSBOT)" section)
+- `389638d` network auto-discovery/pairing + tabbed Settings (CSE pattern)
+- `93bd971` OBS-recording routine markers (marker event w/ recordTimecode on every routine change → future DaVinci Resolve markers) + Stream Deck Next/Prev = advance-no-fire (nextRoutine/prevRoutine)
+- `095ca4e` discovery validates OBSBOT JSON body (router x.x.x.1 was false-matching)
+- `7dc2b9b` AUTO toggle syncs cameraAutoMode + applies current routine tracking on enable
+- `afe1f56` persistent PTZ joystick fixes (hide on modal, contain z-index, recreate on scroll — nipplejs in scrolling main window)
+- `59cf0f1` Recenter = return to STAGE VIEW (recalls Home preset, AI off) not factory-up; per-command camera logging (withCam logs discrete cmds, excludes 10Hz)
+
+**VERIFIED WORKING on real hardware this session:** joystick aim (after scroll-recreate fix), AI lock + follow on a solo routine with a human in frame, camera connects/discovers.
+
+**Open / next:**
+- **Confirm `59cf0f1` behavior:** Recenter/Go-Home/F4 now go to stage view (operator sets stage view first: aim full stage → Set Home). Was just deployed; operator relaunching to test.
+- **"Reset to straight up"** was the factory `/ptz/reset` (mechanical centre = up on this mount); fixed by repointing Recenter → Home preset. Verify resolved.
+- **Tracking caveat:** OBSBOT reverts workmode to `none` if no clear human in frame at set-time; group routines (24/32) use multi-mode (won't chase one tester). Solos (5) = single-subject lock. Real dancers on stage behave differently than one tester.
+- **Live gimbal ANGLE is not loggable** — Tail 2 REST SDK has no live pan/tilt read-back (velocity-only; only presets store absolute pose). Command logging is the substitute.
+- **Marker export to DaVinci Resolve** — capture shipped (`marker` events w/ OBS recordTimecode, filter recording=true). Export tool (EDL/CSV or DaVinci MCP) to be built AFTER the show off real data. OBS must be recording when advancing routines.
+- **Breathing still hardware-unverified.**
+- obsbot-control local commit `1cdf88e` (no remote). DART deploy mechanics + standing kill/restart authorization in [[project-dart-deploy-mechanics]].
+
+**Reason for /fresh:** very long live-testing session (15+ build/deploy cycles), clearing context.
+
+---
+
+## 2026-06-18 Session (PM-2) — DART deployed `389638d`: discovery + tabbed settings + persistent PTZ + Ancaster loaded
+
+**All on DART now (app.asar 13:52, build `389638d`):**
+- **Camera network auto-discovery/pairing** — `discoverCamera()` (cameraDirector.ts) scans private /24 subnets for OBSBOT REST signature `GET /camera/sdk/ai/workmode → 200` (verified live on .163). Auto-sets `cameraHost`, handles venue DHCP change (the #1 field risk). `CAMERA_DISCOVER` ipc + preload + types.d.ts. CameraPanel off-state auto-discovers on mount + "Find Camera" btn; active panel "Find" btn (rescan if IP moves). No mDNS/extra deps.
+- **Persistent PTZ panel** — CameraPanel embedded as "Camera (OBSBOT)" right-panel section (App.tsx), always visible (not just Overlay Mode). Preview never auto-grabs UVC.
+- **Tabbed Settings** — CSE pattern stolen: SETTINGS_TABS map + show/hide `.settings-group` by title effect (Settings.tsx) + tab CSS (settings.css). Tabs: General/OBS/Camera/Import & Media/Network/Tools.
+- **Ancaster Dance Arts session** loaded on DART — `ancasterda2026.json`, 33 triggers (title card + 32 routines in programme order), updatedAt bumped to 2026-06-19T05:00 so boot auto-loads it (StageCoachGlobal was winning). dancerCount derived per routine (5 solo/2 duet/1 trio/24 group). Verified: log "Auto-loaded most-recent session: Ancaster Dance Arts".
+- **OBSBOT confirmed live** at 192.168.0.163 (HTML `<title>OBSBOT`, REST signature 200). Camera was OFF in config (host empty) — discovery now auto-fills on launch.
+
+**Commits:** BB `20bc141` (routine-tracking+derive+breathing) → `31913bb` (persistent PTZ) → `389638d` (discovery+tabs). obsbot-control `1cdf88e` (solo/duet/trio chase + breathing, local-only).
+
+**Next:** user launches BB → confirm camera auto-discovered + PTZ active → hardware test framing/breathing/PTZ. Venue router test tomorrow (Ancaster Fri Jun 19 6:15 PM). Breathing still hardware-unverified.
+
+---
+
 ## 2026-06-18 Session (PM) — Camera follows CURRENT routine without firing lower thirds
 
 **Goal:** during a show, operator advances the playlist to track which routine is live → OBSBOT auto-frames the group/solo by dancer count — but NO lower third fires on the OBS output (graphics off during recital).

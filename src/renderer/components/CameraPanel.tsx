@@ -120,6 +120,10 @@ function CameraPanelActive(): React.ReactElement {
   const [zoomSpeed, setZoomSpeed] = useState(0.6) // zoom rocker speed multiplier 0–1
   const [savedFlashId, setSavedFlashId] = useState<number | null>(null)
   const [padLabel, setPadLabel] = useState<string | null>(null)
+  // Collapsible sub-sections — PTZ (above) stays open; these start collapsed.
+  const [trackingCollapsed, setTrackingCollapsed] = useState(true)
+  const [imageCollapsed, setImageCollapsed] = useState(true)
+  const [previewCollapsed, setPreviewCollapsed] = useState(true)
 
   const zoneRef = useRef<HTMLDivElement | null>(null)
   const nippleRef = useRef<NippleManager | null>(null)
@@ -466,22 +470,45 @@ function CameraPanelActive(): React.ReactElement {
         <button className="camera-btn" onClick={recenter}>Recenter</button>
       </div>
 
-      {/* ── Tracking / Subject / Framing / Zoom ── */}
-      <CameraTrackingControls />
-
-      {/* ── Image: White Balance / Exposure / Focus ── */}
-      <CameraImageControls />
-
-      {/* ── Gamepad indicator ── */}
-      <div className="camera-gamepad">
-        <span className={'pad-dot' + (padLabel ? ' on' : '')} />
-        <span className="pad-label">
-          {padLabel ? padLabel : 'No controller — press a button to activate'}
-        </span>
+      {/* ── Tracking / Subject / Framing / Zoom (collapsed by default) ── */}
+      <div className={`panel-section${trackingCollapsed ? ' collapsed' : ''}`}>
+        <div className="panel-section-title" onClick={() => setTrackingCollapsed(!trackingCollapsed)}>
+          Tracking
+          <span className="chevron">{trackingCollapsed ? '▸' : '▾'}</span>
+        </div>
+        {!trackingCollapsed && <CameraTrackingControls />}
       </div>
 
-      {/* ── Live preview ── */}
-      <CameraPreview savedDeviceId={savedDeviceId} onPersistDevice={(id) => void persist('cameraPreviewDeviceId', id)} />
+      {/* ── Image: White Balance / Exposure / Focus (collapsed by default) ── */}
+      <div className={`panel-section${imageCollapsed ? ' collapsed' : ''}`}>
+        <div className="panel-section-title" onClick={() => setImageCollapsed(!imageCollapsed)}>
+          Image
+          <span className="chevron">{imageCollapsed ? '▸' : '▾'}</span>
+        </div>
+        {!imageCollapsed && <CameraImageControls />}
+      </div>
+
+      {/* ── Preview + Gamepad (collapsed by default) ── */}
+      <div className={`panel-section${previewCollapsed ? ' collapsed' : ''}`}>
+        <div className="panel-section-title" onClick={() => setPreviewCollapsed(!previewCollapsed)}>
+          Preview
+          <span className="chevron">{previewCollapsed ? '▸' : '▾'}</span>
+        </div>
+        {!previewCollapsed && (
+          <>
+            {/* ── Gamepad indicator ── */}
+            <div className="camera-gamepad">
+              <span className={'pad-dot' + (padLabel ? ' on' : '')} />
+              <span className="pad-label">
+                {padLabel ? padLabel : 'No controller — press a button to activate'}
+              </span>
+            </div>
+
+            {/* ── Live preview ── */}
+            <CameraPreview savedDeviceId={savedDeviceId} onPersistDevice={(id) => void persist('cameraPreviewDeviceId', id)} />
+          </>
+        )}
+      </div>
     </div>
   )
 }

@@ -13,7 +13,9 @@ export function TriggerEditor() {
   const [subtitle, setSubtitle] = useState('')
   const [category, setCategory] = useState('')
   const [dancerCount, setDancerCount] = useState('')
-  const [collapsed, setCollapsed] = useState(false)
+  // Collapse to just the header when nothing is selected (reclaims empty space);
+  // auto-expand when an entry is picked.
+  const [collapsed, setCollapsed] = useState(true)
 
   // Sync local state when selection changes
   useEffect(() => {
@@ -23,6 +25,9 @@ export function TriggerEditor() {
       setSubtitle(selected.subtitle)
       setCategory(selected.category)
       setDancerCount(selected.dancerCount !== undefined ? String(selected.dancerCount) : '')
+      setCollapsed(false)
+    } else {
+      setCollapsed(true)
     }
   }, [selected?.id, selectedIndex])
 

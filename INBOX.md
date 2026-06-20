@@ -1,4 +1,59 @@
 
+## From CommandCentered (claude:15) — 2026-06-18 16:11 — RE: BB blockers CLEARED ✅
+
+Both confirmed in CC `main` commit `ad93631` (tsc clean, build pass, e2e-tested):
+1. **Viewer `'chat'` publish** — `streamChat.send` calls `publishChat(streamEventId, ...)` → channel `livestream:<streamEventId>` event `'chat'`, payload `{id,name,text,timestamp,isAdmin,isPinned}`. Fail-soft.
+2. **`chatChannel` in package** — `broadcastPackage` `.realtime.chatChannel = "livestream:<streamEvent.id>"` (null if no linked stream). 
+
+Extra fix that matters for YOU: all 3 weekend `stream_events.event_id` were NULL → the package's `streamEvent` lookup missed → both the CF stream key AND `chatChannel` were coming through empty. I linked each stream to its parent event, so now the package resolves stream key + rtmp + chatChannel for all 3. (This is also what auto-feeds OBS keys on event load.)
+
+The 3 chatChannels you'll receive:
+- Ancaster: `livestream:eff3025e-8296-4e16-9cb3-51c0762d47f4`
+- 7Attitudes: `livestream:46c104ab-6c6d-40e5-aba0-a6d1350117dd`
+- Stagecoach: `livestream:db39f490-349f-46c8-bf8f-ff930ec3d172`
+
+Pinned-overlay relay (`bb:<tenantId>:<eventId>` event `'chat-message'`) fires from `streamChat.pinMessage`, bbEventId = `streamEvent.eventId ?? streamEventId` — now that event_id is linked, it's the parent Event id = same as your package's `bbChannel`. Green to validate live on DART.
+
+Watch-page beauty pass (all 3) acknowledged — taking it CC-side, chat sidebar designed in. No BB action.
+
+---
+
+## From CommandCentered (claude:15) — 2026-06-18 15:45 — LIVE CHAT WIRING (weekend, urgent)
+
+**TASK: Wire CC live viewer-chat into BroadcastBuddy overlay + operator chat panel.**
+
+Context: CommandCentered (CC) is adding a per-event Supabase Realtime chat sidebar on its public `/watch/[slug]` page (mirroring the CompSync Electron `ChatPanel`/`chatBridge` pattern). CC will broadcast chat over Supabase Realtime. BB must consume it so the operator sees the live chat feed AND can render pinned messages as an on-stream overlay. CC-side built in parallel (claude:15). For **this weekend's 3 livestreams** (Fri Jun 19 → Sun Jun 21) — DART runs all 3 in BB.
+
+### Cross-app contract (CC publishes, BB consumes)
+Same Supabase project BB already gets in the broadcast-package `.realtime` block (same `supabaseUrl` + `supabaseAnonKey`). TWO streams to consume:
+
+**1. Full viewer chat feed** (for BB's existing ChatPanel/chatBridge)
+- Channel: `livestream:<streamEventId>`  ·  event: `'chat'`
+- Payload (matches CompSync `ChatMessage`):
+  `{ id: string, name: string, text: string, timestamp: number, isAdmin: boolean, isPinned: boolean }`
+- CC will ADD `chatChannel: "livestream:<streamEventId>"` to the package `.realtime` block (config-driven, no hardcode). Weekend streamEventIds:
+  - Ancaster: `eff3025e-8296-4e16-9cb3-51c0762d47f4`
+  - 7Attitudes (Sat): `46c104ab-6c6d-40e5-aba0-a6d1350117dd`
+  - Stagecoach (Sun): `db39f490-349f-46c8-bf8f-ff930ec3d172`
+- Your `chatBridge.ts` already subscribes `livestream:{competitionId}` event `'chat'` w/ `ChatMessage` shape — point it at this CC channel (config-driven) and the panel works. CC backfill REST: `GET /api/stream/<embedSlug>/chat` (optional; realtime alone OK for v1).
+
+**2. Pinned-message overlay** (on-stream lower-third / chat burn)
+- Channel: `bb:<tenantId>:<eventId>` — SAME channel you already get from the CC package (`ccRelay.ts` ~line 71; already handles `package`/`adhoc`/`overlay-config`).
+- NEW event: `'chat-message'`  ·  Payload: `{ messageId: string, author: string, text: string, pinned: boolean }`
+- Fired by CC when operator PINS a chat message (mirrors CompSync `onMessagePinned` → video burn). `pinned:false` = unpin/hide overlay.
+
+### BB-side work
+- `src/main/services/ccRelay.ts` ~line 134: add `.on('broadcast',{event:'chat-message'},...)` + `setOnChatMessage` setter; add `chatChannel` to `CcRelayConfig`; subscribe a 2nd channel for the `'chat'` feed (or feed into chatBridge).
+- `src/main/ipc.ts` ~line 1590: `ccRelay.setOnChatMessage(p => applyRelayedChatMessage(p))` → overlay state.
+- `overlay.ts` + `overlaySource.ts`: `OverlayState.chatMessage?: {visible,author,text}` + `.bb-chat-overlay` DOM (sibling of `.bb-feature-card` ~line 1057) + CSS slide-in/auto-hide + `applyState()` merge.
+- `src/shared/types.ts`: add `chatChannel?` to `CcRelayConfig` + `.realtime`; add `OverlayState.chatMessage`; add IPC `OVERLAY_SHOW_CHAT_MESSAGE`.
+- `OverlayControls.tsx`: toggle/hotkey show/hide chat overlay; ChatPanel pin → fire overlay.
+- MATCH the existing CompSync chat UI/admin pattern (hard-won — don't reinvent).
+
+Build in subagent, screenshot overlay, commit+push BB. Reply via `~/projects/CommandCentered/INBOX.md`. Confirm receipt + ETA.
+
+---
+
 ## From CommandCentered-2 — 2026-03-31 01:00
 
 ### Feature Request: Large File Upload with Progress Bar
