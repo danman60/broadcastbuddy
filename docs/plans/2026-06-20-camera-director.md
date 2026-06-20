@@ -11,6 +11,10 @@ ruthless session log so nothing is lost.
 
 ---
 
+> **The DEFINITIVE behavior + architecture spec is the ADDENDUM at the bottom of this file
+> (design session 2026-06-20 PM). Sections 1–6 are the original session log + first-pass plan;
+> the addendum supersedes where they differ.**
+
 ## 0. The one-line conclusion
 OBSBOT native AI tracks a SINGLE dancer excellently but cannot frame GROUPS (overshoots zoom,
 clips edge dancers, chases breakaways, locks onto the AUDIENCE, has no stage geo-fence, and silently
@@ -202,3 +206,150 @@ router (no name-parsing needed).
   (raw), detect-*/track-* (annotated + JSON), telemetry jsonl. `.venv` = local YOLO env (gitignored).
 - Next-venue data: **Stagecoach (Sun)** = 2nd lighting set + lit-stage boundary calibration + solo
   capture.
+
+---
+
+# ADDENDUM (design session 2026-06-20 PM) — DEFINITIVE SPEC
+
+This addendum is authoritative. Captured from the operator's creative direction; decisions made
+inline (operator delegated the open calls).
+
+## A. Definitive behavior spec (the contract)
+
+### State machine (per routine)
+1. **WIDE** — full calibrated stage shot. Every routine STARTS here. Also the universal fallback.
+2. Dance begins → **ZOOM-IN** with genre character → frame up.
+3. **SOLO** → frame = full body + small safety room → **chase** the dancer around the stage.
+   Routine ends → return to WIDE.
+4. **GROUP** (any size) → genre zoom-in → frame the group → **motion-track + keep ALL in frame**,
+   subtle push in/out for life. Routine ends → return to WIDE.
+
+### Genre = the move personality (drives zoom-in speed + push dynamics)
+| Genre | Character |
+|---|---|
+| Hip hop | punchy, quick zoom; snap recenter; hit-driven |
+| Lyrical / ballet | slow, controlled; long eases; symmetry/line respect (ballet) |
+| Jazz / tap | medium |
+| (unknown) | neutral default = medium |
+
+### Framing target — the "80% rule"
+Scale zoom so dancers reach ~**80% of the frame edge** (≈10% margin each side) on the limiting
+dimension → frame always *full*, never clipped. Continuously readjust as they move:
+- **Huddle** (small union) → zoom IN until they fill (~80%).
+- **Spread / run wide** (large union) → zoom OUT until ~80% — or to full WIDE if they exceed it
+  (never clip).
+Two zoom layers, kept separate:
+- **Macro** = fit the union to 80% (huddle/spread).
+- **Micro** = subtle push in/out for life (beat-timed; do NOT conflate with macro).
+
+### Hard guardrails (priority over all framing)
+1. **Lost subject/group → snap to WIDE immediately** (1–2 frame debounce so a single-frame blip
+   doesn't strobe; effectively instant). WIDE disappoints no one; a lost dancer does.
+2. **Never chase a splitter.** A dancer breaking from the group → **zoom OUT to fit everyone incl.
+   the splitter.** Never abandon the group for one.
+3. **Count safety check** (only when count is known): expected N from metadata. If framing fewer
+   than N → someone's lost → **WIDE**. BUT drive this off the **tracker (IDs), not raw detections**,
+   and distinguish:
+   - tracked dancer near the 80% edge then vanished → left frame → **widen**;
+   - count dropped but IDs alive + everyone mid-frame → **occlusion (huddle)** → hold/zoom in
+     (do NOT fire wide — this is the moment you want tight).
+4. **Wide-as-recount** resolves staggered entrances/exits: if detected < expected, widen toward
+   full-wide; at full-wide the whole stage is visible — if still < expected, the missing dancers are
+   genuinely offstage → hold WIDE calmly until they return. Wide = safety net AND truth-check.
+5. When in doubt → WIDE.
+
+### Solo note
+Solo count-check = "1 in frame." OBSBOT native single-track is good at the chase → solo MAY just use
+OBSBOT + our wide-guardrail on top; group framing is fully ours. (Verify OBSBOT solo quality with our
+own capture before committing — not yet done.)
+
+## B. Architecture & ownership — three layers
+
+**1. Engine (the crown jewel) → owned in `@compsync/camera` (repo `obsbot-control`).**
+Pure CV director, metadata-AGNOSTIC: detect → track → frame → state machine → guardrails → genre
+move-profiles → beat timing → drive PTZ. Built ONCE, versioned, both apps depend on it. Neither app
+"owns" the brain — they consume it.
+
+**2. Context provider (thin adapter) → per app.** Engine consumes one normalized interface, all
+fields optional:
+```
+RoutineContext {
+  expectedDancerCount?   // CompPortal: exact (entry_participants). BB: name-parse/manual/operator-tag. else undefined
+  genre?                 // CompPortal: dance_categories.name. BB: operator tag. else undefined
+  beatMap?, musicPosMs?  // either app: if a music file exists (pre-analyzed)
+  title?, order?
+}
+```
+- **CompPortal** owns its provider (richest): `getLiveState` → genre + exact count + music beat-map +
+  order, plus the photo-per-routine tie-in.
+- **BroadcastBuddy** owns its provider (degraded): count via name-parse or operator tag; genre via
+  operator tag if set; else pixel-only.
+
+**3. Host service → per deployment.** The running process on DART (camera REST + OBS + context feed).
+Same engine; CompPortal feeds competition state, BB feeds recital session state.
+
+### Graceful degradation (answers "not exclusive to rich data")
+| Have | Engine behavior | Lacking it |
+|---|---|---|
+| genre | full per-genre personality | neutral medium default |
+| count | count-safety-check (lose one → wide) | edge-detect + tracker + wide-as-recount only |
+| music file | beat-sync | smooth time-based moves |
+Pixel-only floor is always: frame group, 80%-fit, never-clip, lost→wide. Metadata only adds smarts.
+
+### DECISIONS MADE (operator delegated)
+- Engine home = **`@compsync/camera`**. Build engine-first against **CompPortal's data shape** (the
+  superset); BB's provider just "supplies less."
+- **Enable operator genre/count tagging in BB session triggers** (recommended ON) so recitals can
+  opt into beat-sync + genre moves. Cheap; closes most of the recital gap.
+- **Drop multi-crop-from-wide** — PTZ is committed for the foreseeable; single PTZ delivers stream
+  + per-routine photos.
+- CompPortal is the **lead consumer** (product, richest data, full feature expression); BB is the
+  second consumer (recitals, thinner context, same engine).
+
+## C. Beat-sync (confirmed in scope)
+- **Pre-analyze the music FILE, don't do realtime DSP.** Music known in advance (`musicFileUrl`).
+  Offline per routine (cached): beat grid + downbeats, onset/hit times, RMS energy envelope, section
+  bounds (intro/build/drop/breakdown/finale). Tools: `librosa` (fast) or `madmom` (better downbeats).
+- **Runtime:** playback position → musical clock → schedule moves on upcoming beats/sections.
+- **Anticipation is the unlock:** start a move EARLY (lead time = move duration) so it LANDS on the
+  beat — reacting to a beat is always late/robotic.
+- **Style × beat:** style = move vocabulary; beat = timing. Hip hop punch-zoom ON the drop; lyrical
+  push eases across the phrase + settles still on the resolution; energy envelope modulates speed/
+  zoom amount.
+- **Fallback:** no beat data → smooth time-based moves. Beat-sync is enhancement, never a dependency,
+  always subordinate to guardrails.
+- **VERIFY (gating risk):** playback-position precision in GameDay/liveCompetition timing must be
+  ~±50–100ms for tight sync. Check how precise + update rate before committing to tight sync.
+
+## D. CompPortal wiring (verified file:line)
+- Per-routine live data hook: **`liveCompetition.getLiveState`** (`src/server/routers/
+  liveCompetition.ts:2128`) already returns **`category` (dance_categories.name = genre)** + title +
+  `musicDurationMs` + timing for the live routine.
+- ADD to that query's include: `entry_size_categories {min_participants,max_participants}` and/or a
+  `entry_participants.count(where entry_id)` → exact dancer count. (`competition_entries`
+  `schema.prisma:643`; `entry_participants` `:1405`; `entry_size_categories` `:1430`;
+  `dance_categories` `:1091`.)
+- **Genre is FREE-TEXT per tenant** (not an enum) → engine needs a **normalization map** (raw string
+  → canonical genre → move profile) + safe default for unknown. Required or the killer feature
+  no-ops on a typo ("Hip Hop" vs "hip-hop").
+- **Photos per routine:** OBSBOT UVC → OBS (stream) + per-routine frame grab → existing CompPortal
+  gallery/analysis pipeline; tag each grab with `current_entry_id` (from `live_competition_state`
+  `schema.prisma:2753`) → photos auto-associate to the routine. One camera, both deliverables.
+- No dedicated PTZ/camera-control code exists in CompPortal yet (verified grep + graphify); the
+  "camera" references are the photo/EXIF gallery pipeline. Camera fields (IP/presets/boundary) get
+  added during the port.
+
+## E. Updated rollout (supersedes §4)
+- **P0 bench:** TV plays recorded footage (today's + Stagecoach) → tune engine (gains, 80%-fit, push,
+  guardrails, count-check-via-tracker) off-show. Software-only: run engine on the video files.
+- **P1 engine core** in `@compsync/camera`: vision pipeline (consider yolov8-**pose** for arms/lifts),
+  state machine, 80% framing, guardrails, local UVC capture, perf check on DART (yolov8m vs n; ≥3fps,
+  aim 15+). Build against CompPortal's RoutineContext superset.
+- **P2 genre + beat:** genre move-profiles + normalization map; offline music beat-analysis;
+  beat-sync timing (after verifying playback precision).
+- **P3 CompPortal integration:** provider off `getLiveState` (+ size/count), photo-per-routine
+  tagging, venue boundary calibration. Lead deployment.
+- **P4 BroadcastBuddy provider:** degraded context + operator genre/count tagging in session
+  triggers; fix the BB exposure int→float bug.
+- **Ongoing — the moat:** every show → labeled footage → fine-tune a **dance-under-stage-light**
+  detector + a framing-preference model from operator thumbs-up/down. Compounds per season.
