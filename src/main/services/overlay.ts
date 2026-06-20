@@ -345,22 +345,19 @@ export function applyCurrentRoutineFraming(): void {
   }
 }
 
+// CONSOLIDATED 2026-06-20: nextRoutine/prevRoutine are no longer a separate
+// "never-fire" advance path — that fork created two near-identical commands
+// ("competing systems"). They now delegate to the single advance (nextTrigger/
+// prevTrigger), whose ONLY fire variable is the Auto-Fire toggle. So:
+//   Auto-Fire OFF → advance + marker + PTZ cadence, NO lower third (recital default)
+//   Auto-Fire ON  → advance also fires the lower third
+// Every surface (keyboard F6, on-screen Next, tablet, Stream Deck) funnels here.
 export function nextRoutine(): void {
-  if (triggers.length === 0) return
-  advanceIndex(true)
-  applyTriggerToOverlay(triggers[selectedIndex])
-  applyRoutineForTrigger(triggers[selectedIndex].dancerCount)
-  markRoutine(triggers[selectedIndex])
-  notifyChange()
+  nextTrigger()
 }
 
 export function prevRoutine(): void {
-  if (triggers.length === 0) return
-  advanceIndex(false)
-  applyTriggerToOverlay(triggers[selectedIndex])
-  applyRoutineForTrigger(triggers[selectedIndex].dancerCount)
-  markRoutine(triggers[selectedIndex])
-  notifyChange()
+  prevTrigger()
 }
 
 export function nextTriggerFull(): void {
