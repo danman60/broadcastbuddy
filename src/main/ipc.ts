@@ -75,7 +75,7 @@ function sendToAllWindows(channel: string, ...args: unknown[]): void {
   }
 }
 
-function pushState(): void {
+export function pushState(): void {
   sendToAllWindows(IPC.OVERLAY_STATE_UPDATE, overlay.getOverlayState())
   sendToAllWindows(
     IPC.TRIGGERS_UPDATED,

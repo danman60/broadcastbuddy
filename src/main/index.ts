@@ -16,7 +16,7 @@ import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
 import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
-import { registerIpcHandlers } from './ipc'
+import { registerIpcHandlers, pushState } from './ipc'
 import { createLogger } from './logger'
 import { IPC } from '../shared/types'
 
@@ -125,8 +125,14 @@ app.whenReady().then(() => {
   // 6. Start WebSocket hub
   wsHub.start(serverConfig.wsPort)
 
-  // 7. Wire state change → broadcast
-  overlay.setOnStateChange(() => wsHub.broadcastState())
+  // 7. Wire state change → broadcast to WS clients AND refresh the BB window.
+  // pushState() is what updates the renderer (playlist highlight + overlay state);
+  // without it, advances arriving via WS (Stream Deck) or hotkeys (F6) updated the
+  // deck/tablet + wire but left the app UI frozen. Every mutation now refreshes both.
+  overlay.setOnStateChange(() => {
+    wsHub.broadcastState()
+    pushState()
+  })
 
   // 8. Tablet log sink (POST endpoint for CSController logs)
   try {
