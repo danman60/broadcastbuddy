@@ -4,7 +4,7 @@ import fs from 'fs'
 
 // Throwaway: capture the REAL main control surface (past the start-of-day
 // checklist + startup toast) for the UI redesign. Not a regression spec.
-const OUT = '/tmp/bb-ui/after'
+const OUT = '/tmp/bb-ui/after2'
 let app: ElectronApplication
 let window: Page
 

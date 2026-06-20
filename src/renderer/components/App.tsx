@@ -22,6 +22,7 @@ import { RecordingUploadPanel } from './RecordingUploadPanel'
 import { GalleryPanel } from './GalleryPanel'
 import { ChatPanel } from './ChatPanel'
 import { EventLogPanel } from './EventLogPanel'
+import { TabbedCard } from './TabbedCard'
 import { RecoveryBanner } from './RecoveryBanner'
 import { StartupToast } from './StartupToast'
 import { Settings } from './Settings'
@@ -122,36 +123,54 @@ export function App() {
           />
         )}
         <div className="right-panel">
-          <div className="panel-group-label">Live Control</div>
-          <div className="live-control-grid">
+          {/* CENTER — Live Control: the live-critical stack. Flex:1, scrolls if
+              needed. Playlist hero + Graphics card both come from OverlayControls
+              (it renders the two sections as siblings). */}
+          <div className="center-column">
             <OverlayControls />
-            <div className="live-control-stack">
-              <TriggerEditor />
-              <AdhocPanel />
-            </div>
+            <TriggerEditor />
+            <AdhocPanel />
+            <GalleryPanel />
+            <EventLogPanel />
           </div>
-          {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
-            <>
-              <div className="panel-group-label">Camera (OBSBOT)</div>
+          {/* RIGHT — Show Rail: fixed-width vertical card stack with its own
+              scroll. Camera · Content (tabbed) · Broadcast (tabbed) · Chat. */}
+          <aside className="show-rail">
+            {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
               <CameraPanel />
-            </>
-          )}
-          <div className="panel-group-label">Content &amp; Styling</div>
-          <AnimationPanel />
-          <StartingSoonPanel />
-          <TemplateGallery />
-          <StylingPanel />
-          <LogoManager />
-          <TickerControls />
-          <div className="panel-group-label">Broadcast &amp; Delivery</div>
-          <StreamInfoPanel />
-          <NotesPanel />
-          <BroadcastPackagePanel />
-          <RecordingUploadPanel />
-          <div className="panel-group-label">Monitoring</div>
-          <GalleryPanel />
-          <ChatPanel />
-          <EventLogPanel />
+            )}
+            <TabbedCard
+              title="Content"
+              tabs={[
+                {
+                  id: 'look',
+                  label: 'Look',
+                  content: (
+                    <>
+                      <AnimationPanel />
+                      <TemplateGallery />
+                      <StylingPanel />
+                      <LogoManager />
+                      <TickerControls />
+                    </>
+                  ),
+                },
+                { id: 'starting-soon', label: 'Starting Soon', content: <StartingSoonPanel /> },
+              ]}
+            />
+            <TabbedCard
+              title="Broadcast"
+              tabs={[
+                { id: 'stream', label: 'Stream', content: <StreamInfoPanel /> },
+                { id: 'package', label: 'Package', content: <BroadcastPackagePanel /> },
+                { id: 'recording', label: 'Recording', content: <RecordingUploadPanel /> },
+                { id: 'notes', label: 'Notes', content: <NotesPanel /> },
+              ]}
+            />
+            <div className="chat-card">
+              <ChatPanel />
+            </div>
+          </aside>
         </div>
       </div>
       <RecoveryBanner />
