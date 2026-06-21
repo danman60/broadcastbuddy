@@ -202,6 +202,14 @@ export function cameraWide(connected: boolean): string {
   `, '#0e2233')
 }
 
+export function cameraPos(n: number, connected: boolean): string {
+  const c = connected ? '#a78bfa' : '#555'
+  return wrap(`
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">CAM POS</text>
+    <text x="72" y="108" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
+  `, '#191527')
+}
+
 export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string {
   const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b'
   const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113'

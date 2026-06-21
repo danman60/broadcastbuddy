@@ -377,6 +377,96 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-1",
+      "Name": "Camera Pos 1",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 1)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-2",
+      "Name": "Camera Pos 2",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 2)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-3",
+      "Name": "Camera Pos 3",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 3)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-4",
+      "Name": "Camera Pos 4",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 4)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-5",
+      "Name": "Camera Pos 5",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 5)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-pos-6",
+      "Name": "Camera Pos 6",
+      "Tooltip": "OBSBOT PTZ: recall saved camera position (preset 6)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

@@ -28,7 +28,7 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset } from './cameraDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -170,6 +170,13 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       settings.set('cameraAutoMode', false)
       goHomeViaCamera()
       break
+    case 'cameraPreset': {
+      // Camera position hotkey: recall a saved OBSBOT preset pose (same path as the
+      // in-app preset grid). data.id = preset slot 1-8. No-op unless a camera host is set.
+      const id = Number(data?.id)
+      if (Number.isInteger(id) && id >= 1 && id <= 254) recallCameraPreset(id)
+      break
+    }
     case 'toggleClock':
       toggleClock()
       break

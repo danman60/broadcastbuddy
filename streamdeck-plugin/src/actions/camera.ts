@@ -49,3 +49,32 @@ export class CameraManualAction extends SingletonAction {
     await ev.action.showOk()
   }
 }
+
+// ── Camera POSITION hotkeys: recall saved OBSBOT presets (positions) 1-6 ──────
+// Each maps to wsHub 'cameraPreset' {id} -> recallCameraPreset(id) (same path as
+// the in-app preset grid). Operator saves a position to a preset slot, deck recalls it.
+class CameraPosBase extends SingletonAction {
+  protected n = 0
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraPos(this.n, conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraPreset', { id: this.n })
+    await ev.action.showOk()
+  }
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-1' })
+export class CameraPos1Action extends CameraPosBase { protected n = 1 }
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-2' })
+export class CameraPos2Action extends CameraPosBase { protected n = 2 }
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-3' })
+export class CameraPos3Action extends CameraPosBase { protected n = 3 }
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-4' })
+export class CameraPos4Action extends CameraPosBase { protected n = 4 }
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-5' })
+export class CameraPos5Action extends CameraPosBase { protected n = 5 }
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-6' })
+export class CameraPos6Action extends CameraPosBase { protected n = 6 }

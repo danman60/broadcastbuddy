@@ -9177,6 +9177,8 @@ function sendCommand(action, data) {
     if (!ws || ws.readyState !== WebSocket.OPEN)
         return;
     const msg = { type: 'command', action };
+    if (data)
+        msg.data = data;
     ws.send(JSON.stringify(msg));
 }
 function connect() {
@@ -9436,6 +9438,13 @@ function cameraWide(connected) {
     <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="12" font-family="sans-serif" letter-spacing="1">SAFE CAM</text>
     <text x="72" y="80" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">WIDE</text>
   `, '#0e2233');
+}
+function cameraPos(n, connected) {
+    const c = connected ? '#a78bfa' : '#555';
+    return wrap(`
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">CAM POS</text>
+    <text x="72" y="108" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
+  `, '#191527');
 }
 function cameraMode(mode, connected) {
     const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b';
@@ -9858,6 +9867,58 @@ let CameraManualAction = class CameraManualAction extends SingletonAction {
 CameraManualAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.camera-manual' })
 ], CameraManualAction);
+// ── Camera POSITION hotkeys: recall saved OBSBOT presets (positions) 1-6 ──────
+// Each maps to wsHub 'cameraPreset' {id} -> recallCameraPreset(id) (same path as
+// the in-app preset grid). Operator saves a position to a preset slot, deck recalls it.
+class CameraPosBase extends SingletonAction {
+    n = 0;
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraPos(this.n, isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraPreset', { id: this.n });
+        await ev.action.showOk();
+    }
+}
+let CameraPos1Action = class CameraPos1Action extends CameraPosBase {
+    n = 1;
+};
+CameraPos1Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-1' })
+], CameraPos1Action);
+let CameraPos2Action = class CameraPos2Action extends CameraPosBase {
+    n = 2;
+};
+CameraPos2Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-2' })
+], CameraPos2Action);
+let CameraPos3Action = class CameraPos3Action extends CameraPosBase {
+    n = 3;
+};
+CameraPos3Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-3' })
+], CameraPos3Action);
+let CameraPos4Action = class CameraPos4Action extends CameraPosBase {
+    n = 4;
+};
+CameraPos4Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-4' })
+], CameraPos4Action);
+let CameraPos5Action = class CameraPos5Action extends CameraPosBase {
+    n = 5;
+};
+CameraPos5Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-5' })
+], CameraPos5Action);
+let CameraPos6Action = class CameraPos6Action extends CameraPosBase {
+    n = 6;
+};
+CameraPos6Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-6' })
+], CameraPos6Action);
 
 streamDeck.actions.registerAction(new FireAction());
 streamDeck.actions.registerAction(new HideAction());
@@ -9882,6 +9943,12 @@ streamDeck.actions.registerAction(new FeatureThatWasAction());
 streamDeck.actions.registerAction(new CameraWideAction());
 streamDeck.actions.registerAction(new CameraAutoAction());
 streamDeck.actions.registerAction(new CameraManualAction());
+streamDeck.actions.registerAction(new CameraPos1Action());
+streamDeck.actions.registerAction(new CameraPos2Action());
+streamDeck.actions.registerAction(new CameraPos3Action());
+streamDeck.actions.registerAction(new CameraPos4Action());
+streamDeck.actions.registerAction(new CameraPos5Action());
+streamDeck.actions.registerAction(new CameraPos6Action());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);
