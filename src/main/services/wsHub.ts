@@ -28,7 +28,7 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets } from './cameraDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -175,6 +175,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // in-app preset grid). data.id = preset slot 1-8. No-op unless a camera host is set.
       const id = Number(data?.id)
       if (Number.isInteger(id) && id >= 1 && id <= 254) recallCameraPreset(id)
+      break
+    }
+    case 'cameraSweep': {
+      // Custom choreographed move: snap to preset `from`, slow-pan to preset `to`
+      // over `ms` (default 6s). Audience Sweep = 2->3; Stage Sweep = 4->5.
+      const from = Number(data?.from)
+      const to = Number(data?.to)
+      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 6000
+      if (Number.isInteger(from) && Number.isInteger(to)) sweepBetweenPresets(from, to, ms)
       break
     }
     case 'toggleClock':

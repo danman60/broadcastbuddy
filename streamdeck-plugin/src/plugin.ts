@@ -21,7 +21,8 @@ import { CounterAction } from './actions/counter'
 import { FeatureUpNextAction, FeatureThatWasAction } from './actions/feature-card'
 import { CameraWideAction, CameraAutoAction, CameraManualAction,
   CameraPos1Action, CameraPos2Action, CameraPos3Action,
-  CameraPos4Action, CameraPos5Action, CameraPos6Action } from './actions/camera'
+  CameraPos4Action, CameraPos5Action, CameraPos6Action,
+  AudienceSweepAction, StageSweepAction } from './actions/camera'
 
 streamDeck.actions.registerAction(new FireAction())
 streamDeck.actions.registerAction(new HideAction())
@@ -52,6 +53,8 @@ streamDeck.actions.registerAction(new CameraPos3Action())
 streamDeck.actions.registerAction(new CameraPos4Action())
 streamDeck.actions.registerAction(new CameraPos5Action())
 streamDeck.actions.registerAction(new CameraPos6Action())
+streamDeck.actions.registerAction(new AudienceSweepAction())
+streamDeck.actions.registerAction(new StageSweepAction())
 
 // Property inspector saves the BB host/port as global settings. Apply them on
 // boot and whenever they change so the operator can point the plugin at a

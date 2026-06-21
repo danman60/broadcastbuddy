@@ -467,6 +467,36 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.audience-sweep",
+      "Name": "Audience Sweep",
+      "Tooltip": "Custom move: snap to P2, slow pan to P3 over 6s",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.stage-sweep",
+      "Name": "Stage Sweep",
+      "Tooltip": "Custom move: P4 (wide bottom-left) slow pan to P5 (bottom-right) over 6s",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

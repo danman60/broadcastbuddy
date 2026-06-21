@@ -78,3 +78,31 @@ export class CameraPos4Action extends CameraPosBase { protected n = 4 }
 export class CameraPos5Action extends CameraPosBase { protected n = 5 }
 @action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-6' })
 export class CameraPos6Action extends CameraPosBase { protected n = 6 }
+
+// ── Custom choreographed MOVES (sweep preset A -> B over ~6s) ─────────────────
+@action({ UUID: 'com.broadcastbuddy.streamdeck.audience-sweep' })
+export class AudienceSweepAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraSweep('AUDIENCE', conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraSweep', { from: 2, to: 3, ms: 6000 })
+    await ev.action.showOk()
+  }
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.stage-sweep' })
+export class StageSweepAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraSweep('STAGE', conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraSweep', { from: 4, to: 5, ms: 6000 })
+    await ev.action.showOk()
+  }
+}

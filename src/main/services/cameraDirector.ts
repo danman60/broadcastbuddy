@@ -568,6 +568,52 @@ export function recallCameraPreset(n: number): void {
   withCam('recall-preset', (cam) => cam.triggerPreset(n))
 }
 
+// Gimbal velocity calibration (OBSBOT Tail 2, measured live): ~0.78 deg/s per unit,
+// and a POSITIVE command DECREASES the coordinate — so invert the delta's sign.
+const SWEEP_DEG_PER_UNIT = 0.78
+
+/**
+ * Choreographed camera MOVE — the reusable primitive behind named moves
+ * (Audience Sweep, Stage Sweep, and future operator-built moves). Snaps to preset
+ * `fromId`, then over `durationMs` slowly pans (velocity-interpolates yaw+pitch)
+ * toward preset `toId`, then recalls `toId` to land exactly. Fully guarded /
+ * detached / no-op unless a camera host is set. Never throws back to the caller.
+ */
+export function sweepBetweenPresets(fromId: number, toId: number, durationMs: number): void {
+  const host = resolveCameraHost()
+  if (!host) return
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  const clampVel = (v: number): number => Math.max(-60, Math.min(60, Math.round(v)))
+  void (async () => {
+    try {
+      const director = await getDirector(host)
+      if (!director) return
+      const cam = director.cam
+      const raw = (await cam.getGimbalPos()) as
+        | { presetList?: Array<{ id: number; yaw: number; pitch: number }>; presetlist?: Array<{ id: number; yaw: number; pitch: number }> }
+        | undefined
+      const list = raw?.presetList ?? raw?.presetlist ?? []
+      const A = list.find((p) => p.id === fromId)
+      const B = list.find((p) => p.id === toId)
+      cam.triggerPreset(fromId) // snap to the start position (fast)
+      await sleep(2000) // let the snap settle
+      if (A && B && durationMs > 0) {
+        const secs = Math.max(0.5, durationMs / 1000)
+        const yawCmd = clampVel(-((B.yaw - A.yaw) / secs) / SWEEP_DEG_PER_UNIT)
+        const pitchCmd = clampVel(-((B.pitch - A.pitch) / secs) / SWEEP_DEG_PER_UNIT)
+        cam.gimbalVelocityXY(yawCmd, pitchCmd) // slow interpolating pan
+        await sleep(durationMs)
+        cam.gimbalStopAll()
+      }
+      await sleep(150)
+      cam.triggerPreset(toId) // land exactly on the end position
+      logger.info(`Camera move: sweep ${fromId}->${toId} ${durationMs}ms`)
+    } catch (err) {
+      logger.error('sweepBetweenPresets failed:', err)
+    }
+  })()
+}
+
 /** Store the current pose as preset id (with optional name). */
 export function saveCameraPreset(id: number, name?: string): void {
   withCam('save-preset', (cam) => cam.setPreset(id, name))

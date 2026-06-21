@@ -210,6 +210,16 @@ export function cameraPos(n: number, connected: boolean): string {
   `, '#191527')
 }
 
+export function cameraSweep(label: string, connected: boolean): string {
+  const c = connected ? '#f472b6' : '#555'
+  return wrap(`
+    <text x="72" y="44" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SWEEP</text>
+    <path d="M22 86 H110" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M98 74 L118 86 L98 98 Z" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="20" font-weight="bold" font-family="sans-serif">${label}</text>
+  `, '#241019')
+}
+
 export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string {
   const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b'
   const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113'

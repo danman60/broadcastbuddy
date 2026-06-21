@@ -9446,6 +9446,15 @@ function cameraPos(n, connected) {
     <text x="72" y="108" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
   `, '#191527');
 }
+function cameraSweep(label, connected) {
+    const c = connected ? '#f472b6' : '#555';
+    return wrap(`
+    <text x="72" y="44" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SWEEP</text>
+    <path d="M22 86 H110" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M98 74 L118 86 L98 98 Z" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="20" font-weight="bold" font-family="sans-serif">${label}</text>
+  `, '#241019');
+}
 function cameraMode(mode, connected) {
     const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b';
     const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113';
@@ -9919,6 +9928,37 @@ let CameraPos6Action = class CameraPos6Action extends CameraPosBase {
 CameraPos6Action = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.camera-pos-6' })
 ], CameraPos6Action);
+// ── Custom choreographed MOVES (sweep preset A -> B over ~6s) ─────────────────
+let AudienceSweepAction = class AudienceSweepAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraSweep('AUDIENCE', isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraSweep', { from: 2, to: 3, ms: 6000 });
+        await ev.action.showOk();
+    }
+};
+AudienceSweepAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.audience-sweep' })
+], AudienceSweepAction);
+let StageSweepAction = class StageSweepAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraSweep('STAGE', isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraSweep', { from: 4, to: 5, ms: 6000 });
+        await ev.action.showOk();
+    }
+};
+StageSweepAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.stage-sweep' })
+], StageSweepAction);
 
 streamDeck.actions.registerAction(new FireAction());
 streamDeck.actions.registerAction(new HideAction());
@@ -9949,6 +9989,8 @@ streamDeck.actions.registerAction(new CameraPos3Action());
 streamDeck.actions.registerAction(new CameraPos4Action());
 streamDeck.actions.registerAction(new CameraPos5Action());
 streamDeck.actions.registerAction(new CameraPos6Action());
+streamDeck.actions.registerAction(new AudienceSweepAction());
+streamDeck.actions.registerAction(new StageSweepAction());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);
