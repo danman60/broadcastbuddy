@@ -22,11 +22,13 @@ import {
   fireFeatureThatWas,
   getStyling,
   updateStyling,
+  applyCurrentRoutineFraming,
 } from './overlay'
 import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
-import { goHomeViaCamera, setCameraAutoMode } from './cameraDirector'
+import * as settings from './settings'
+import { goHomeViaCamera, setCameraAiEnable } from './cameraDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -151,15 +153,22 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     case 'slowZoomTight':
       void slowZoom.triggerTight().catch((err) => logger.warn(`slowZoomTight failed: ${err instanceof Error ? err.message : err}`))
       break
+    // Camera deck buttons mirror the in-app Camera panel EXACTLY — same functions,
+    // no parallel logic. cameraWide == the "Go Wide / Panic" hotkey (goHomeViaCamera).
+    // cameraAuto/cameraManual == the dashboard AUTO/MANUAL toggle (AI enable + persist
+    // cameraAutoMode + apply-current / go-wide). All no-op unless a camera host is set.
     case 'cameraWide':
-      // OBSBOT PTZ → recall the safe wide Home shot (AI off). No-op unless a camera host is set.
       goHomeViaCamera()
       break
     case 'cameraAuto':
-      void setCameraAutoMode(true).catch((err) => logger.warn(`cameraAuto failed: ${err instanceof Error ? err.message : err}`))
+      setCameraAiEnable(true)
+      settings.set('cameraAutoMode', true)
+      applyCurrentRoutineFraming()
       break
     case 'cameraManual':
-      void setCameraAutoMode(false).catch((err) => logger.warn(`cameraManual failed: ${err instanceof Error ? err.message : err}`))
+      setCameraAiEnable(false)
+      settings.set('cameraAutoMode', false)
+      goHomeViaCamera()
       break
     case 'toggleClock':
       toggleClock()
