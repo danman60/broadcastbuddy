@@ -367,6 +367,13 @@ function CameraPanelActive(): React.ReactElement {
   // ── Home / Recenter ──
   const goHome = (): void => { void window.api.cameraGoHome() }
   const recenter = (): void => { void window.api.cameraRecenter() }
+  // Store the CURRENT camera pose as the wide Home (safety) preset. Confirm first —
+  // Home is the safety-net shot; overwriting it with a bad framing breaks the fallback.
+  const setHome = (): void => {
+    if (window.confirm('Overwrite the wide Home shot with the current camera view?\n\nFrame the full stage first — Home is the safety shot the camera falls back to.')) {
+      void window.api.cameraSetHome()
+    }
+  }
 
   // Presets to render (Home reserves slot 1).
   const presetIds = [2, 3, 4, 5, 6, 7, 8]
@@ -464,8 +471,9 @@ function CameraPanelActive(): React.ReactElement {
         ))}
       </div>
 
-      {/* ── Home / Recenter ── */}
+      {/* ── Set Home / Home / Recenter ── */}
       <div className="camera-home-row">
+        <button className="camera-btn" onClick={setHome} title="Frame the full stage, then save it as the wide Home (safety) shot">⌂+ Set Home</button>
         <button className="camera-btn danger" onClick={goHome}>⌂ Home (safe wide)</button>
         <button className="camera-btn" onClick={recenter}>Recenter</button>
       </div>
