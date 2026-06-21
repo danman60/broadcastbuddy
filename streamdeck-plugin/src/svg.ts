@@ -191,3 +191,22 @@ export function featureCard(mode: 'upNext' | 'thatWas', active: boolean): string
     <text x="72" y="138" text-anchor="middle" fill="#888" font-size="13" font-weight="600" font-family="sans-serif" letter-spacing="2">${active ? 'LIVE' : 'FIRE'}</text>
   `, bg)
 }
+
+// ── OBSBOT PTZ camera buttons ──────────────────────────────────────────────
+export function cameraWide(connected: boolean): string {
+  const c = connected ? '#38bdf8' : '#555'
+  return wrap(`
+    <rect x="30" y="46" width="84" height="52" rx="6" fill="none" stroke="${c}" stroke-width="4"/>
+    <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="12" font-family="sans-serif" letter-spacing="1">SAFE CAM</text>
+    <text x="72" y="80" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">WIDE</text>
+  `, '#0e2233')
+}
+
+export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string {
+  const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b'
+  const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113'
+  return wrap(`
+    <text x="72" y="50" text-anchor="middle" fill="${color}" font-size="13" font-family="sans-serif" letter-spacing="2">PTZ</text>
+    <text x="72" y="96" text-anchor="middle" fill="${color}" font-size="${mode === 'MANUAL' ? 20 : 26}" font-weight="bold" font-family="sans-serif">${mode}</text>
+  `, bg)
+}

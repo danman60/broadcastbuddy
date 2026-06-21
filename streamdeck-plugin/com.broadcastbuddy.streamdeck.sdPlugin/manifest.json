@@ -214,6 +214,51 @@
       ]
     },
     {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-wide",
+      "Name": "Camera Wide (Safe)",
+      "Tooltip": "OBSBOT PTZ: recall the safe wide Home shot (AI off)",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-auto",
+      "Name": "Camera AUTO",
+      "Tooltip": "OBSBOT PTZ: AUTO mode (AI tracking on)",
+      "Icon": "imgs/actions/fire",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/fire",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-manual",
+      "Name": "Camera MANUAL",
+      "Tooltip": "OBSBOT PTZ: MANUAL mode (AI off, return to wide)",
+      "Icon": "imgs/actions/fire",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/fire",
+          "Title": ""
+        }
+      ]
+    },
+    {
       "UUID": "com.broadcastbuddy.streamdeck.record",
       "Name": "Record",
       "Tooltip": "Toggle OBS recording",

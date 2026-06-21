@@ -9428,6 +9428,23 @@ function featureCard(mode, active) {
     <text x="72" y="138" text-anchor="middle" fill="#888" font-size="13" font-weight="600" font-family="sans-serif" letter-spacing="2">${active ? 'LIVE' : 'FIRE'}</text>
   `, bg);
 }
+// ── OBSBOT PTZ camera buttons ──────────────────────────────────────────────
+function cameraWide(connected) {
+    const c = connected ? '#38bdf8' : '#555';
+    return wrap(`
+    <rect x="30" y="46" width="84" height="52" rx="6" fill="none" stroke="${c}" stroke-width="4"/>
+    <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="12" font-family="sans-serif" letter-spacing="1">SAFE CAM</text>
+    <text x="72" y="80" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">WIDE</text>
+  `, '#0e2233');
+}
+function cameraMode(mode, connected) {
+    const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b';
+    const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113';
+    return wrap(`
+    <text x="72" y="50" text-anchor="middle" fill="${color}" font-size="13" font-family="sans-serif" letter-spacing="2">PTZ</text>
+    <text x="72" y="96" text-anchor="middle" fill="${color}" font-size="${mode === 'MANUAL' ? 20 : 26}" font-weight="bold" font-family="sans-serif">${mode}</text>
+  `, bg);
+}
 
 let FireAction = class FireAction extends SingletonAction {
     async onWillAppear(ev) {
@@ -9791,6 +9808,57 @@ FeatureThatWasAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.feature-that-was' })
 ], FeatureThatWasAction);
 
+// ── OBSBOT PTZ deck buttons: Wide-safe / AUTO / MANUAL ──────────────────────
+// Each maps to a wsHub command consumed by BroadcastBuddy:
+//   cameraWide   -> goHomeViaCamera() (recall the safe wide Home preset, AI off)
+//   cameraAuto   -> setCameraAutoMode(true)  (AI tracking on)
+//   cameraManual -> setCameraAutoMode(false) (AI off, return to wide)
+let CameraWideAction = class CameraWideAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraWide(isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraWide');
+        await ev.action.showOk();
+    }
+};
+CameraWideAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-wide' })
+], CameraWideAction);
+let CameraAutoAction = class CameraAutoAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraMode('AUTO', isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraAuto');
+        await ev.action.showOk();
+    }
+};
+CameraAutoAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-auto' })
+], CameraAutoAction);
+let CameraManualAction = class CameraManualAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraMode('MANUAL', isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraManual');
+        await ev.action.showOk();
+    }
+};
+CameraManualAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-manual' })
+], CameraManualAction);
+
 streamDeck.actions.registerAction(new FireAction());
 streamDeck.actions.registerAction(new HideAction());
 streamDeck.actions.registerAction(new ToggleLTAction());
@@ -9811,6 +9879,9 @@ streamDeck.actions.registerAction(new ClockAction());
 streamDeck.actions.registerAction(new CounterAction());
 streamDeck.actions.registerAction(new FeatureUpNextAction());
 streamDeck.actions.registerAction(new FeatureThatWasAction());
+streamDeck.actions.registerAction(new CameraWideAction());
+streamDeck.actions.registerAction(new CameraAutoAction());
+streamDeck.actions.registerAction(new CameraManualAction());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);

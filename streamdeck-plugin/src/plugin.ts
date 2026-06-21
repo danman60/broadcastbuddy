@@ -19,6 +19,7 @@ import { SaveReplayAction } from './actions/save-replay'
 import { ClockAction } from './actions/clock'
 import { CounterAction } from './actions/counter'
 import { FeatureUpNextAction, FeatureThatWasAction } from './actions/feature-card'
+import { CameraWideAction, CameraAutoAction, CameraManualAction } from './actions/camera'
 
 streamDeck.actions.registerAction(new FireAction())
 streamDeck.actions.registerAction(new HideAction())
@@ -40,6 +41,9 @@ streamDeck.actions.registerAction(new ClockAction())
 streamDeck.actions.registerAction(new CounterAction())
 streamDeck.actions.registerAction(new FeatureUpNextAction())
 streamDeck.actions.registerAction(new FeatureThatWasAction())
+streamDeck.actions.registerAction(new CameraWideAction())
+streamDeck.actions.registerAction(new CameraAutoAction())
+streamDeck.actions.registerAction(new CameraManualAction())
 
 // Property inspector saves the BB host/port as global settings. Apply them on
 // boot and whenever they change so the operator can point the plugin at a

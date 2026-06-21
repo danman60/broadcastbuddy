@@ -26,6 +26,7 @@ import {
 import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
+import { goHomeViaCamera, setCameraAutoMode } from './cameraDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -149,6 +150,16 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       break
     case 'slowZoomTight':
       void slowZoom.triggerTight().catch((err) => logger.warn(`slowZoomTight failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'cameraWide':
+      // OBSBOT PTZ → recall the safe wide Home shot (AI off). No-op unless a camera host is set.
+      goHomeViaCamera()
+      break
+    case 'cameraAuto':
+      void setCameraAutoMode(true).catch((err) => logger.warn(`cameraAuto failed: ${err instanceof Error ? err.message : err}`))
+      break
+    case 'cameraManual':
+      void setCameraAutoMode(false).catch((err) => logger.warn(`cameraManual failed: ${err instanceof Error ? err.message : err}`))
       break
     case 'toggleClock':
       toggleClock()
