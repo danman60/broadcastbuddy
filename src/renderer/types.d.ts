@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset, VoiceStatus } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset, VoiceStatus, RecordedMove, ShotRecorderState } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -189,6 +189,21 @@ interface ElectronAPI {
   voiceRefreshGrammar: () => Promise<{ ok: boolean }>
   voiceGetStatus: () => Promise<VoiceStatus>
   onVoiceState: (cb: (status: VoiceStatus) => void) => void
+
+  // Per-camera PTZ (dual-Xbox)
+  cameraNudgeXYFor: (args: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }) => Promise<{ ok: boolean }>
+  cameraZoomVelocityFor: (args: { camera: 1 | 2; dir: 'in' | 'out'; speed: number; stop?: boolean }) => Promise<{ ok: boolean }>
+  cameraSlowZoomFor: (args: { camera: 1 | 2; ms?: number; factor?: number }) => Promise<{ ok: boolean }>
+  cameraRecallPresetFor: (args: { camera: 1 | 2; n: number }) => Promise<{ ok: boolean }>
+  cameraStopFor: (args: { camera: 1 | 2 }) => Promise<{ ok: boolean }>
+
+  // Shot recorder
+  shotRecordToggle: (label?: string) => Promise<{ ok: boolean; move: RecordedMove | null }>
+  shotReplay: (id: number) => Promise<{ ok: boolean }>
+  shotDelete: (id: number) => Promise<{ ok: boolean }>
+  shotRename: (id: number, label: string) => Promise<{ ok: boolean }>
+  shotGet: () => Promise<{ state: ShotRecorderState; moves: RecordedMove[] }>
+  onShotState: (cb: (state: ShotRecorderState) => void) => void
 
   // OBS Transition auto-revert
   obsTransitionRevertGet: () => Promise<{ enabled: boolean }>

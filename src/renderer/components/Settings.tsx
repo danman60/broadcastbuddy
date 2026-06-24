@@ -5,6 +5,7 @@ import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyC
 import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
 import { StreamDeckPluginSection } from './StreamDeckPluginSection'
 import { VoicePanel } from './VoicePanel'
+import { ShotRecorderPanel } from './ShotRecorderPanel'
 import '../styles/settings.css'
 
 // Tabbed Settings (pattern from CompSyncElectronApp): each existing .settings-group
@@ -14,7 +15,7 @@ import '../styles/settings.css'
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
   { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
-  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Voice Control'] },
+  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
   { id: 'network', label: 'Network', sections: ['Tablet Display', 'Operator Chat'] },
   { id: 'tools', label: 'Tools', sections: ['Stream Deck Plugin'] },
@@ -578,6 +579,11 @@ export function Settings() {
         <div className="settings-group">
           <div className="settings-group-title">Voice Control</div>
           <VoicePanel />
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Shot Recorder</div>
+          <ShotRecorderPanel />
         </div>
 
         <div className="settings-group">

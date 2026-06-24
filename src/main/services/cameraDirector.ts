@@ -624,6 +624,7 @@ export function recenterCamera(): void {
 /** Recall stored preset n. */
 export function recallCameraPreset(n: number): void {
   withCam('recall-preset', (cam) => cam.triggerPreset(n))
+  notifyCommandSink(getActiveCameraId(), 'recall', { n })
 }
 
 /**
@@ -661,48 +662,56 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
   })()
 }
 
-// True while a native zoom ease is gliding; a second press cancels it.
-let slowZoomActive = false
+// Per-host slow-zoom guard set (a second press on the SAME camera cancels). Keyed
+// by host so two cameras can each run an independent slow push (multi-PTZ).
+const slowZoomActiveHosts = new Set<string>()
 // Camera-native zoom speed for the slow push. LOW = slow, smooth cinematic ramp
 // ("creeps"). Client-side stepping stuttered; the camera's own speed param is the
 // smooth primitive (REST /ptz/zoom {ratio,speed}). Tune 1-3 for slower/faster.
 const SLOW_ZOOM_SPEED = 2
 
 /**
- * Slow optical-zoom PUSH from the CURRENT zoom toward a tele target (current ×
- * `factor`, clamped ≤12). Issues ONE native `zoomToRatio(target, lowSpeed)` — the
- * camera eases there smoothly on its own ramp (no client-side stepping, which
- * stuttered). Does NOT touch AI workmode: if tracking is on, the gimbal keeps
- * following while we push in. A second press CANCELS (retargets the live ratio).
- * `durationMs` only sizes the active-guard window. Guarded / no-op without a host.
+ * Slow optical-zoom PUSH on `host` from the CURRENT zoom toward a tele target
+ * (current × `factor`, clamped ≤12 for IN / ≥1 for OUT). Issues ONE native
+ * `zoomToRatio(target, lowSpeed)` — the camera eases there smoothly on its own
+ * ramp. Does NOT touch AI workmode. A second call on the same host CANCELS.
+ * `durationMs` only sizes the active-guard window.
  */
-export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
-  const host = resolveCameraHost()
-  if (!host) return
+function slowZoomPushHost(host: string, durationMs: number, factor: number): void {
   void (async () => {
     try {
       const director = await getDirector(host)
       if (!director) return
       const cam = director.cam
-      if (slowZoomActive) {
+      if (slowZoomActiveHosts.has(host)) {
         // Second press = cancel: camera-native stop (retarget current ratio).
-        slowZoomActive = false
+        slowZoomActiveHosts.delete(host)
         await cam.stopZoom()
         logger.info('Camera slow-zoom push canceled')
         return
       }
       const info = (await cam.getZoomInfo()) as { ratio?: number } | undefined
       const start = info && typeof info.ratio === 'number' ? info.ratio : 1.0
-      const target = Math.min(12, Math.max(1, start * factor))
-      slowZoomActive = true
+      // factor > 1 → push in (toward tele); factor < 1 → pull out (toward wide).
+      const target = factor >= 1 ? Math.min(12, Math.max(1, start * factor)) : Math.max(1, start * factor)
+      slowZoomActiveHosts.add(host)
       cam.zoomToRatio(target, SLOW_ZOOM_SPEED) // single smooth native ramp
-      setTimeout(() => { slowZoomActive = false }, Math.max(1000, durationMs))
-      logger.info(`Camera slow-zoom push ${start.toFixed(1)}->${target.toFixed(1)} speed ${SLOW_ZOOM_SPEED}`)
+      setTimeout(() => slowZoomActiveHosts.delete(host), Math.max(1000, durationMs))
+      logger.info(`Camera slow-zoom ${factor >= 1 ? 'push' : 'pull'} ${start.toFixed(1)}->${target.toFixed(1)} speed ${SLOW_ZOOM_SPEED}`)
     } catch (err) {
-      slowZoomActive = false
-      logger.error('slowZoomPush failed:', err)
+      slowZoomActiveHosts.delete(host)
+      logger.error('slowZoomPushHost failed:', err)
     }
   })()
+}
+
+/** Slow push on the ACTIVE camera (voice / deck). */
+export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
+  const host = resolveCameraHost()
+  if (!host) return
+  slowZoomPushHost(host, durationMs, factor)
+  const id = getActiveCameraId()
+  notifyCommandSink(id, factor >= 1 ? 'slowPush' : 'slowPull', { ms: durationMs, factor })
 }
 
 /**
@@ -713,11 +722,113 @@ export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
  * without a host.
  */
 export function stopAllCameraMotion(): void {
-  slowZoomActive = false // cancel the slow-push guard so a fresh push can start
+  const host = resolveCameraHost()
+  if (host) slowZoomActiveHosts.delete(host) // cancel the slow-push guard
   withCam('stop-all', (cam) => {
     void cam.stopZoom()
     cam.gimbalStopAll()
   })
+  notifyCommandSink(getActiveCameraId(), 'stop')
+}
+
+// ── Shot recorder command sink + per-camera primitives (multi-PTZ / Xbox) ─────
+// A recorder can subscribe to every pose-affecting command via setCameraCommandSink;
+// it timestamps them to capture a "move" and replays them open-loop. Replay re-emits
+// through these same primitives, so a guard suppresses re-recording during replay.
+
+/** A pose-affecting command, as seen by the recorder. */
+export type RecordedCmdKind =
+  | 'gimbal' | 'gimbalStop' | 'zoom' | 'zoomStop'
+  | 'slowPush' | 'slowPull' | 'recall' | 'home' | 'stop'
+export interface RecordedCmd {
+  camera: 1 | 2
+  kind: RecordedCmdKind
+  args?: Record<string, number | string>
+}
+type CommandSink = (cmd: RecordedCmd) => void
+
+let commandSink: CommandSink | null = null
+let suppressSink = false // true while a recorder REPLAYS (so replay isn't re-recorded)
+
+/** Subscribe to pose-affecting commands (the shot recorder). null = unsubscribe. */
+export function setCameraCommandSink(sink: CommandSink | null): void {
+  commandSink = sink
+}
+/** Temporarily mute the sink (used by the recorder around its own replay). */
+export function setCommandSinkSuppressed(on: boolean): void {
+  suppressSink = on
+}
+function notifyCommandSink(camera: 1 | 2, kind: RecordedCmdKind, args?: Record<string, number | string>): void {
+  if (commandSink && !suppressSink) {
+    try {
+      commandSink({ camera, kind, args })
+    } catch (err) {
+      logger.warn(`command sink threw: ${err instanceof Error ? err.message : err}`)
+    }
+  }
+}
+
+/** Run `fn` against a SPECIFIC camera's HAL (by id), detached + guarded. */
+function withCamFor(id: 1 | 2, label: string, fn: (cam: CameraHal) => void): void {
+  try {
+    const host = resolveCameraHostFor(id)
+    if (!host) return // that camera isn't configured — no-op
+    void (async () => {
+      try {
+        const director = await getDirector(host)
+        if (!director) return
+        fn(director.cam)
+        if (!QUIET_CAM_LABELS.has(label)) logger.info(`Camera${id} cmd: ${label}`)
+      } catch (err) {
+        logger.error(`Camera${id} ${label} failed:`, err)
+      }
+    })()
+  } catch (err) {
+    logger.error(`Camera${id} ${label} guard failed:`, err)
+  }
+}
+
+/** Per-camera 2D gimbal velocity / stop (Xbox left=cam1, right=cam2). */
+export function nudgeCameraXYFor(id: 1 | 2, yaw: number, pitch: number, stop = false): void {
+  withCamFor(id, 'nudge-xy', (cam) => {
+    if (stop) cam.gimbalStopAll()
+    else cam.gimbalVelocityXY(yaw, pitch)
+  })
+  notifyCommandSink(id, stop ? 'gimbalStop' : 'gimbal', stop ? undefined : { yaw, pitch })
+}
+
+/** Per-camera hold-to-zoom velocity / stop. */
+export function zoomCameraVelocityFor(id: 1 | 2, dir: 'in' | 'out', speed: number, stop = false): void {
+  withCamFor(id, 'zoom-velocity', (cam) => {
+    if (stop) void cam.stopZoom()
+    else cam.zoomVelocity(dir, speed)
+  })
+  notifyCommandSink(id, stop ? 'zoomStop' : 'zoom', stop ? undefined : { dir, speed })
+}
+
+/** Per-camera slow optical push (factor>1) or pull (factor<1). */
+export function slowZoomPushFor(id: 1 | 2, durationMs: number, factor: number): void {
+  const host = resolveCameraHostFor(id)
+  if (!host) return
+  slowZoomPushHost(host, durationMs, factor)
+  notifyCommandSink(id, factor >= 1 ? 'slowPush' : 'slowPull', { ms: durationMs, factor })
+}
+
+/** Per-camera recall of a stored preset slot. */
+export function recallCameraPresetFor(id: 1 | 2, n: number): void {
+  withCamFor(id, 'recall-preset', (cam) => cam.triggerPreset(n))
+  notifyCommandSink(id, 'recall', { n })
+}
+
+/** Per-camera halt-all (cancel slow push + stop zoom + stop gimbal). */
+export function stopAllCameraMotionFor(id: 1 | 2): void {
+  const host = resolveCameraHostFor(id)
+  if (host) slowZoomActiveHosts.delete(host)
+  withCamFor(id, 'stop-all', (cam) => {
+    void cam.stopZoom()
+    cam.gimbalStopAll()
+  })
+  notifyCommandSink(id, 'stop')
 }
 
 /** Store the current pose as preset id (with optional name). */
@@ -786,6 +897,7 @@ export function nudgeCameraXY(yaw: number, pitch: number, stop = false): void {
     if (stop) cam.gimbalStopAll()
     else cam.gimbalVelocityXY(yaw, pitch)
   })
+  notifyCommandSink(getActiveCameraId(), stop ? 'gimbalStop' : 'gimbal', stop ? undefined : { yaw, pitch })
 }
 
 /** Hold-to-zoom velocity toward a rail, or stop the zoom ramp. */
@@ -794,6 +906,7 @@ export function zoomCameraVelocity(dir: 'in' | 'out', speed: number, stop = fals
     if (stop) void cam.stopZoom()
     else cam.zoomVelocity(dir, speed)
   })
+  notifyCommandSink(getActiveCameraId(), stop ? 'zoomStop' : 'zoom', stop ? undefined : { dir, speed })
 }
 
 /** Master AI tracking on/off (used by the auto/manual interlock + toggle). */

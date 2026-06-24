@@ -38,8 +38,14 @@ import {
   discoverCamera,
   resetCameraConnection,
   setActiveCamera,
+  nudgeCameraXYFor,
+  zoomCameraVelocityFor,
+  slowZoomPushFor,
+  recallCameraPresetFor,
+  stopAllCameraMotionFor,
 } from './services/cameraDirector'
 import * as voiceDirector from './services/voiceDirector'
+import * as shotRecorder from './services/shotRecorder'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
 import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
@@ -1497,6 +1503,50 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.VOICE_GET_STATUS, () => {
     return voiceDirector.getStatus()
+  })
+
+  // ── Per-camera PTZ (dual-Xbox: left stick→cam1, right stick→cam2) ───────────
+  ipcMain.handle(IPC.CAMERA_NUDGE_XY_FOR, (_e, a: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }) => {
+    nudgeCameraXYFor(a.camera, a.yaw, a.pitch, a.stop)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_ZOOM_VELOCITY_FOR, (_e, a: { camera: 1 | 2; dir: 'in' | 'out'; speed: number; stop?: boolean }) => {
+    zoomCameraVelocityFor(a.camera, a.dir, a.speed, a.stop)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_SLOW_ZOOM_FOR, (_e, a: { camera: 1 | 2; ms?: number; factor?: number }) => {
+    slowZoomPushFor(a.camera, a.ms && a.ms > 0 ? a.ms : 10000, a.factor && a.factor > 0 ? a.factor : 1.5)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_RECALL_PRESET_FOR, (_e, a: { camera: 1 | 2; n: number }) => {
+    recallCameraPresetFor(a.camera, a.n)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_STOP_FOR, (_e, a: { camera: 1 | 2 }) => {
+    stopAllCameraMotionFor(a.camera)
+    return { ok: true }
+  })
+
+  // ── Shot recorder (motion record/replay) ───────────────────────────────────
+  ipcMain.handle(IPC.SHOT_RECORD_TOGGLE, (_e, a?: { label?: string }) => {
+    if (shotRecorder.getState().recording) return { ok: true, move: shotRecorder.stopRecording(a?.label) }
+    shotRecorder.startRecording()
+    return { ok: true, move: null }
+  })
+  ipcMain.handle(IPC.SHOT_REPLAY, (_e, a: { id: number }) => {
+    shotRecorder.replayMove(a.id)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.SHOT_DELETE, (_e, a: { id: number }) => {
+    shotRecorder.deleteMove(a.id)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.SHOT_RENAME, (_e, a: { id: number; label: string }) => {
+    shotRecorder.renameMove(a.id, a.label)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.SHOT_GET, () => {
+    return { state: shotRecorder.getState(), moves: shotRecorder.getMoves() }
   })
 
   ipcMain.handle(

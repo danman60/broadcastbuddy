@@ -259,12 +259,12 @@ function CameraPanelActive(): React.ReactElement {
         onGoHome: () => { void window.api.cameraGoHome() },
         onToggleAi: () => { void toggleAi() },
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
-        onToggleCamera: () => {
-          const next: 1 | 2 = activeCamRef.current === 1 ? 2 : 1
-          activeCamRef.current = next
-          setActiveCam(next)
-          void window.api.cameraSelect(next)
-        },
+        // LT→cam1 / RT→cam2 slow push-IN (factor>1).
+        onSlowPush: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: 1.5 }) },
+        // LB→cam1 / RB→cam2 slow pull-OUT (factor<1).
+        onSlowPull: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: 0.67 }) },
+        // Back → start/stop recording a manual move.
+        onRecordToggle: () => { void window.api.shotRecordToggle() },
         onManualLatched: () => {
           setAiEnabled(false)
           setManualFlash(true)
@@ -425,7 +425,7 @@ function CameraPanelActive(): React.ReactElement {
             title={(settings?.cameraHost2 || '').trim() ? 'Drive PTZ camera 2' : 'Set Camera 2 IP below to enable'}
           >Cam 2</button>
         </div>
-        <span className="camera-manual-flash" style={{ opacity: 0.6 }}>Xbox: Back = switch</span>
+        <span className="camera-manual-flash" style={{ opacity: 0.6 }}>Xbox: L stick = Cam 1 · R stick = Cam 2</span>
       </div>
       <div className="camera-row">
         <span className="camera-label">Cam 2 IP</span>

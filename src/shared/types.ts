@@ -464,6 +464,9 @@ export interface AppSettings {
   voiceSlowPushMs?: number // "slow push in" duration. Default 15000.
   voiceSlowPushFactor?: number // "slow push in" tele factor (current × this). Default 1.3.
   voiceShots?: VoiceShotMap // per-camera saved shots (slot id + optional spoken label).
+
+  // ── Shot recorder — saved manual moves (record joystick path → replay). ──
+  recordedMoves?: RecordedMove[]
 }
 
 /** One saved "shot": a preset slot with an optional spoken label ("drummer"). */
@@ -494,6 +497,31 @@ export interface VoiceStatus {
   helper: 'starting' | 'ready' | 'down' // child-process state
   listening: boolean // true while the PTT key is held
   lastResult?: VoiceResult
+}
+
+// ── Shot recorder (motion record/replay) ─────────────────────────────────────
+/** One timestamped pose-affecting command captured during a recording. */
+export interface RecordedMoveEvent {
+  tMs: number // ms since recording start
+  camera: 1 | 2
+  kind: string // gimbal | gimbalStop | zoom | zoomStop | slowPush | slowPull | recall
+  args?: Record<string, number | string>
+}
+
+/** A saved manual "move": a timed command list, replayable open-loop. */
+export interface RecordedMove {
+  id: number
+  label?: string // optional spoken/typed name; joins the voice grammar
+  durationMs: number
+  events: RecordedMoveEvent[]
+  createdAt: string // ISO
+}
+
+/** Recorder status pushed to the renderer. */
+export interface ShotRecorderState {
+  recording: boolean
+  replayingMoveId: number | null
+  eventCount: number // live count while recording
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -1118,6 +1146,21 @@ export const IPC = {
   VOICE_REFRESH_GRAMMAR: 'voice:refresh-grammar',// rebuild + push SAPI grammar (after shot labels change)
   VOICE_GET_STATUS: 'voice:get-status',          // current helper/listening status (never throws)
   VOICE_STATE: 'voice:state',                    // main→renderer push: VoiceStatus (helper state + last result)
+
+  // Per-camera PTZ control (multi-PTZ / dual-Xbox: left stick→cam1, right stick→cam2).
+  CAMERA_NUDGE_XY_FOR: 'camera:nudge-xy-for',     // {camera, yaw, pitch, stop?}
+  CAMERA_ZOOM_VELOCITY_FOR: 'camera:zoom-velocity-for', // {camera, dir, speed, stop?}
+  CAMERA_SLOW_ZOOM_FOR: 'camera:slow-zoom-for',   // {camera, ms?, factor?}
+  CAMERA_RECALL_PRESET_FOR: 'camera:recall-preset-for', // {camera, n}
+  CAMERA_STOP_FOR: 'camera:stop-for',             // {camera} — halt all motion on one camera
+
+  // Shot recorder (motion record/replay → recallable by voice/hotkey/deck).
+  SHOT_RECORD_TOGGLE: 'shot:record-toggle',       // start/stop recording (label? on stop)
+  SHOT_REPLAY: 'shot:replay',                     // {id} replay a recorded move
+  SHOT_DELETE: 'shot:delete',                     // {id}
+  SHOT_RENAME: 'shot:rename',                     // {id, label}
+  SHOT_GET: 'shot:get',                           // list moves + state
+  SHOT_STATE: 'shot:state',                       // main→renderer push: ShotRecorderState
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

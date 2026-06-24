@@ -15,6 +15,7 @@ import * as backup from './services/backup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
 import * as voiceDirector from './services/voiceDirector'
+import * as shotRecorder from './services/shotRecorder'
 import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers, pushState } from './ipc'
@@ -244,6 +245,11 @@ app.whenReady().then(() => {
   // 18. Voice-driven PTZ director — spawns the bundled voice-helper.exe only when
   //     voiceEnabled + a camera host is set; otherwise a complete no-op.
   voiceDirector.startVoiceDirector()
+
+  // 18b. Shot recorder: rebuild the voice grammar whenever the saved-move list
+  //      changes, so recorded moves become spoken-recallable (decoupled callback
+  //      avoids a shotRecorder↔voiceDirector import cycle).
+  shotRecorder.setOnMovesChanged(() => voiceDirector.refreshGrammar())
 
   logger.info('All services started')
 })

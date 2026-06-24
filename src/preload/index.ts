@@ -282,6 +282,30 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on(IPC.VOICE_STATE, (_e, status) => cb(status))
   },
 
+  // ── Per-camera PTZ (dual-Xbox) ────────────────────────────────
+  cameraNudgeXYFor: (args: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_NUDGE_XY_FOR, args),
+  cameraZoomVelocityFor: (args: { camera: 1 | 2; dir: 'in' | 'out'; speed: number; stop?: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_ZOOM_VELOCITY_FOR, args),
+  cameraSlowZoomFor: (args: { camera: 1 | 2; ms?: number; factor?: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SLOW_ZOOM_FOR, args),
+  cameraRecallPresetFor: (args: { camera: 1 | 2; n: number }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_RECALL_PRESET_FOR, args),
+  cameraStopFor: (args: { camera: 1 | 2 }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_STOP_FOR, args),
+
+  // ── Shot recorder ─────────────────────────────────────────────
+  shotRecordToggle: (label?: string): Promise<{ ok: boolean; move: import('../shared/types').RecordedMove | null }> =>
+    ipcRenderer.invoke(IPC.SHOT_RECORD_TOGGLE, { label }),
+  shotReplay: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_REPLAY, { id }),
+  shotDelete: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_DELETE, { id }),
+  shotRename: (id: number, label: string): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_RENAME, { id, label }),
+  shotGet: (): Promise<{ state: import('../shared/types').ShotRecorderState; moves: import('../shared/types').RecordedMove[] }> =>
+    ipcRenderer.invoke(IPC.SHOT_GET),
+  onShotState: (cb: (state: import('../shared/types').ShotRecorderState) => void): void => {
+    ipcRenderer.on(IPC.SHOT_STATE, (_e, state) => cb(state))
+  },
+
   // ── OBS Transition auto-revert ────────────────────────────────
   obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),

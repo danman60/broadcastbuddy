@@ -2,29 +2,42 @@
  * gamepad — raw Web Gamepad API driver for the PTZ control panel (zero deps).
  *
  * A requestAnimationFrame poll re-reads navigator.getGamepads() EVERY frame
- * (never cached — Chrome returns a fresh snapshot each call). The left stick
- * drives pan/tilt, triggers + right-stick-Y drive zoom, face/d-pad buttons
- * recall presets, etc. All motion is written to the SHARED desiredState in
- * cameraControl.ts so the gamepad and the on-screen joystick share one throttle.
+ * (never cached — Chrome returns a fresh snapshot each call). This driver runs
+ * BOTH PTZ cameras at once off one controller: the LEFT stick flies camera 1
+ * and the RIGHT stick flies camera 2 (both written EVERY frame to the per-camera
+ * desiredState in cameraControl.ts via setGimbalFor). Continuous motion goes
+ * through cameraControl; discrete actions (slow-zoom glides, record toggle,
+ * presets, home, AI) fire through GamepadCallbacks.
  *
  * W3C "standard" mapping (https://w3c.github.io/gamepad/#remapping):
  *   axes:    0 LX · 1 LY · 2 RX · 3 RY
  *   buttons: 0 A · 1 B · 2 X · 3 Y · 4 LB · 5 RB · 6 LT · 7 RT · 8 Back · 9 Start
  *            10 LS · 11 RS · 12 Up · 13 Down · 14 Left · 15 Right · 16 Guide
  *
- * Mapping implemented (see the table in the build report):
- *   - Left stick → pan/tilt (tilt inverted: stick-up = tilt-up).
- *   - LT(6)/RT(7) analog → zoom out/in; right-stick-Y also → zoom.
+ * Mapping implemented (DUAL camera — both live at once, NOT active-cam-gated):
+ *   - LEFT stick  → camera 1 pan/tilt (tilt inverted: stick-up = tilt-up).
+ *   - RIGHT stick → camera 2 pan/tilt (tilt inverted: stick-up = tilt-up).
+ *   - LT(6) full-press (cross 0.6, edge) → camera 1 SLOW push-in (onSlowPush 1).
+ *   - RT(7) full-press (cross 0.6, edge) → camera 2 SLOW push-in (onSlowPush 2).
+ *   - LB(4) press edge → camera 1 SLOW pull-OUT (onSlowPull 1) — one-shot glide.
+ *   - RB(5) press edge → camera 2 SLOW pull-OUT (onSlowPull 2) — one-shot glide.
+ *   - Back(8) edge → onRecordToggle() (start/stop recording a manual move).
  *   - A/B/X/Y (0–3) → recall preset 1–4 (edge-triggered).
  *   - D-pad (12–15) → recall preset 5–8 (edge-triggered).
- *   - LB(4) + face button → SAVE preset (setPreset) instead of recall.
  *   - Guide(16) → goHome. Start/Menu(9) → toggle AI. LS(10) → cycle tracking speed.
- *   - Back(8) → toggle active PTZ camera (1↔2) on the same controller.
- *   - RB(5) held → fine mode ×0.3.
  *
- * Interlock: any stick deflection past the deadzone OR analog zoom flips AI OFF
- * and latches manual; AI is only re-enabled via the Menu button or the on-screen
- * AUTO toggle (both call back through onToggleAi / setAiEnabled here).
+ * REMOVED vs. the single-active-camera driver:
+ *   - LB-as-SAVE-preset modifier (LB is now cam-1 slow pull-out; presets recall only).
+ *   - RB-as-fine-mode ×0.3 (RB is now cam-2 slow pull-out). No fine mode.
+ *   - Back-as-toggle-active-camera (Back now records). Both sticks are always live,
+ *     so there's no "active camera" to toggle for the gamepad path.
+ *   - Trigger/right-stick-Y proportional zoom (triggers are now discrete slow-zoom
+ *     glides; the right stick is camera 2's pan/tilt).
+ *
+ * Interlock: any stick deflection past the deadzone flips AI OFF and latches
+ * manual on the ACTIVE camera only (single onManualLatched call). KNOWN GAP (v1):
+ * deflecting the stick that drives the NON-active camera does not auto-disable
+ * that camera's AI — operator must flip its mode manually. Not in v1 scope.
  *
  * Disconnect: gamepaddisconnected → immediately stopAllNow() + clear state.
  */
@@ -32,9 +45,7 @@
 import * as control from './cameraControl'
 
 const GIMBAL_SCALE = 178 // normalized magnitude → ±178 gimbal velocity limit
-const ZOOM_SCALE = 10 // normalized magnitude → 0–10 zoom speed
-const FINE_FACTOR = 0.3 // RB held → fine movement
-const TRIGGER_THRESHOLD = 0.05 // analog trigger dead floor
+const TRIGGER_FULL_THRESHOLD = 0.6 // LT/RT must cross this (edge) to fire a slow push-in
 const TRACKING_SPEED_MODES = 6 // 0–5
 
 export interface GamepadCallbacks {
@@ -48,9 +59,13 @@ export interface GamepadCallbacks {
   onToggleAi: () => void
   /** Cycle tracking-speed mode (0–5). */
   onCycleTrackingSpeed: (mode: number) => void
-  /** Multi-cam: toggle which PTZ (1↔2) this controller drives (Back button). */
-  onToggleCamera: () => void
-  /** Interlock latched manual (a stick/zoom deflection forced AI off). */
+  /** Slow push-IN glide on the given camera (LT→cam1, RT→cam2; trigger full-press edge). */
+  onSlowPush: (cam: 1 | 2) => void
+  /** Slow pull-OUT glide on the given camera (LB→cam1, RB→cam2; press edge — one-shot). */
+  onSlowPull: (cam: 1 | 2) => void
+  /** Start/stop recording a manual move (Back button edge). */
+  onRecordToggle: () => void
+  /** Interlock latched manual (a stick deflection forced AI off). */
   onManualLatched: () => void
   /** Connection state changed — pass the pad label or null. */
   onConnection: (label: string | null) => void
@@ -90,7 +105,6 @@ export class GamepadController {
   private running = false
   private edges: ButtonEdges = { pressed: [] }
   private connectedLabel: string | null = null
-  private fineHeld = false
   private trackingMode = 2 // default 'slow'
   private aiEnabled = true
 
@@ -183,67 +197,59 @@ export class GamepadController {
     const pressed = (i: number): boolean => !!btn(i)?.pressed
     const analog = (i: number): number => btn(i)?.value ?? 0
 
-    this.fineHeld = pressed(5) // RB → fine mode
-    const fine = this.fineHeld ? FINE_FACTOR : 1
-
-    // ── Pan/Tilt from the left stick (tilt inverted: stick-up = tilt-up) ──
+    // ── Camera 1 pan/tilt from the LEFT stick (tilt inverted: stick-up = tilt-up) ──
     const lx = pad.axes[0] ?? 0
     const ly = pad.axes[1] ?? 0
-    const stick = applyDeadzoneExpo(lx, ly, this.cfg.deadzone, this.cfg.expo)
-    const yaw = stick.x * GIMBAL_SCALE * fine
-    const pitch = -stick.y * GIMBAL_SCALE * fine // invert: up on stick → tilt up
+    const lStick = applyDeadzoneExpo(lx, ly, this.cfg.deadzone, this.cfg.expo)
+    const yaw1 = lStick.x * GIMBAL_SCALE
+    const pitch1 = -lStick.y * GIMBAL_SCALE // invert: up on stick → tilt up
 
-    // ── Zoom: triggers (LT out / RT in) + right-stick-Y ──
-    const lt = analog(6)
-    const rt = analog(7)
+    // ── Camera 2 pan/tilt from the RIGHT stick (tilt inverted: stick-up = tilt-up) ──
+    const rx = pad.axes[2] ?? 0
     const ry = pad.axes[3] ?? 0
-    const ryDz = Math.abs(ry) < this.cfg.deadzone ? 0 : ry
-    let zoom: control.ZoomCommand | null = null
-    if (rt > TRIGGER_THRESHOLD) {
-      zoom = { dir: 'in', speed: rt * ZOOM_SCALE * fine }
-    } else if (lt > TRIGGER_THRESHOLD) {
-      zoom = { dir: 'out', speed: lt * ZOOM_SCALE * fine }
-    } else if (ryDz !== 0) {
-      // Right-stick-up (negative Y) → zoom in.
-      zoom = { dir: ryDz < 0 ? 'in' : 'out', speed: Math.abs(ryDz) * ZOOM_SCALE * fine }
-    }
+    const rStick = applyDeadzoneExpo(rx, ry, this.cfg.deadzone, this.cfg.expo)
+    const yaw2 = rStick.x * GIMBAL_SCALE
+    const pitch2 = -rStick.y * GIMBAL_SCALE // invert: up on stick → tilt up
 
-    // ── Interlock: any manual deflection forces AI off + latches manual ──
-    const deflected = yaw !== 0 || pitch !== 0 || zoom !== null
+    // ── Interlock: any deflection on EITHER stick forces AI off + latches manual ──
+    // (Single latch on the ACTIVE camera; second-camera AI auto-off is a known v1 gap.)
+    const deflected =
+      yaw1 !== 0 || pitch1 !== 0 || yaw2 !== 0 || pitch2 !== 0
     if (deflected && this.aiEnabled) {
       this.aiEnabled = false
       void window.api.cameraSetAiEnable({ on: false })
       this.cb.onManualLatched()
     }
 
-    // ── Write the SHARED desiredState (cameraControl flushes at the rate) ──
-    control.setGimbal(yaw, pitch)
-    control.setZoom(zoom)
+    // ── Write per-camera desiredState every frame (cameraControl flushes both) ──
+    control.setGimbalFor(1, yaw1, pitch1)
+    control.setGimbalFor(2, yaw2, pitch2)
+
+    // ── Slow-zoom triggers: LT/RT full-press (cross 0.6, edge) → slow push-IN ──
+    const ltFull = analog(6) >= TRIGGER_FULL_THRESHOLD
+    const rtFull = analog(7) >= TRIGGER_FULL_THRESHOLD
+    if (this.edgePress(6, ltFull)) this.cb.onSlowPush(1)
+    if (this.edgePress(7, rtFull)) this.cb.onSlowPush(2)
+
+    // ── Slow-zoom bumpers: LB/RB press edge → slow pull-OUT (one-shot glide) ──
+    if (this.edgePress(4, pressed(4))) this.cb.onSlowPull(1)
+    if (this.edgePress(5, pressed(5))) this.cb.onSlowPull(2)
 
     // ── Edge-triggered buttons ──
-    const lbHeld = pressed(4) // LB + face = SAVE instead of recall
-
-    // A/B/X/Y → preset 1–4
+    // A/B/X/Y → recall preset 1–4
     for (let i = 0; i < 4; i++) {
-      if (this.edgePress(i, pressed(i))) {
-        if (lbHeld) this.cb.onSavePreset(i + 1)
-        else this.cb.onRecallPreset(i + 1)
-      }
+      if (this.edgePress(i, pressed(i))) this.cb.onRecallPreset(i + 1)
     }
-    // D-pad 12–15 → preset 5–8
+    // D-pad 12–15 → recall preset 5–8
     for (let i = 12; i <= 15; i++) {
-      if (this.edgePress(i, pressed(i))) {
-        const presetN = i - 12 + 5
-        if (lbHeld) this.cb.onSavePreset(presetN)
-        else this.cb.onRecallPreset(presetN)
-      }
+      if (this.edgePress(i, pressed(i))) this.cb.onRecallPreset(i - 12 + 5)
     }
 
     // Guide(16) → goHome
     if (this.edgePress(16, pressed(16))) this.cb.onGoHome()
 
-    // Back(8) → toggle active PTZ camera (drive cam 1 ↔ cam 2 on this same pad)
-    if (this.edgePress(8, pressed(8))) this.cb.onToggleCamera()
+    // Back(8) → start/stop recording a manual move
+    if (this.edgePress(8, pressed(8))) this.cb.onRecordToggle()
 
     // Start/Menu(9) → toggle AI (the operator's explicit re-enable path)
     if (this.edgePress(9, pressed(9))) {

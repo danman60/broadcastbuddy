@@ -30,6 +30,7 @@ import {
   isCameraFeatureActive,
   getActiveCameraId,
 } from './cameraDirector'
+import { getMoves, replayMoveByLabel } from './shotRecorder'
 import { IPC, VoiceResult, VoiceStatus, VoiceShot } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -109,6 +110,10 @@ function buildGrammar(): { t: 'grammar'; verbs: typeof VOICE_VERBS; shots: Recor
     for (const shot of list) {
       tokens.push(String(shot.id)) // numbered "shot <id>" always available
       if (shot.label && shot.label.trim()) tokens.push(shot.label.trim().toLowerCase())
+    }
+    // Recorded-move labels are recallable on either camera (they may drive both).
+    for (const mv of getMoves()) {
+      if (mv.label && mv.label.trim()) tokens.push(mv.label.trim().toLowerCase())
     }
     shots[camKey] = Array.from(new Set(tokens))
   }
@@ -290,7 +295,14 @@ function routeResult(msg: VoiceMsgResult): void {
       break
     case 'recall': {
       const slot = resolveShotSlot(camera, targetTok)
-      if (slot == null) return reject('unset-shot', `${targetTok ? `"${targetTok}"` : 'shot'} not set`)
+      if (slot == null) {
+        // Not a preset slot — maybe a recorded MOVE label → replay it.
+        if (targetTok && replayMoveByLabel(targetTok)) {
+          ok(`▸ ${targetTok.toUpperCase()} (move)`)
+          break
+        }
+        return reject('unset-shot', `${targetTok ? `"${targetTok}"` : 'shot'} not set`)
+      }
       recallCameraPreset(slot)
       ok(`CAM${camera} ▸ ${targetTok ? targetTok.toUpperCase() : `SHOT ${slot}`}`)
       break

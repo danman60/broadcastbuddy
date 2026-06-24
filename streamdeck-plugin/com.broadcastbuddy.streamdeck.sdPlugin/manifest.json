@@ -557,6 +557,36 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.shot-record",
+      "Name": "Record Shot (toggle)",
+      "Tooltip": "PTZ: start/stop recording the live camera move",
+      "Icon": "imgs/actions/fire",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/fire",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.shot-play",
+      "Name": "Play Shot",
+      "Tooltip": "PTZ: replay the recorded camera move with the configured id",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

@@ -9480,6 +9480,27 @@ function cameraSelect(n, connected) {
     <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
   `, '#0e2233');
 }
+// ── Recorded camera MOVES: record a live move, replay it later ──────────────
+// shotRecord  -> wsHub 'shotRecordToggle' (start/stop recording the live move)
+// shotPlay    -> wsHub 'shotReplay' {id}  (replay recorded move <id>)
+function shotRecord(connected) {
+    const c = connected ? '#ef4444' : '#555';
+    const bg = connected ? '#2a1010' : '#1e1e2e';
+    return wrap(`
+    <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">RECORD</text>
+    <circle cx="72" cy="74" r="24" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">SHOT</text>
+  `, bg);
+}
+function shotPlay(connected, id) {
+    const c = connected ? '#22c55e' : '#555';
+    const bg = connected ? '#0d1f0d' : '#1e1e2e';
+    return wrap(`
+    <text x="72" y="36" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">PLAY SHOT</text>
+    <path d="M58 56 L96 78 L58 100 Z" fill="${c}"/>
+    <text x="72" y="128" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">${id}</text>
+  `, bg);
+}
 // ── Voice push-to-talk: hold to open the mic, release to run the command ──
 function voiceHold(connected, held = false) {
     const c = !connected ? '#555' : held ? '#5eead4' : '#22d3ee';
@@ -10007,6 +10028,49 @@ let CameraSlowZoomAction = class CameraSlowZoomAction extends SingletonAction {
 CameraSlowZoomAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.camera-slow-zoom' })
 ], CameraSlowZoomAction);
+// ── Recorded camera MOVES: record a live move, replay a saved one ─────────────
+// shotRecordToggle (no payload) -> wsHub starts/stops recording the live move.
+// We get no recording state back on the deck, so the face is static and a press
+// is confirmed with showOk().
+let RecordShotAction = class RecordShotAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = shotRecord(isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('shotRecordToggle');
+        await ev.action.showOk();
+    }
+};
+RecordShotAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.shot-record' })
+], RecordShotAction);
+function shotId(settings) {
+    const n = settings?.id;
+    return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+}
+let PlayShotAction = class PlayShotAction extends SingletonAction {
+    async onWillAppear(ev) {
+        const id = shotId(ev.payload.settings);
+        onState(async () => {
+            const img = shotPlay(isConnected(), id);
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onDidReceiveSettings(ev) {
+        const img = shotPlay(isConnected(), shotId(ev.payload.settings));
+        await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+    }
+    async onKeyDown(ev) {
+        sendCommand('shotReplay', { id: shotId(ev.payload.settings) });
+        await ev.action.showOk();
+    }
+};
+PlayShotAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.shot-play' })
+], PlayShotAction);
 // ── Multi-camera: select which PTZ the controls/Xbox drive (1 or 2) ────────────
 let CameraSelect1Action = class CameraSelect1Action extends SingletonAction {
     async onWillAppear(ev) {
@@ -10102,6 +10166,8 @@ streamDeck.actions.registerAction(new CameraSlowZoomAction());
 streamDeck.actions.registerAction(new CameraSelect1Action());
 streamDeck.actions.registerAction(new CameraSelect2Action());
 streamDeck.actions.registerAction(new VoiceHoldAction());
+streamDeck.actions.registerAction(new RecordShotAction());
+streamDeck.actions.registerAction(new PlayShotAction());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);

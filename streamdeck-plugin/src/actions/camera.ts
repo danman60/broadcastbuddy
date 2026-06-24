@@ -1,4 +1,4 @@
-import { action, KeyDownEvent, KeyUpEvent, SingletonAction, WillAppearEvent } from '@elgato/streamdeck'
+import { action, DidReceiveSettingsEvent, KeyDownEvent, KeyUpEvent, SingletonAction, WillAppearEvent } from '@elgato/streamdeck'
 import * as conn from '../connection'
 import * as svg from '../svg'
 
@@ -121,6 +121,52 @@ export class CameraSlowZoomAction extends SingletonAction {
   }
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     conn.sendCommand('cameraSlowZoom', { ms: 10000, factor: 1.5 })
+    await ev.action.showOk()
+  }
+}
+
+// ── Recorded camera MOVES: record a live move, replay a saved one ─────────────
+// shotRecordToggle (no payload) -> wsHub starts/stops recording the live move.
+// We get no recording state back on the deck, so the face is static and a press
+// is confirmed with showOk().
+@action({ UUID: 'com.broadcastbuddy.streamdeck.shot-record' })
+export class RecordShotAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.shotRecord(conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('shotRecordToggle')
+    await ev.action.showOk()
+  }
+}
+
+// Replay a recorded move by id. Unlike the preset hotkeys (which hardcode the id
+// per-action as camera-pos-1..6), this single action reads its id from the key's
+// action settings — set it per key in the property inspector / Stream Deck UI.
+// Default id = 1 when unset.
+interface ShotPlaySettings { id?: number }
+function shotId(settings?: ShotPlaySettings): number {
+  const n = settings?.id
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 1
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.shot-play' })
+export class PlayShotAction extends SingletonAction<ShotPlaySettings> {
+  override async onWillAppear(ev: WillAppearEvent<ShotPlaySettings>): Promise<void> {
+    const id = shotId(ev.payload.settings)
+    conn.onState(async () => {
+      const img = svg.shotPlay(conn.isConnected(), id)
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ShotPlaySettings>): Promise<void> {
+    const img = svg.shotPlay(conn.isConnected(), shotId(ev.payload.settings))
+    await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+  }
+  override async onKeyDown(ev: KeyDownEvent<ShotPlaySettings>): Promise<void> {
+    conn.sendCommand('shotReplay', { id: shotId(ev.payload.settings) })
     await ev.action.showOk()
   }
 }

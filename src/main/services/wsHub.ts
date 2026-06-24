@@ -30,6 +30,7 @@ import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
 import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera } from './cameraDirector'
 import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
+import { toggleRecording as shotRecordToggle, replayMove as shotReplay } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -212,6 +213,16 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // Push-to-talk UP (deck keyUp): stop listening, recognize, execute best match.
       voicePttUp()
       break
+    case 'shotRecordToggle':
+      // Deck "Record Shot": start/stop recording a manual PTZ move.
+      shotRecordToggle()
+      break
+    case 'shotReplay': {
+      // Deck "Play Shot N": replay a recorded move by id.
+      const id = Number(data?.id)
+      if (Number.isInteger(id) && id > 0) shotReplay(id)
+      break
+    }
     case 'toggleClock':
       toggleClock()
       break

@@ -289,3 +289,63 @@ input[type='range'].voice-slider { accent-color: var(--accent, #6366f1); }
   font-size: 11px;
   color: var(--text-dim, #9ca3af);
 }
+
+/* ===== Shot Recorder (reuses voice palette) ===== */
+
+/* Big record toggle — mirrors .voice-ptt-btn, red while recording. */
+.shot-record-btn {
+  width: 100%;
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e5e7eb;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+.shot-record-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.shot-record-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.shot-record-btn.recording {
+  background: #b91c1c;
+  border-color: #ef4444;
+  color: #fff;
+  animation: shot-rec-pulse 1s ease-in-out infinite;
+}
+@keyframes shot-rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 10px 3px rgba(239, 68, 68, 0.6); }
+}
+
+/* Move name + metadata in a list row. */
+.shot-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shot-meta {
+  font-family: 'Consolas', monospace;
+  font-size: 10px;
+  color: var(--text-dim, #9ca3af);
+  flex-shrink: 0;
+}
+
+/* Row highlight + play button while a move is replaying. */
+.voice-shot-row.shot-playing {
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 4px;
+  outline: 1px solid rgba(129, 140, 248, 0.45);
+}
+.voice-btn.shot-playing-btn {
+  background: var(--accent, #6366f1);
+  border-color: rgba(129, 140, 248, 0.7);
+  color: #fff;
+}

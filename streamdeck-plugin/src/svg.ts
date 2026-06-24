@@ -248,6 +248,29 @@ export function cameraSelect(n: number, connected: boolean): string {
   `, '#0e2233')
 }
 
+// ── Recorded camera MOVES: record a live move, replay it later ──────────────
+// shotRecord  -> wsHub 'shotRecordToggle' (start/stop recording the live move)
+// shotPlay    -> wsHub 'shotReplay' {id}  (replay recorded move <id>)
+export function shotRecord(connected: boolean): string {
+  const c = connected ? '#ef4444' : '#555'
+  const bg = connected ? '#2a1010' : '#1e1e2e'
+  return wrap(`
+    <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">RECORD</text>
+    <circle cx="72" cy="74" r="24" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">SHOT</text>
+  `, bg)
+}
+
+export function shotPlay(connected: boolean, id: number): string {
+  const c = connected ? '#22c55e' : '#555'
+  const bg = connected ? '#0d1f0d' : '#1e1e2e'
+  return wrap(`
+    <text x="72" y="36" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">PLAY SHOT</text>
+    <path d="M58 56 L96 78 L58 100 Z" fill="${c}"/>
+    <text x="72" y="128" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">${id}</text>
+  `, bg)
+}
+
 // ── Voice push-to-talk: hold to open the mic, release to run the command ──
 export function voiceHold(connected: boolean, held = false): string {
   const c = !connected ? '#555' : held ? '#5eead4' : '#22d3ee'

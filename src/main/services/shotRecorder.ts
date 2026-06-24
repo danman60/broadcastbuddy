@@ -1,0 +1,235 @@
+// Shot recorder — record a manual PTZ "move" and replay it.
+//
+// While recording, we subscribe to cameraDirector's command sink and timestamp
+// every pose-affecting command (gimbal velocity, zoom, slow push/pull, preset
+// recall) issued by ANY source (Xbox sticks, on-screen joystick, voice). On stop
+// we persist the timed event list as a "recorded move". Replay re-emits the same
+// commands with the same timing through the per-camera primitives.
+//
+// HARDWARE CAVEAT (documented, accepted): the OBSBOT Tail 2 has no live pose
+// read-back, so replay is OPEN-LOOP velocity playback — it reproduces the command
+// timeline, not a closed-loop trajectory, so it can drift from the original path
+// (same root cause as the old velocity sweep). Reliable enough for repeatable
+// flourishes; not frame-exact. Recorded moves are recallable by voice + hotkey.
+
+import { BrowserWindow } from 'electron'
+import * as settings from './settings'
+import {
+  setCameraCommandSink,
+  setCommandSinkSuppressed,
+  nudgeCameraXYFor,
+  zoomCameraVelocityFor,
+  slowZoomPushFor,
+  recallCameraPresetFor,
+  stopAllCameraMotionFor,
+  RecordedCmd,
+} from './cameraDirector'
+import { IPC, RecordedMove, RecordedMoveEvent, ShotRecorderState } from '../../shared/types'
+import { createLogger } from '../logger'
+
+const logger = createLogger('shotRecorder')
+
+const MAX_MOVE_MS = 120_000 // hard cap a single recording at 2 minutes
+const MAX_EVENTS = 4000
+
+let recording = false
+let recordStartMs = 0
+let buffer: RecordedMoveEvent[] = []
+let autoStopTimer: NodeJS.Timeout | null = null
+const replayTimers = new Set<NodeJS.Timeout>()
+let replayingId: number | null = null
+
+// Notified after the saved-move list changes (so the voice grammar can rebuild).
+// Registered from index.ts to avoid a shotRecorder↔voiceDirector import cycle.
+let onMovesChanged: (() => void) | null = null
+export function setOnMovesChanged(cb: (() => void) | null): void {
+  onMovesChanged = cb
+}
+function movesChanged(): void {
+  try {
+    onMovesChanged?.()
+  } catch {
+    /* ignore */
+  }
+}
+
+function now(): number {
+  return Date.now()
+}
+
+function pushState(): void {
+  const state: ShotRecorderState = {
+    recording,
+    replayingMoveId: replayingId,
+    eventCount: buffer.length,
+  }
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(IPC.SHOT_STATE, state)
+  }
+}
+
+export function getState(): ShotRecorderState {
+  return { recording, replayingMoveId: replayingId, eventCount: buffer.length }
+}
+
+// ── Recording ────────────────────────────────────────────────────────────────
+export function startRecording(): void {
+  if (recording) return
+  buffer = []
+  recordStartMs = now()
+  recording = true
+  setCameraCommandSink((cmd: RecordedCmd) => {
+    if (!recording) return
+    if (buffer.length >= MAX_EVENTS) return
+    buffer.push({ tMs: now() - recordStartMs, camera: cmd.camera, kind: cmd.kind, args: cmd.args })
+  })
+  autoStopTimer = setTimeout(() => stopRecording(), MAX_MOVE_MS)
+  logger.info('shot recording started')
+  pushState()
+}
+
+/** Stop recording and persist the move (if it captured anything). Returns it. */
+export function stopRecording(label?: string): RecordedMove | null {
+  if (!recording) return null
+  recording = false
+  setCameraCommandSink(null)
+  if (autoStopTimer) {
+    clearTimeout(autoStopTimer)
+    autoStopTimer = null
+  }
+  const events = buffer
+  buffer = []
+  if (events.length === 0) {
+    logger.info('shot recording stopped — empty, discarded')
+    pushState()
+    return null
+  }
+  const moves = getMoves()
+  const id = nextMoveId(moves)
+  const durationMs = events[events.length - 1].tMs
+  const move: RecordedMove = {
+    id,
+    label: label?.trim() || '',
+    durationMs,
+    events,
+    createdAt: new Date().toISOString(),
+  }
+  settings.set('recordedMoves', [...moves, move])
+  movesChanged()
+  logger.info(`shot recorded: move ${id} (${events.length} cmds, ${durationMs}ms)`)
+  pushState()
+  return move
+}
+
+/** Toggle recording (deck/hotkey/Back button). */
+export function toggleRecording(): void {
+  if (recording) stopRecording()
+  else startRecording()
+}
+
+// ── Replay ───────────────────────────────────────────────────────────────────
+export function replayMove(moveId: number): void {
+  const move = getMoves().find((m) => m.id === moveId)
+  if (!move) {
+    logger.warn(`replayMove: move ${moveId} not found`)
+    return
+  }
+  cancelReplay() // only one replay at a time
+  replayingId = moveId
+  setCommandSinkSuppressed(true) // don't re-record our own replay
+  const usedCameras = new Set<1 | 2>()
+  for (const ev of move.events) {
+    const t = setTimeout(() => {
+      emit(ev)
+      usedCameras.add(ev.camera)
+    }, ev.tMs)
+    replayTimers.add(t)
+  }
+  // After the move finishes: stop every camera it touched, then clear state.
+  const end = setTimeout(() => {
+    for (const cam of usedCameras) stopAllCameraMotionFor(cam)
+    setCommandSinkSuppressed(false)
+    replayingId = null
+    replayTimers.clear()
+    pushState()
+  }, move.durationMs + 250)
+  replayTimers.add(end)
+  logger.info(`replaying move ${moveId} (${move.events.length} cmds, ${move.durationMs}ms)`)
+  pushState()
+}
+
+/** Replay by spoken/typed label (voice recall). Returns true if a move matched. */
+export function replayMoveByLabel(label: string): boolean {
+  const tok = label.trim().toLowerCase()
+  if (!tok) return false
+  const move = getMoves().find((m) => (m.label ?? '').trim().toLowerCase() === tok)
+  if (!move) return false
+  replayMove(move.id)
+  return true
+}
+
+export function cancelReplay(): void {
+  for (const t of replayTimers) clearTimeout(t)
+  replayTimers.clear()
+  if (replayingId != null) {
+    setCommandSinkSuppressed(false)
+    replayingId = null
+    pushState()
+  }
+}
+
+function emit(ev: RecordedMoveEvent): void {
+  const a = ev.args || {}
+  switch (ev.kind) {
+    case 'gimbal':
+      nudgeCameraXYFor(ev.camera, num(a.yaw), num(a.pitch))
+      break
+    case 'gimbalStop':
+      nudgeCameraXYFor(ev.camera, 0, 0, true)
+      break
+    case 'zoom':
+      zoomCameraVelocityFor(ev.camera, a.dir === 'out' ? 'out' : 'in', num(a.speed))
+      break
+    case 'zoomStop':
+      zoomCameraVelocityFor(ev.camera, 'in', 0, true)
+      break
+    case 'slowPush':
+      slowZoomPushFor(ev.camera, num(a.ms) || 10000, num(a.factor) || 1.5)
+      break
+    case 'slowPull':
+      slowZoomPushFor(ev.camera, num(a.ms) || 10000, num(a.factor) || 0.7)
+      break
+    case 'recall':
+      recallCameraPresetFor(ev.camera, num(a.n))
+      break
+    // 'home' / 'stop' are not replayed (they'd fight the move); end-of-replay stops cams.
+  }
+}
+
+function num(v: number | string | undefined): number {
+  return typeof v === 'number' ? v : typeof v === 'string' ? Number(v) || 0 : 0
+}
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+export function getMoves(): RecordedMove[] {
+  return (settings.getAll().recordedMoves ?? []) as RecordedMove[]
+}
+
+export function deleteMove(moveId: number): void {
+  settings.set('recordedMoves', getMoves().filter((m) => m.id !== moveId))
+  movesChanged()
+  pushState()
+}
+
+export function renameMove(moveId: number, label: string): void {
+  settings.set(
+    'recordedMoves',
+    getMoves().map((m) => (m.id === moveId ? { ...m, label: label.trim() } : m)),
+  )
+  movesChanged()
+  pushState()
+}
+
+function nextMoveId(moves: RecordedMove[]): number {
+  return moves.reduce((mx, m) => Math.max(mx, m.id), 0) + 1
+}
