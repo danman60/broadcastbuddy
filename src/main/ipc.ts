@@ -43,6 +43,7 @@ import {
   slowZoomPushFor,
   recallCameraPresetFor,
   stopAllCameraMotionFor,
+  setCameraAiEnableFor,
 } from './services/cameraDirector'
 import * as voiceDirector from './services/voiceDirector'
 import * as shotRecorder from './services/shotRecorder'
@@ -1524,6 +1525,10 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.CAMERA_STOP_FOR, (_e, a: { camera: 1 | 2 }) => {
     stopAllCameraMotionFor(a.camera)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_SET_AI_ENABLE_FOR, (_e, a: { camera: 1 | 2; on: boolean }) => {
+    setCameraAiEnableFor(a.camera, a.on)
     return { ok: true }
   })
 

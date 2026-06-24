@@ -623,8 +623,7 @@ export function recenterCamera(): void {
 
 /** Recall stored preset n. */
 export function recallCameraPreset(n: number): void {
-  withCam('recall-preset', (cam) => cam.triggerPreset(n))
-  notifyCommandSink(getActiveCameraId(), 'recall', { n })
+  recallCameraPresetFor(getActiveCameraId(), n)
 }
 
 /**
@@ -705,13 +704,9 @@ function slowZoomPushHost(host: string, durationMs: number, factor: number): voi
   })()
 }
 
-/** Slow push on the ACTIVE camera (voice / deck). */
+/** Slow push on the ACTIVE camera (voice / deck) — delegates to the per-camera path. */
 export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
-  const host = resolveCameraHost()
-  if (!host) return
-  slowZoomPushHost(host, durationMs, factor)
-  const id = getActiveCameraId()
-  notifyCommandSink(id, factor >= 1 ? 'slowPush' : 'slowPull', { ms: durationMs, factor })
+  slowZoomPushFor(getActiveCameraId(), durationMs, factor)
 }
 
 /**
@@ -721,14 +716,9 @@ export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
  * (firmware trajectories have no abort). Backs the voice "stop" verb. No-op
  * without a host.
  */
+/** Halt all motion on the ACTIVE camera — delegates to the per-camera path. */
 export function stopAllCameraMotion(): void {
-  const host = resolveCameraHost()
-  if (host) slowZoomActiveHosts.delete(host) // cancel the slow-push guard
-  withCam('stop-all', (cam) => {
-    void cam.stopZoom()
-    cam.gimbalStopAll()
-  })
-  notifyCommandSink(getActiveCameraId(), 'stop')
+  stopAllCameraMotionFor(getActiveCameraId())
 }
 
 // ── Shot recorder command sink + per-camera primitives (multi-PTZ / Xbox) ─────
@@ -893,25 +883,24 @@ export function setCameraImageControl(c: CameraImageControl): void {
  * so the ~10Hz invoke loop stays cheap.
  */
 export function nudgeCameraXY(yaw: number, pitch: number, stop = false): void {
-  withCam('nudge-xy', (cam) => {
-    if (stop) cam.gimbalStopAll()
-    else cam.gimbalVelocityXY(yaw, pitch)
-  })
-  notifyCommandSink(getActiveCameraId(), stop ? 'gimbalStop' : 'gimbal', stop ? undefined : { yaw, pitch })
+  nudgeCameraXYFor(getActiveCameraId(), yaw, pitch, stop)
 }
 
-/** Hold-to-zoom velocity toward a rail, or stop the zoom ramp. */
+/** Hold-to-zoom velocity toward a rail, or stop the zoom ramp (active camera). */
 export function zoomCameraVelocity(dir: 'in' | 'out', speed: number, stop = false): void {
-  withCam('zoom-velocity', (cam) => {
-    if (stop) void cam.stopZoom()
-    else cam.zoomVelocity(dir, speed)
-  })
-  notifyCommandSink(getActiveCameraId(), stop ? 'zoomStop' : 'zoom', stop ? undefined : { dir, speed })
+  zoomCameraVelocityFor(getActiveCameraId(), dir, speed, stop)
 }
 
 /** Master AI tracking on/off (used by the auto/manual interlock + toggle). */
 export function setCameraAiEnable(on: boolean): void {
   withCam('set-ai-enable', (cam) => cam.setAiEnable(on))
+}
+
+/** Per-camera AI tracking on/off. Backs the dual-Xbox interlock: deflecting a
+ *  stick disables THAT camera's AI (not just the active one), so a manual drive
+ *  on camera 2 isn't fought by its tracker. */
+export function setCameraAiEnableFor(id: 1 | 2, on: boolean): void {
+  withCamFor(id, 'set-ai-enable', (cam) => cam.setAiEnable(on))
 }
 
 // ── Routine cadence: operator self-heal + lifecycle hooks ─────────────────────

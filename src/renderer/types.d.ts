@@ -196,6 +196,7 @@ interface ElectronAPI {
   cameraSlowZoomFor: (args: { camera: 1 | 2; ms?: number; factor?: number }) => Promise<{ ok: boolean }>
   cameraRecallPresetFor: (args: { camera: 1 | 2; n: number }) => Promise<{ ok: boolean }>
   cameraStopFor: (args: { camera: 1 | 2 }) => Promise<{ ok: boolean }>
+  cameraSetAiEnableFor: (args: { camera: 1 | 2; on: boolean }) => Promise<{ ok: boolean }>
 
   // Shot recorder
   shotRecordToggle: (label?: string) => Promise<{ ok: boolean; move: RecordedMove | null }>

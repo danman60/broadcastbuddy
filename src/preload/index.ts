@@ -293,6 +293,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.CAMERA_RECALL_PRESET_FOR, args),
   cameraStopFor: (args: { camera: 1 | 2 }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.CAMERA_STOP_FOR, args),
+  cameraSetAiEnableFor: (args: { camera: 1 | 2; on: boolean }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SET_AI_ENABLE_FOR, args),
 
   // ── Shot recorder ─────────────────────────────────────────────
   shotRecordToggle: (label?: string): Promise<{ ok: boolean; move: import('../shared/types').RecordedMove | null }> =>

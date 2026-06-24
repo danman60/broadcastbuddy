@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { VoiceShot, VoiceStatus } from '../../shared/types'
+import type { VoiceResult, VoiceShot, VoiceStatus } from '../../shared/types'
 import '../styles/voice.css'
 
 /**
@@ -57,6 +57,12 @@ export function VoicePanel(): React.ReactElement {
   const toastTimers = useRef<{ fade?: ReturnType<typeof setTimeout>; clear?: ReturnType<typeof setTimeout> }>({})
   const lastToastKey = useRef<string>('')
 
+  // ── Command history (rolling last 12, newest first) + accept/reject tally ──
+  const HISTORY_MAX = 12
+  const [history, setHistory] = useState<VoiceResult[]>([])
+  const [counts, setCounts] = useState<{ accepted: number; rejected: number }>({ accepted: 0, rejected: 0 })
+  const resetCounts = useCallback(() => setCounts({ accepted: 0, rejected: 0 }), [])
+
   useEffect(() => {
     let mounted = true
     void window.api.voiceGetStatus().then((s) => { if (mounted) setStatus(s) }).catch(() => { /* helper optional */ })
@@ -68,6 +74,9 @@ export function VoicePanel(): React.ReactElement {
       const key = `${r.text}|${r.ok}|${r.confidence}`
       if (key === lastToastKey.current) return
       lastToastKey.current = key
+      // Record into rolling history (newest first, capped) + accept/reject tally.
+      setHistory((prev) => [r, ...prev].slice(0, HISTORY_MAX))
+      setCounts((c) => (r.ok ? { ...c, accepted: c.accepted + 1 } : { ...c, rejected: c.rejected + 1 }))
       if (toastTimers.current.fade) clearTimeout(toastTimers.current.fade)
       if (toastTimers.current.clear) clearTimeout(toastTimers.current.clear)
       setToastFading(false)
@@ -173,6 +182,8 @@ export function VoicePanel(): React.ReactElement {
 
   const statusCls = status.helper // 'starting' | 'ready' | 'down'
   const shots = shotsFor(activeCam)
+  const totalCmds = counts.accepted + counts.rejected
+  const rejectPct = totalCmds > 0 ? Math.round((counts.rejected / totalCmds) * 100) : 0
 
   return (
     <div className="voice-panel" style={{ colorScheme: 'dark' }}>
@@ -210,6 +221,19 @@ export function VoicePanel(): React.ReactElement {
         {toast && (
           <div className={`voice-toast ${toast.ok ? 'ok' : 'bad'}${toastFading ? ' fading' : ''}`}>
             {toast.ok ? '✓ ' : '✗ '}{toast.text}
+          </div>
+        )}
+
+        {/* ── Command history (rolling, newest first) ── */}
+        {history.length > 0 && (
+          <div className="voice-history" title="Last 12 voice commands (newest on top)">
+            {history.map((r, i) => (
+              <div className="voice-history-row" key={`${r.text}|${r.confidence}|${i}`}>
+                <span className={'voice-history-dot' + (r.ok ? ' ok' : ' bad')} />
+                <span className="voice-history-text">{r.text}</span>
+                <span className="voice-history-conf">{r.confidence.toFixed(2)}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -259,6 +283,22 @@ export function VoicePanel(): React.ReactElement {
             onChange={(e) => void persist('voiceConfidenceFloor', parseFloat(e.target.value))}
           />
           <span className="voice-slider-val">{confidenceFloor.toFixed(2)}</span>
+        </div>
+
+        {/* ── Empirical accept/reject readout (tune the floor against this) ── */}
+        <div className="voice-tally">
+          <span className="voice-tally-text">
+            accepted {counts.accepted} · rejected {counts.rejected} ({rejectPct}% reject)
+          </span>
+          <button
+            type="button"
+            className="voice-btn small"
+            disabled={totalCmds === 0}
+            onClick={resetCounts}
+            title="Reset the accept/reject counters"
+          >
+            Reset
+          </button>
         </div>
 
         {/* ── Shots manager ── */}

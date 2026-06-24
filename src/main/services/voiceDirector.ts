@@ -228,7 +228,7 @@ export function pttUp(): void {
 
 export function getStatus(): VoiceStatus {
   return {
-    helper: helper ? (helperReady ? 'ready' : 'down') : 'down',
+    helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
     listening,
     lastResult,
   }
@@ -328,8 +328,10 @@ function routeResult(msg: VoiceMsgResult): void {
       ok(`CAM${camera} ▸ WIDE`)
       break
     case 'sweep': {
-      const from = resolveShotSlot(camera, (msg.from ?? '').toString()) ?? (typeof msg.from === 'number' ? msg.from : null)
-      const to = resolveShotSlot(camera, (msg.to ?? '').toString()) ?? (typeof msg.to === 'number' ? msg.to : null)
+      // resolveShotSlot already handles numeric tokens; an unset slot → null → reject
+      // (never silently sweep to an unsaved preset).
+      const from = resolveShotSlot(camera, (msg.from ?? '').toString())
+      const to = resolveShotSlot(camera, (msg.to ?? '').toString())
       if (from == null || to == null) return reject('unset-shot', 'sweep shots not set')
       sweepBetweenPresets(from, to, 6000)
       ok(`CAM${camera} ▸ SWEEP ${from}→${to}`)

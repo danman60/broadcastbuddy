@@ -1153,6 +1153,7 @@ export const IPC = {
   CAMERA_SLOW_ZOOM_FOR: 'camera:slow-zoom-for',   // {camera, ms?, factor?}
   CAMERA_RECALL_PRESET_FOR: 'camera:recall-preset-for', // {camera, n}
   CAMERA_STOP_FOR: 'camera:stop-for',             // {camera} — halt all motion on one camera
+  CAMERA_SET_AI_ENABLE_FOR: 'camera:set-ai-enable-for', // {camera, on} — per-camera AI on/off (Xbox interlock)
 
   // Shot recorder (motion record/replay → recallable by voice/hotkey/deck).
   SHOT_RECORD_TOGGLE: 'shot:record-toggle',       // start/stop recording (label? on stop)

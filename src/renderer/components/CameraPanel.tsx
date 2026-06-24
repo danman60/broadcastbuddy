@@ -252,10 +252,6 @@ function CameraPanelActive(): React.ReactElement {
     const ctrl = new GamepadController(
       {
         onRecallPreset: (n) => { void window.api.cameraRecallPreset({ n }) },
-        onSavePreset: (n) => {
-          void window.api.cameraSavePreset({ id: n })
-          flashSaved(n)
-        },
         onGoHome: () => { void window.api.cameraGoHome() },
         onToggleAi: () => { void toggleAi() },
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
@@ -267,6 +263,12 @@ function CameraPanelActive(): React.ReactElement {
         onRecordToggle: () => { void window.api.shotRecordToggle() },
         onManualLatched: () => {
           setAiEnabled(false)
+          setManualFlash(true)
+          setTimeout(() => setManualFlash(false), 1500)
+        },
+        // Per-stick: that camera's own stick forced its AI off (gamepad already
+        // issued cameraSetAiEnableFor). Flash the manual indicator for feedback.
+        onManualLatchedFor: () => {
           setManualFlash(true)
           setTimeout(() => setManualFlash(false), 1500)
         },

@@ -34,10 +34,15 @@
  *   - Trigger/right-stick-Y proportional zoom (triggers are now discrete slow-zoom
  *     glides; the right stick is camera 2's pan/tilt).
  *
- * Interlock: any stick deflection past the deadzone flips AI OFF and latches
- * manual on the ACTIVE camera only (single onManualLatched call). KNOWN GAP (v1):
- * deflecting the stick that drives the NON-active camera does not auto-disable
- * that camera's AI — operator must flip its mode manually. Not in v1 scope.
+ * Interlock (per-stick, v2): each stick disables ITS OWN camera's AI on the first
+ * deflection past the deadzone (edge-triggered — not every frame):
+ *   - LEFT stick deflects  → cameraSetAiEnableFor({camera:1, on:false})  (Cam 1 AI off)
+ *   - RIGHT stick deflects → cameraSetAiEnableFor({camera:2, on:false})  (Cam 2 AI off)
+ * The latch resets when that stick returns to center, so re-deflecting after a
+ * manual AUTO re-enable disables that camera's AI again. The single global
+ * onManualLatched still fires (on either stick) to drive the panel's manual-latch
+ * UI; onManualLatchedFor(cam) additionally notifies the renderer per camera.
+ * This closes the v1 gap where driving the non-active camera didn't stop its AI.
  *
  * Disconnect: gamepaddisconnected → immediately stopAllNow() + clear state.
  */
@@ -51,8 +56,6 @@ const TRACKING_SPEED_MODES = 6 // 0–5
 export interface GamepadCallbacks {
   /** Recall stored preset n (1-based). */
   onRecallPreset: (n: number) => void
-  /** Save current pose as preset n (1-based). */
-  onSavePreset: (n: number) => void
   /** Go to Home (safe wide). */
   onGoHome: () => void
   /** Toggle AUTO/MANUAL (AI tracking). */
@@ -65,8 +68,10 @@ export interface GamepadCallbacks {
   onSlowPull: (cam: 1 | 2) => void
   /** Start/stop recording a manual move (Back button edge). */
   onRecordToggle: () => void
-  /** Interlock latched manual (a stick deflection forced AI off). */
+  /** Interlock latched manual (a stick deflection forced AI off) — global UI latch. */
   onManualLatched: () => void
+  /** Per-camera interlock latch: that stick's first deflection forced that camera's AI off. */
+  onManualLatchedFor: (cam: 1 | 2) => void
   /** Connection state changed — pass the pad label or null. */
   onConnection: (label: string | null) => void
 }
@@ -107,6 +112,9 @@ export class GamepadController {
   private connectedLabel: string | null = null
   private trackingMode = 2 // default 'slow'
   private aiEnabled = true
+  // Per-stick AI interlock latches (edge-triggered; reset when the stick centers).
+  private latched1 = false // LEFT stick has disabled Cam 1 AI since last centered
+  private latched2 = false // RIGHT stick has disabled Cam 2 AI since last centered
 
   constructor(
     private cb: GamepadCallbacks,
@@ -151,6 +159,8 @@ export class GamepadController {
   private onDisconnected = (): void => {
     this.connectedLabel = null
     this.edges.pressed = []
+    this.latched1 = false
+    this.latched2 = false
     control.stopAllNow()
     this.cb.onConnection(null)
   }
@@ -211,11 +221,28 @@ export class GamepadController {
     const yaw2 = rStick.x * GIMBAL_SCALE
     const pitch2 = -rStick.y * GIMBAL_SCALE // invert: up on stick → tilt up
 
-    // ── Interlock: any deflection on EITHER stick forces AI off + latches manual ──
-    // (Single latch on the ACTIVE camera; second-camera AI auto-off is a known v1 gap.)
-    const deflected =
-      yaw1 !== 0 || pitch1 !== 0 || yaw2 !== 0 || pitch2 !== 0
-    if (deflected && this.aiEnabled) {
+    // ── Per-stick interlock: each stick disables ITS OWN camera's AI on first
+    // deflection (edge), and re-arms when that stick returns to center. ──
+    const left = yaw1 !== 0 || pitch1 !== 0
+    const right = yaw2 !== 0 || pitch2 !== 0
+
+    if (left && !this.latched1) {
+      this.latched1 = true
+      void window.api.cameraSetAiEnableFor({ camera: 1, on: false })
+      this.cb.onManualLatchedFor(1)
+    } else if (!left) {
+      this.latched1 = false
+    }
+    if (right && !this.latched2) {
+      this.latched2 = true
+      void window.api.cameraSetAiEnableFor({ camera: 2, on: false })
+      this.cb.onManualLatchedFor(2)
+    } else if (!right) {
+      this.latched2 = false
+    }
+
+    // ── Global UI latch: any deflection drives the panel's manual-latch indicator. ──
+    if ((left || right) && this.aiEnabled) {
       this.aiEnabled = false
       void window.api.cameraSetAiEnable({ on: false })
       this.cb.onManualLatched()
