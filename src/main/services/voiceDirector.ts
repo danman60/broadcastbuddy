@@ -27,7 +27,6 @@ import {
   sweepBetweenPresets,
   setCameraAiEnable,
   stopAllCameraMotion,
-  isCameraFeatureActive,
   getActiveCameraId,
 } from './cameraDirector'
 import { getMoves, replayMoveByLabel } from './shotRecorder'
@@ -84,8 +83,11 @@ function helperPath(): string | null {
 }
 
 function enabled(): boolean {
-  const s = settings.getAll()
-  return s.voiceEnabled === true && isCameraFeatureActive(s)
+  // Voice runs on the explicit opt-in alone — a camera need NOT be configured. This
+  // lets recognition + on-screen feedback be tested with no PTZ attached; the command
+  // router's camera primitives are all individually guarded (no-op without a reachable
+  // camera), so firing them dry is harmless.
+  return settings.getAll().voiceEnabled === true
 }
 
 function pushStatus(extra?: Partial<VoiceStatus>): void {
