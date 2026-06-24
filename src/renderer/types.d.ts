@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset, VoiceStatus } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -183,6 +183,12 @@ interface ElectronAPI {
     zoom?: number
     error?: string
   }>
+
+  // Voice-driven PTZ director
+  voicePtt: (down: boolean) => Promise<{ ok: boolean }>
+  voiceRefreshGrammar: () => Promise<{ ok: boolean }>
+  voiceGetStatus: () => Promise<VoiceStatus>
+  onVoiceState: (cb: (status: VoiceStatus) => void) => void
 
   // OBS Transition auto-revert
   obsTransitionRevertGet: () => Promise<{ enabled: boolean }>

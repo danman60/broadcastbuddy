@@ -55,6 +55,15 @@ const store = new Store<AppSettings>({
     cameraHost2: '',
     cameraPort2: 80,
     activeCameraId: 1,
+    // Voice-driven PTZ director — dormant until voiceEnabled + a camera host is set.
+    voiceEnabled: false,
+    voiceMicDeviceId: '',
+    voiceConfidenceFloor: 0.6,
+    voiceZoomSpeed: 3,
+    voiceZoomNudgeMs: 600,
+    voiceSlowPushMs: 15000,
+    voiceSlowPushFactor: 1.3,
+    voiceShots: { 1: [], 2: [] },
   },
 })
 

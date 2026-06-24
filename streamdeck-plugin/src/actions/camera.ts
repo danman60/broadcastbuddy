@@ -1,4 +1,4 @@
-import { action, KeyDownEvent, SingletonAction, WillAppearEvent } from '@elgato/streamdeck'
+import { action, KeyDownEvent, KeyUpEvent, SingletonAction, WillAppearEvent } from '@elgato/streamdeck'
 import * as conn from '../connection'
 import * as svg from '../svg'
 
@@ -149,6 +149,33 @@ export class CameraSelect2Action extends SingletonAction {
   }
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     conn.sendCommand('cameraSelect', { id: 2 })
+    await ev.action.showOk()
+  }
+}
+
+// ── Voice PUSH-TO-TALK: hold to open the mic, release to run the command ───────
+// Unlike every other action here this overrides BOTH onKeyDown and onKeyUp:
+//   keyDown -> voicePttDown (wsHub opens the BB voice mic and starts listening)
+//   keyUp   -> voicePttUp   (wsHub stops listening and runs the recognized PTZ cmd)
+// The deck always delivers a keyUp for any key that received a keyDown, so the
+// mic can never be left open. The face redraws held/idle on each transition.
+@action({ UUID: 'com.broadcastbuddy.streamdeck.voice-hold' })
+export class VoiceHoldAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.voiceHold(conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('voicePttDown')
+    const img = svg.voiceHold(conn.isConnected(), true)
+    await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+  }
+  override async onKeyUp(ev: KeyUpEvent): Promise<void> {
+    conn.sendCommand('voicePttUp')
+    const img = svg.voiceHold(conn.isConnected())
+    await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
     await ev.action.showOk()
   }
 }

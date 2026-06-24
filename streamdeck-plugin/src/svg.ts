@@ -247,3 +247,16 @@ export function cameraSelect(n: number, connected: boolean): string {
     <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
   `, '#0e2233')
 }
+
+// ── Voice push-to-talk: hold to open the mic, release to run the command ──
+export function voiceHold(connected: boolean, held = false): string {
+  const c = !connected ? '#555' : held ? '#5eead4' : '#22d3ee'
+  const bg = held ? '#0c2a2c' : '#0b2228'
+  return wrap(`
+    <rect x="60" y="30" width="24" height="40" rx="12" fill="${c}"/>
+    <path d="M50 62 a22 22 0 0 0 44 0" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="72" y1="84" x2="72" y2="96" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
+    <text x="72" y="118" text-anchor="middle" fill="${c}" font-size="13" font-weight="bold" font-family="sans-serif" letter-spacing="1">HOLD TO</text>
+    <text x="72" y="136" text-anchor="middle" fill="${c}" font-size="14" font-weight="bold" font-family="sans-serif" letter-spacing="1">DIRECT</text>
+  `, bg)
+}

@@ -626,10 +626,6 @@ export function recallCameraPreset(n: number): void {
   withCam('recall-preset', (cam) => cam.triggerPreset(n))
 }
 
-// Gimbal velocity calibration (OBSBOT Tail 2, measured live): ~0.78 deg/s per unit,
-// and a POSITIVE command DECREASES the coordinate — so invert the delta's sign.
-const SWEEP_DEG_PER_UNIT = 0.78
-
 /**
  * Choreographed camera MOVE — the reusable primitive behind named moves
  * (Audience Sweep, Stage Sweep, and future operator-built moves). Snaps to preset
@@ -641,35 +637,24 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
   const host = resolveCameraHost()
   if (!host) return
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-  const clampVel = (v: number): number => Math.max(-60, Math.min(60, Math.round(v)))
   void (async () => {
     try {
       const director = await getDirector(host)
       if (!director) return
       const cam = director.cam
-      const raw = (await cam.getGimbalPos()) as
-        | { presetList?: Array<{ id: number; yaw: number; pitch: number }>; presetlist?: Array<{ id: number; yaw: number; pitch: number }> }
-        | undefined
-      const list = raw?.presetList ?? raw?.presetlist ?? []
-      const A = list.find((p) => p.id === fromId)
-      const B = list.find((p) => p.id === toId)
-      cam.triggerPreset(fromId) // snap to the start position (fast)
-      await sleep(2000) // let the snap settle
-      if (A && B && durationMs > 0) {
-        const secs = Math.max(0.5, durationMs / 1000)
-        // Flat horizontal sweep: drive YAW only, hold pitch constant. The
-        // pan-tilt head couples pitch onto the yaw platform, so a simultaneous
-        // yaw+pitch velocity bows the path upward ("arc"). Pure yaw = straight
-        // across. The final triggerPreset(toId) corrects any residual pitch
-        // difference between the two presets.
-        const yawCmd = clampVel(-((B.yaw - A.yaw) / secs) / SWEEP_DEG_PER_UNIT)
-        cam.gimbalVelocityXY(yawCmd, 0) // pure horizontal pan
-        await sleep(durationMs)
-        cam.gimbalStopAll()
-      }
-      await sleep(150)
-      cam.triggerPreset(toId) // land exactly on the end position
-      logger.info(`Camera move: sweep ${fromId}->${toId} ${durationMs}ms`)
+      // NATIVE recall-A → recall-B. The old open-loop gimbalVelocityXY glide drifted
+      // in tilt (the pan-tilt head couples pitch onto the yaw platform) and jerked at
+      // the end. The firmware's own preset-recall trajectory is coordinated + smooth
+      // and handles the pitch/roll difference between the two poses correctly. The
+      // Tail 2 has no live pose read-back, so a closed-loop glide is impossible —
+      // native recall is the reliable primitive. `durationMs` only sizes the settle
+      // dwell on A so the move reads as A → B; recall speed itself is firmware-fixed.
+      // A SLOW fixed-duration glide is a future feature (stepped transient presets).
+      const settle = Math.max(800, Math.min(durationMs, 4000))
+      cam.triggerPreset(fromId) // snap to the start position
+      await sleep(settle)       // hold on A so the move reads as A → B
+      cam.triggerPreset(toId)   // coordinated native recall to the end position
+      logger.info(`Camera move: sweep ${fromId}->${toId} (native recall, settle ${settle}ms)`)
     } catch (err) {
       logger.error('sweepBetweenPresets failed:', err)
     }
@@ -718,6 +703,21 @@ export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
       logger.error('slowZoomPush failed:', err)
     }
   })()
+}
+
+/**
+ * Halt ALL active camera motion on the active camera: cancel an in-flight slow
+ * push (clears the guard + native zoom stop), stop any velocity zoom ramp, and
+ * stop gimbal velocity. Best-effort against an in-flight native preset recall
+ * (firmware trajectories have no abort). Backs the voice "stop" verb. No-op
+ * without a host.
+ */
+export function stopAllCameraMotion(): void {
+  slowZoomActive = false // cancel the slow-push guard so a fresh push can start
+  withCam('stop-all', (cam) => {
+    void cam.stopZoom()
+    cam.gimbalStopAll()
+  })
 }
 
 /** Store the current pose as preset id (with optional name). */

@@ -542,6 +542,21 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.voice-hold",
+      "Name": "Voice — Hold to Direct (PTZ)",
+      "Tooltip": "Hold to open the BB voice mic; release to run the recognized camera command",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

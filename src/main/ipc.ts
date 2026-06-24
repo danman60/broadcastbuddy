@@ -39,6 +39,7 @@ import {
   resetCameraConnection,
   setActiveCamera,
 } from './services/cameraDirector'
+import * as voiceDirector from './services/voiceDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
 import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
@@ -521,6 +522,10 @@ export function registerIpcHandlers(): void {
     settings.set(key as keyof import('../shared/types').AppSettings, value as never)
     // Re-register global hotkeys immediately when the operator edits them.
     if (key === 'hotkeys') hotkeys.register()
+    // Voice director reacts to its own settings: start/stop on toggle, re-push the
+    // SAPI grammar when shot labels change.
+    if (key === 'voiceEnabled' || key === 'cameraHost' || key === 'cameraHost2') voiceDirector.applyVoiceEnabled()
+    if (key === 'voiceShots') voiceDirector.refreshGrammar()
     return settings.getAll()
   })
 
@@ -1476,6 +1481,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CAMERA_SELECT, (_e, args: { id: number }) => {
     const active = setActiveCamera(args?.id)
     return { ok: true, active }
+  })
+
+  // ── Voice-driven PTZ director (guarded; no-op unless voiceEnabled) ──────────
+  ipcMain.handle(IPC.VOICE_PTT, (_e, args: { down: boolean }) => {
+    if (args?.down) voiceDirector.pttDown()
+    else voiceDirector.pttUp()
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.VOICE_REFRESH_GRAMMAR, () => {
+    voiceDirector.refreshGrammar()
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.VOICE_GET_STATUS, () => {
+    return voiceDirector.getStatus()
   })
 
   ipcMain.handle(

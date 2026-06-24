@@ -14,6 +14,7 @@ import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
+import * as voiceDirector from './services/voiceDirector'
 import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers, pushState } from './ipc'
@@ -240,6 +241,10 @@ app.whenReady().then(() => {
   // 17. System monitor — CPU/RAM/disk stats + low-disk alerts to the renderer.
   systemMonitor.startMonitoring()
 
+  // 18. Voice-driven PTZ director — spawns the bundled voice-helper.exe only when
+  //     voiceEnabled + a camera host is set; otherwise a complete no-op.
+  voiceDirector.startVoiceDirector()
+
   logger.info('All services started')
 })
 
@@ -256,6 +261,7 @@ app.on('before-quit', () => {
   backup.stopBackupSchedule()
   hotkeys.unregister()
   systemMonitor.stopMonitoring()
+  voiceDirector.stopVoiceDirector()
   // Final settings backup, then mark a clean shutdown so next launch doesn't
   // offer recovery.
   backup.backupSettings()

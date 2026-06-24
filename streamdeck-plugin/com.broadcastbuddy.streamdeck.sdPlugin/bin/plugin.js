@@ -9480,6 +9480,18 @@ function cameraSelect(n, connected) {
     <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
   `, '#0e2233');
 }
+// ── Voice push-to-talk: hold to open the mic, release to run the command ──
+function voiceHold(connected, held = false) {
+    const c = !connected ? '#555' : held ? '#5eead4' : '#22d3ee';
+    const bg = held ? '#0c2a2c' : '#0b2228';
+    return wrap(`
+    <rect x="60" y="30" width="24" height="40" rx="12" fill="${c}"/>
+    <path d="M50 62 a22 22 0 0 0 44 0" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="72" y1="84" x2="72" y2="96" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
+    <text x="72" y="118" text-anchor="middle" fill="${c}" font-size="13" font-weight="bold" font-family="sans-serif" letter-spacing="1">HOLD TO</text>
+    <text x="72" y="136" text-anchor="middle" fill="${c}" font-size="14" font-weight="bold" font-family="sans-serif" letter-spacing="1">DIRECT</text>
+  `, bg);
+}
 
 let FireAction = class FireAction extends SingletonAction {
     async onWillAppear(ev) {
@@ -10026,6 +10038,34 @@ let CameraSelect2Action = class CameraSelect2Action extends SingletonAction {
 CameraSelect2Action = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-2' })
 ], CameraSelect2Action);
+// ── Voice PUSH-TO-TALK: hold to open the mic, release to run the command ───────
+// Unlike every other action here this overrides BOTH onKeyDown and onKeyUp:
+//   keyDown -> voicePttDown (wsHub opens the BB voice mic and starts listening)
+//   keyUp   -> voicePttUp   (wsHub stops listening and runs the recognized PTZ cmd)
+// The deck always delivers a keyUp for any key that received a keyDown, so the
+// mic can never be left open. The face redraws held/idle on each transition.
+let VoiceHoldAction = class VoiceHoldAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = voiceHold(isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('voicePttDown');
+        const img = voiceHold(isConnected(), true);
+        await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+    }
+    async onKeyUp(ev) {
+        sendCommand('voicePttUp');
+        const img = voiceHold(isConnected());
+        await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        await ev.action.showOk();
+    }
+};
+VoiceHoldAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.voice-hold' })
+], VoiceHoldAction);
 
 streamDeck.actions.registerAction(new FireAction());
 streamDeck.actions.registerAction(new HideAction());
@@ -10061,6 +10101,7 @@ streamDeck.actions.registerAction(new StageSweepAction());
 streamDeck.actions.registerAction(new CameraSlowZoomAction());
 streamDeck.actions.registerAction(new CameraSelect1Action());
 streamDeck.actions.registerAction(new CameraSelect2Action());
+streamDeck.actions.registerAction(new VoiceHoldAction());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);

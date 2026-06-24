@@ -83,6 +83,13 @@
           "!node_modules/**",
           "!**/*.map"
         ]
+      },
+      {
+        "from": "resources/voice-helper",
+        "to": "voice-helper",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

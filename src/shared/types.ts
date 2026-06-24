@@ -451,6 +451,49 @@ export interface AppSettings {
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
   cameraCommandRateHz?: number // shared command-sender flush rate (Hz). Default 10.
   cameraPreviewDeviceId?: string // chosen videoinput deviceId for the live preview monitor.
+
+  // ── Voice-driven PTZ director (push-to-talk, offline SAPI grammar). All optional;
+  // dormant unless voiceEnabled AND a camera host is set. The bundled voice-helper.exe
+  // (Windows System.Speech) does the recognition; BB builds the grammar from voiceShots.
+  // See src/main/services/voiceDirector.ts + docs/superpowers/specs/2026-06-23-voice-ptz-director-design.md.
+  voiceEnabled?: boolean // master opt-in for the voice director. Default false.
+  voiceMicDeviceId?: string // capture device for the helper (empty = system default).
+  voiceConfidenceFloor?: number // 0–1; matches below this are rejected. Default 0.6.
+  voiceZoomSpeed?: number // OBSBOT zoom-velocity speed for "zoom in/out" nudges. Default 3.
+  voiceZoomNudgeMs?: number // duration of a bounded "zoom in/out" nudge before auto-stop. Default 600.
+  voiceSlowPushMs?: number // "slow push in" duration. Default 15000.
+  voiceSlowPushFactor?: number // "slow push in" tele factor (current × this). Default 1.3.
+  voiceShots?: VoiceShotMap // per-camera saved shots (slot id + optional spoken label).
+}
+
+/** One saved "shot": a preset slot with an optional spoken label ("drummer"). */
+export interface VoiceShot {
+  id: number // OBSBOT preset slot 1–254
+  label?: string // optional spoken label; joins the grammar. Empty = "shot <id>" only.
+}
+
+/** Saved shots per camera (active=1, second=2). Presence = the slot is set. */
+export interface VoiceShotMap {
+  1?: VoiceShot[]
+  2?: VoiceShot[]
+}
+
+/** A recognized voice command (helper → BB → renderer toast / WS broadcast). */
+export interface VoiceResult {
+  ok: boolean // true = executed; false = rejected (low confidence / no match / unset shot)
+  camera: 1 | 2 // which camera the command targeted (active if no prefix spoken)
+  verb: string // canonical verb id (pushIn, slowPushIn, pullOut, zoomIn, wide, sweep, track, stop, recall, select)
+  target?: string // shot token / label, when present
+  text: string // human display string for the toast, e.g. "CAM2 ▸ PUSH IN"
+  confidence: number // 0–1
+  reason?: string // rejection reason when ok=false
+}
+
+/** Helper process / engine status pushed to the renderer. */
+export interface VoiceStatus {
+  helper: 'starting' | 'ready' | 'down' // child-process state
+  listening: boolean // true while the PTT key is held
+  lastResult?: VoiceResult
 }
 
 // ── Operator Chat (Supabase Realtime, config-injected, off by default) ──────
@@ -1068,6 +1111,13 @@ export const IPC = {
   CAMERA_DISCOVER: 'camera:discover',           // scan local subnets for the OBSBOT → auto-set cameraHost
   CAMERA_APPLY_CURRENT: 'camera:apply-current', // re-apply current routine framing (AUTO-enable → real tracking)
   CAMERA_SELECT: 'camera:select',               // multi-cam: set which PTZ (1|2) the controls drive
+
+  // Voice-driven PTZ director (push-to-talk → offline SAPI grammar). Guarded; no-op
+  // unless voiceEnabled. See voiceDirector.ts.
+  VOICE_PTT: 'voice:ptt',                        // push-to-talk down/up (renderer test button; deck uses WS)
+  VOICE_REFRESH_GRAMMAR: 'voice:refresh-grammar',// rebuild + push SAPI grammar (after shot labels change)
+  VOICE_GET_STATUS: 'voice:get-status',          // current helper/listening status (never throws)
+  VOICE_STATE: 'voice:state',                    // main→renderer push: VoiceStatus (helper state + last result)
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

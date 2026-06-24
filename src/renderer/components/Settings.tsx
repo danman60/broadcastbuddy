@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyConfig } from '../../shared/types'
 import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
 import { StreamDeckPluginSection } from './StreamDeckPluginSection'
+import { VoicePanel } from './VoicePanel'
 import '../styles/settings.css'
 
 // Tabbed Settings (pattern from CompSyncElectronApp): each existing .settings-group
@@ -13,7 +14,7 @@ import '../styles/settings.css'
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
   { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
-  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera'] },
+  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Voice Control'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
   { id: 'network', label: 'Network', sections: ['Tablet Display', 'Operator Chat'] },
   { id: 'tools', label: 'Tools', sections: ['Stream Deck Plugin'] },
@@ -572,6 +573,11 @@ export function Settings() {
             override that address. Leave Auto Mode off and Host blank to disable the
             camera entirely.
           </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Voice Control</div>
+          <VoicePanel />
         </div>
 
         <div className="settings-group">

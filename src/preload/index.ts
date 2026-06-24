@@ -271,6 +271,17 @@ contextBridge.exposeInMainWorld('api', {
     error?: string
   }> => ipcRenderer.invoke(IPC.CAMERA_GET_STATE),
 
+  // ── Voice-driven PTZ director ─────────────────────────────────
+  voicePtt: (down: boolean): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.VOICE_PTT, { down }),
+  voiceRefreshGrammar: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke(IPC.VOICE_REFRESH_GRAMMAR),
+  voiceGetStatus: (): Promise<import('../shared/types').VoiceStatus> =>
+    ipcRenderer.invoke(IPC.VOICE_GET_STATUS),
+  onVoiceState: (cb: (status: import('../shared/types').VoiceStatus) => void): void => {
+    ipcRenderer.on(IPC.VOICE_STATE, (_e, status) => cb(status))
+  },
+
   // ── OBS Transition auto-revert ────────────────────────────────
   obsTransitionRevertGet: (): Promise<{ enabled: boolean }> =>
     ipcRenderer.invoke(IPC.OBS_TRANSITION_REVERT_GET),

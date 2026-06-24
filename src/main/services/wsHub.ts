@@ -29,6 +29,7 @@ import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
 import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera } from './cameraDirector'
+import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -202,6 +203,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       slowZoomPush(ms, factor)
       break
     }
+    case 'voicePttDown':
+      // Push-to-talk DOWN (Stream Deck "Hold to Direct" keyDown): open the mic.
+      // No-op unless voice is enabled + the helper is ready.
+      voicePttDown()
+      break
+    case 'voicePttUp':
+      // Push-to-talk UP (deck keyUp): stop listening, recognize, execute best match.
+      voicePttUp()
+      break
     case 'toggleClock':
       toggleClock()
       break
