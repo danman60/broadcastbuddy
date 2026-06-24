@@ -1,5 +1,122 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-22 — NEW FEATURE: Multi-PTZ control (2 cameras, easy switch) — BUILT, hardware-UNTESTED
+
+Goal: control TWO OBSBOT PTZ cameras easily; switch which one the single Xbox controller
+drives; same via Stream Deck; in-app selector. Plan: `docs/plans/2026-06-22-multi-ptz-control.md`.
+
+**Model:** `activeCameraId` (1|2) = which PTZ the manual/Xbox/deck controls drive. Camera 1 =
+program/auto cam (routine cadence ALWAYS targets cam1). Both directors stay connected
+simultaneously (per-host map) so switching is instant — no reconnect.
+
+**Code (all compiles; tsc clean except pre-existing ccRelay/chatBridge; electron-vite bundle OK):**
+- `cameraDirector.ts`: single-director globals → `directors`/`cadences` **Map<host,…>**; `getDirector(host)`
+  caches per host (port via `resolvePortForHost`); `getCadence(host)`; `invalidateDirector(host?)`.
+  New: `resolveCameraHostFor(id)`, `getActiveCameraId`, `resolveCameraHost`=active (falls back cam1),
+  `resolveProgramCameraHost`=cam1, `setActiveCamera(id)`. `isCameraFeatureActive` now also true on host2.
+  applyRoutineForTrigger + withCadence → program(cam1); withCam/sweep/slowZoom/goHome/saveHome/getCameraState → active.
+  Also FIXED a latent type error: added `zoomToRatio` to the `CameraHal` interface (slow-zoom used it; esbuild shipped, tsc flagged).
+- `shared/types.ts`: `cameraHost2`, `cameraPort2`, `activeCameraId` settings + `IPC_CHANNELS.CAMERA_SELECT`.
+- `settings.ts`: defaults cameraHost2:'' port2:80 activeCameraId:1.
+- `wsHub.ts`: `cameraSelect {id}` command → setActiveCamera.
+- `ipc.ts` + `preload` + `renderer/types.d.ts`: `CAMERA_SELECT` / `cameraSelect(id)`.
+- Renderer `CameraPanel.tsx`: CAM 1 / CAM 2 segmented selector (Cam 2 disabled until IP set) + **Cam 2 IP** field
+  (persists cameraHost2) + gamepad `onToggleCamera` wired. `camera.css`: `.camera-text` + disabled style.
+- `gamepad.ts`: **Back(8) button → toggle active camera (1↔2)** on the same controller; new `onToggleCamera` cb.
+- Stream Deck plugin: `camera-select-1` / `camera-select-2` actions (svg.cameraSelect, registered, manifest), built (plugin.js verified).
+
+**Switch surfaces (all set activeCameraId):** in-app CAM1/CAM2 buttons · Xbox **Back** button · deck **Select Camera 1/2**.
+
+**Build:** FIRMAMENT asar built (exit 0), multi-cam strings verified in `/mnt/firmament/deploy/app.asar`
+(camera:select, cameraHost2, activeCameraId, onToggleCamera) + plugin staged there.
+**DART is OFFLINE** (venue teardown — ssh timed out ~23:26) so NOT scp'd/swapped/tested. When DART + a camera
+return: scp deploy → C:\bb-deploy, close BB, run dart-swap.ps1, relaunch, reinstall Stream Deck plugin
+(new Select Camera 1/2 actions → manifest changed). Field-test: set Cam 2 IP, pick Cam 2, drive
+joystick/deck, Xbox Back toggles cams; confirm both stay connected + auto-framing stays on cam1.
+
+**Uncommitted local** (10 src + 4 plugin files). Not pushed (Vercel gate).
+
+## 2026-06-21 18:40 EDT — NEW: PTZ slow-zoom PUSH deck button (BUILT + STAGED, swap pending operator)
+
+**Feature:** deck button = slow optical PUSH IN on the OBSBOT (PTZ), 10s, from current zoom, keeps AI tracking. NOT the OBS Move-Transition slow-zoom (that already existed = slowZoomWide/Tight).
+
+**Why it's reliable (vs the broken sweep):** zoom ratio HAS read-back + native smooth `zoomToRatio` → closed-loop. Unlike the open-loop gimbal sweep.
+
+**Impl (6 edits):**
+- `cameraDirector.ts` `slowZoomPush(durationMs=10000, factor=1.5)` — getZoomInfo→ease ratio start→start*1.5 (clamp 12) in ~250ms steps; cancelable (token); does NOT touch AI workmode (gimbal keeps tracking).
+- `wsHub.ts` case `cameraSlowZoom` {ms,factor} → slowZoomPush; import added.
+- plugin `actions/camera.ts` `CameraSlowZoomAction` UUID `...camera-slow-zoom` → sendCommand('cameraSlowZoom',{ms:10000,factor:1.5}).
+- plugin `svg.ts` `cameraPush()` icon (pink, "SLOW ZOOM / PUSH IN").
+- plugin `plugin.ts` import + register.
+- `manifest.json` action "Camera Slow Zoom (PTZ)" (icon reuses imgs/actions/slow-zoom).
+
+**BUILT + STAGED on DART C:\bb-deploy (verified):** app.asar 39,270,501 (cameraSlowZoom present), plugin.js (cameraSlowZoom present), manifest updated. FIRMAMENT build 18:36 PM exit 0; plugin built local rollup exit 0.
+
+**SWAP PENDING (operator cues):** close BB → run dart-swap.ps1 → relaunch BB → **reinstall Stream Deck plugin (Settings→Tools)** — manifest changed, so the new "Camera Slow Zoom (PTZ)" action only appears after reinstall (+ maybe Stream Deck app restart). Drag it to a key.
+
+**UNVERIFIED on hardware:** the push itself + behavior while AI AutoZoom is active (may contend — AutoZoom could override the manual ramp; gimbal pan/tilt tracking is separate and should continue). Test post-swap.
+
+**Uncommitted local:** cameraDirector.ts, wsHub.ts, plugin (camera.ts, svg.ts, plugin.ts, manifest.json). Plus the earlier yaw-only sweep edit. None committed (push gated).
+
+## 2026-06-21 17:23 EDT — FEATURE SPEC (scoped, NOT built): Auto audio-sync (kill the clap)
+
+**Problem (operator):** on-site, hard to get perfect sync between on-camera mic and venue soundboard feed. Currently records a manual clap slate + realigns in post.
+
+**Approach — waveform cross-correlation auto-sync** (industry standard: PluralEyes / Resolve "Sync by Waveform" / Premiere "Synchronize"). On-camera mic already hears the PA (carries the board mix) → the two feeds share common content → cross-correlate, find lag maximizing correlation = exact offset. **No clap needed.**
+
+**Prerequisite:** board feed must reach the capture PC as a 2nd OBS input (XLR→USB interface → OBS audio track 2). If board only records to its own SD/recorder, live sync impossible; post-correlation still works against an imported board file.
+
+**Three tiers (cheapest→most robust):**
+1. **Post-capture offset report** — on record-stop, ffmpeg + cross-correlation (GCC-PHAT / FFT) on the two tracks → emit ms offset + Resolve/Premiere sidecar (XML/EDL marker) with delay baked in. Lowest effort.
+2. **★ Live auto-delay via OBS WS (recommended)** — BB grabs ~5-10s of both inputs at show start, cross-correlates, computes lag, calls obs-websocket **`SetInputAudioSyncOffset`** on the board input → recorded file already synced, zero post. One-button "Sync Audio" in BB. Highest leverage: BB's OBS-WS pipe already exists (src/main/services obs client + ipc), it's a few seconds of audio math + one WS call.
+3. **Hardware timecode** (LTC / Tentacle / genlock) — broadcast-proper, robust, but hardware cost + setup. Overkill for this rig; listed for completeness.
+
+**Gotcha — clock drift:** cheap consumer ADCs drift over a 1-2hr show; a single start-offset fixes the head, tail slips. Mitigate: periodic re-correlation, or sample-rate resample. Don't trust one offset for a full recital without re-check.
+
+**Open design Qs (resolve in brainstorming before build):**
+- Audio capture path for the math: pull PCM from OBS via WS (does v5 expose raw audio? likely NOT — may need a parallel capture: ffmpeg dshow grab of both devices, or OBS audio monitoring tap) vs. a short separate recording. **This is the main unknown — verify how to get both PCM streams to the cross-correlator.**
+- Correlation lib: pure-JS FFT vs. shell out to ffmpeg/Python (numpy/scipy). BB is Electron/TS; a small Python helper (like ptz-telemetry .venv) or a JS FFT both viable.
+- Apply target: delay the board (usually behind, PA latency) or the mic. `SetInputAudioSyncOffset` is ±ms per input.
+- UX: auto on record-start vs. manual "Sync Audio" button vs. both. Confidence readout (correlation peak strength) so operator knows it locked.
+
+**Next:** `/superpowers:brainstorming` to finalize, then plan in docs/plans/. Effort est: tier-1 ~half-day, tier-2 ~1-2 days (capture-path unknown is the risk). Post-show.
+
+## 2026-06-21 17:20 EDT — SWEEP ENGINE BROKEN (deferred — no time pre-show), POST-SHOW FIX
+
+**Symptom (operator, live):** Audience/Stage Sweep deck hotkey adds **tilt drift** + **jerks fast at the end**. Clicking the in-app **Pos 2 → Pos 3** preset-recall buttons between the same two presets = **smooth + correct** (pitch/roll handled).
+
+**Root cause (confirmed):** `sweepBetweenPresets()` uses the WRONG primitive — open-loop `gimbalVelocityXY` (manual velocity drive). Gimbal pitch/yaw are coupled; firmware corrects this during a NATIVE preset recall trajectory but NOT during manual velocity control → tilt drifts. End `triggerPreset(toId)` then snaps pitch/roll to exact = the fast jerk. Tail 2 has NO live-pose readback (`GET /ptz/preset` returns stored poses only), so the velocity drive can't close the loop.
+- Telemetry (live `GET /ptz/preset`): **P2 pitch −9.16 yaw 48 roll 0.02 r2.1 · P3 pitch +3.97 yaw 160 roll −4.69 r2.1**. (Endpoints differ 13° pitch+4.7° roll, but that's NOT the cause — native recall handles it fine; the velocity engine is the cause.)
+- Shipped this session (deployed DART, asar-swapped, verified `gimbalVelocityXY(yawCmd,0)` in bundle): made sweep yaw-only (pitch=0). Did NOT fix it — drift+jerk remained. Velocity primitive is the problem, not the pitch component.
+
+**TONIGHT'S WORKAROUND (told operator):** use deck **Pos 2 → Pos 3** buttons (native recall, smooth) instead of the Audience Sweep button. Stage Sweep still also needs P4/P5 presets created.
+
+**POST-SHOW FIX:** rewrite `sweepBetweenPresets` (cameraDirector.ts:582) to **recall A → recall B** (native coordinated move), drop `gimbalVelocityXY` interpolation entirely. Native recall has no speed param ("snaps"/fixed speed) — if a SLOW 6s glide is required, that needs a different mechanism (stepped intermediate transient presets, or check firmware for a preset-recall speed). OPEN Q for operator: is native recall speed acceptable (then fix = just recall B), or is slow glide required (then = stepped-preset interpolation)?
+
+**Code state:** 1 uncommitted local change (cameraDirector.ts yaw-only edit, deployed). 7 prior commits still LOCAL-only on `ui-redesign` (push gated, Vercel hook).
+
+## 2026-06-21 PM — Stagecoach show: camera fixes + deck features deployed (FRESH RESTART)
+**Show:** StageCoachMilton "Tale as Old as Time" (youth theater), 17:30 EDT today. DART at venue, OBSBOT @192.168.2.91, OBS source `Video Capture Device 2`.
+
+**Shipped + DEPLOYED to DART today (asar-swapped, NOT NSIS; build on FIRMAMENT `electron-vite build` then `electron-builder --win dir`; staged /mnt/firmament/deploy + scp to C:\bb-deploy + dart-swap.ps1):**
+- **Set Home button** restored in CameraPanel (redesign regression). Verify string "Frame the full stage" (unique; "Set Home" alone = false positive from OverlayControls hint).
+- **Exposure fix:** `setEvBias` sends FLOAT via raw body (whole-number EV was 400ing — JSON drops .0). obsbot-control RestCamera.ts.
+- **Deck camera buttons:** Wide(Home)/AUTO/MANUAL (mirror in-app funcs), Pos 1-6 (recall presets), **Audience Sweep** (P2→P3 6s), **Stage Sweep** (P4→P5 6s).
+- **Move engine:** `sweepBetweenPresets(from,to,ms)` in cameraDirector → wsHub `cameraSweep`. Snap A → velocity-interp yaw+pitch (cal **0.78°/s per unit, +cmd DECREASES coord**) → recall B exact. Audience Sweep VERIFIED on live camera (P2→P3, lands yaw160/pitch3.97 = P3).
+- Elgato installed plugin updated on DART (audience-sweep, camera-pos-6 present).
+- Stagecoach desktop assets: `Stagecoach-Starting-Soon.mp4` + `Stagecoach-Logo.png`(orange, transparent) + `-alt.png`. Watch link `watch.streamstage.live/244e2022` (public) + key `362385c2…2db3`/rtmp/chat in CC, ready to push.
+
+**OPEN / next session:**
+- ⚠️ **BB + Stream Deck app were KILLED for the swap — operator must relaunch both** (GUI won't start over ssh). Show 17:30.
+- **Stage Sweep needs P4/P5 presets** (wide bottom-left / bottom-right) — don't exist yet (presets: 0,1,2,3,10).
+- End-to-end deck→WS sweep test pending BB relaunch (fire `cameraSweep` via WS hub to confirm).
+- **7 commits LOCAL only** (push gated by Vercel preview hook on ui-redesign branch).
+- Panic embed NULL in CC (flagged; 30-min auto-reveal covers).
+- Passive **theater data logger** running (bg, full-res VCD2 + telemetry every 4s → docs/research/ptz-telemetry/theater/) for camera-director dataset (theater = salience/spotlight/false-positive data).
+- Self-serve custom moves = next build (sweep A→B over T, operator-defined). Memory: project-custom-camera-moves, project-camera-director.
+
+**Reason for fresh:** very long session (camera director R&D + many build/deploy cycles + show ops). Active Stop-hook goal "built and tested and verified" — Audience Sweep IS built+verified; only relaunch + Stage Sweep presets remain.
+
 ## 2026-06-20 PM — 7Att SHOW: camera-director R&D (BIG outcome) — `docs/research/ptz-telemetry/`
 Live 7Attitudes show used as a data-capture + prototyping session for our OWN camera director
 (OBSBOT built-in AI proven unusable). Three docs are the deliverable:

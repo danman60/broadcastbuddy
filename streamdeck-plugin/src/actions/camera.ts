@@ -106,3 +106,49 @@ export class StageSweepAction extends SingletonAction {
     await ev.action.showOk()
   }
 }
+
+// ── PTZ slow optical PUSH IN (10s, from current zoom, keeps AI tracking) ───────
+// cameraSlowZoom -> slowZoomPush(ms): closed-loop optical zoom ramp on the OBSBOT.
+// This is the PTZ camera zoom, NOT the OBS Move-Transition slow-zoom. Press again
+// to cancel an in-flight push.
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-slow-zoom' })
+export class CameraSlowZoomAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraPush(conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraSlowZoom', { ms: 10000, factor: 1.5 })
+    await ev.action.showOk()
+  }
+}
+
+// ── Multi-camera: select which PTZ the controls/Xbox drive (1 or 2) ────────────
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-1' })
+export class CameraSelect1Action extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraSelect(1, conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraSelect', { id: 1 })
+    await ev.action.showOk()
+  }
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-2' })
+export class CameraSelect2Action extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraSelect(2, conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraSelect', { id: 2 })
+    await ev.action.showOk()
+  }
+}

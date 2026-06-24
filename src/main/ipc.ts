@@ -37,6 +37,7 @@ import {
   getCameraState,
   discoverCamera,
   resetCameraConnection,
+  setActiveCamera,
 } from './services/cameraDirector'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1469,6 +1470,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CAMERA_APPLY_CURRENT, () => {
     overlay.applyCurrentRoutineFraming()
     return { ok: true }
+  })
+
+  // Multi-cam: select which PTZ (1|2) the manual/Xbox/deck controls drive.
+  ipcMain.handle(IPC.CAMERA_SELECT, (_e, args: { id: number }) => {
+    const active = setActiveCamera(args?.id)
+    return { ok: true, active }
   })
 
   ipcMain.handle(

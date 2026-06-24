@@ -22,7 +22,8 @@ import { FeatureUpNextAction, FeatureThatWasAction } from './actions/feature-car
 import { CameraWideAction, CameraAutoAction, CameraManualAction,
   CameraPos1Action, CameraPos2Action, CameraPos3Action,
   CameraPos4Action, CameraPos5Action, CameraPos6Action,
-  AudienceSweepAction, StageSweepAction } from './actions/camera'
+  AudienceSweepAction, StageSweepAction, CameraSlowZoomAction,
+  CameraSelect1Action, CameraSelect2Action } from './actions/camera'
 
 streamDeck.actions.registerAction(new FireAction())
 streamDeck.actions.registerAction(new HideAction())
@@ -55,6 +56,9 @@ streamDeck.actions.registerAction(new CameraPos5Action())
 streamDeck.actions.registerAction(new CameraPos6Action())
 streamDeck.actions.registerAction(new AudienceSweepAction())
 streamDeck.actions.registerAction(new StageSweepAction())
+streamDeck.actions.registerAction(new CameraSlowZoomAction())
+streamDeck.actions.registerAction(new CameraSelect1Action())
+streamDeck.actions.registerAction(new CameraSelect2Action())
 
 // Property inspector saves the BB host/port as global settings. Apply them on
 // boot and whenever they change so the operator can point the plugin at a

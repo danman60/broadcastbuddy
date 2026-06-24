@@ -51,6 +51,7 @@ interface CameraHal {
   gimbalStop: (dir: 'up' | 'down' | 'left' | 'right') => void
   gimbalStopAll: () => void
   zoomTo: (target: number, speed: number) => void
+  zoomToRatio: (ratio: number, speed: number) => void
   zoomVelocity: (dir: 'in' | 'out', speed: number) => void
   stopZoom: () => void | Promise<void>
   resetGimbal: () => void
@@ -111,10 +112,16 @@ interface RoutineCadence {
 }
 
 let cameraModulePromise: Promise<CameraModule | null> | null = null
-let directorPromise: Promise<CameraDirector | null> | null = null
-let directorHost: string | null = null
-// One cadence per connected Director (built from the same HAL). Rebuilt on host change.
-let cadence: RoutineCadence | null = null
+// Multi-camera: one connected Director + cadence PER host, so both PTZ cameras
+// stay connected simultaneously and switching the active camera is instant (no
+// teardown/reconnect). Keyed by resolved host IP.
+const directors = new Map<string, Promise<CameraDirector | null>>()
+const cadences = new Map<string, RoutineCadence>()
+
+/** The cadence state machine for a host's Director (null until built). */
+function getCadence(host: string): RoutineCadence | null {
+  return cadences.get(host) ?? null
+}
 
 async function loadCameraModule(): Promise<CameraModule | null> {
   if (!cameraModulePromise) {
@@ -139,24 +146,70 @@ async function loadCameraModule(): Promise<CameraModule | null> {
 export function isCameraFeatureActive(s: AppSettings = settings.getAll()): boolean {
   const autoMode = s.cameraAutoMode === true
   const host = (s.cameraHost || '').trim()
-  return autoMode || host.length > 0
+  const host2 = (s.cameraHost2 || '').trim()
+  return autoMode || host.length > 0 || host2.length > 0
 }
 
 /**
- * Resolve the camera host to dial. Returns the operator-typed `cameraHost` when
- * set, otherwise the OBSBOT default `192.168.88.10` — but ONLY when the feature
- * is active. Returns null when the feature is inactive (guard preserved: no host,
- * no camera). Callers treat null as "feature off, do nothing".
+ * The ACTIVE camera id (which PTZ the manual/Xbox/deck controls target). 1 or 2.
+ * Default 1. Camera 1 is also the program/auto camera (routine cadence).
+ */
+export function getActiveCameraId(s: AppSettings = settings.getAll()): 1 | 2 {
+  return s.activeCameraId === 2 ? 2 : 1
+}
+
+/**
+ * Resolve a SPECIFIC camera's host. Camera 1 falls back to the OBSBOT default
+ * (192.168.88.10) when active but blank (plug-and-play); camera 2 has NO default —
+ * it's off unless an IP is typed. Returns null when the feature is inactive OR the
+ * requested camera has no host.
+ */
+export function resolveCameraHostFor(id: 1 | 2, s: AppSettings = settings.getAll()): string | null {
+  if (!isCameraFeatureActive(s)) return null
+  if (id === 2) {
+    const h = (s.cameraHost2 || '').trim()
+    return h || null
+  }
+  const h = (s.cameraHost || '').trim()
+  return h || DEFAULT_CAMERA_HOST
+}
+
+/**
+ * Resolve the host of the ACTIVE camera (manual/Xbox/deck target). When the active
+ * camera (2) has no host configured, falls back to camera 1 so controls aren't dead.
+ * Most control entry points resolve through here. Null = feature off / no camera.
  */
 export function resolveCameraHost(s: AppSettings = settings.getAll()): string | null {
   if (!isCameraFeatureActive(s)) return null
-  const host = (s.cameraHost || '').trim()
-  return host || DEFAULT_CAMERA_HOST
+  return resolveCameraHostFor(getActiveCameraId(s), s) ?? resolveCameraHostFor(1, s)
+}
+
+/** Host of the PROGRAM / auto camera (always camera 1) — drives the routine cadence. */
+export function resolveProgramCameraHost(s: AppSettings = settings.getAll()): string | null {
+  return resolveCameraHostFor(1, s)
+}
+
+/** Set which PTZ camera the manual/Xbox/deck controls drive (1 or 2). Persists. */
+export function setActiveCamera(id: number): 1 | 2 {
+  const v: 1 | 2 = Number(id) === 2 ? 2 : 1
+  settings.set('activeCameraId', v)
+  logger.info(`Active PTZ camera = ${v}`)
+  return v
 }
 
 function resolvePort(s: AppSettings = settings.getAll()): number {
   const p = s.cameraPort
   return typeof p === 'number' && Number.isFinite(p) && p > 0 ? p : 80
+}
+
+/** HTTP port for a resolved host (camera 2's host uses cameraPort2). */
+function resolvePortForHost(host: string, s: AppSettings = settings.getAll()): number {
+  const host2 = (s.cameraHost2 || '').trim()
+  if (host2 && host === host2) {
+    const p2 = s.cameraPort2
+    return typeof p2 === 'number' && Number.isFinite(p2) && p2 > 0 ? p2 : 80
+  }
+  return resolvePort(s)
 }
 
 function resolveFramingMode(s: AppSettings = settings.getAll()): 'recital' | 'competition' {
@@ -169,13 +222,9 @@ function resolveFramingMode(s: AppSettings = settings.getAll()): 'recital' | 'co
  * with the operator's framing mode + port from settings.
  */
 async function getDirector(host: string): Promise<CameraDirector | null> {
-  if (directorHost !== host) {
-    // Host changed (or first use) → drop any prior singleton and rebuild.
-    directorHost = host
-    directorPromise = null
-  }
-  if (!directorPromise) {
-    directorPromise = (async () => {
+  let promise = directors.get(host)
+  if (!promise) {
+    promise = (async () => {
       try {
         const mod = await loadCameraModule()
         if (!mod) return null
@@ -183,34 +232,38 @@ async function getDirector(host: string): Promise<CameraDirector | null> {
           RoutineCadence: new (cam: unknown, opts?: unknown) => RoutineCadence
         }
         const s = settings.getAll()
-        const cam = new RestCamera({ host, port: resolvePort(s), dryRun: false })
+        const cam = new RestCamera({ host, port: resolvePortForHost(host, s), dryRun: false })
         const director = new Director(cam, { mode: resolveFramingMode(s) }) as unknown as CameraDirector
         await director.cam.connect()
-        // Build the routine-lifecycle cadence on the SAME connected HAL. Log state
-        // transitions through the camera logger so the field log shows the lifecycle.
-        cadence = new RoutineCadence(cam, {
+        // Build the routine-lifecycle cadence on the SAME connected HAL (one per host).
+        cadences.set(host, new RoutineCadence(cam, {
           onTransition: (from: string, to: string) =>
-            logger.info(`Camera cadence: ${from} → ${to}`),
-        })
+            logger.info(`Camera[${host}] cadence: ${from} → ${to}`),
+        }))
         logger.info(`OBSBOT camera connected at ${host}`)
         return director
       } catch (err) {
         logger.error(`Failed to connect OBSBOT camera at ${host}:`, err)
+        directors.delete(host) // allow a later retry to rebuild
         return null
       }
     })()
+    directors.set(host, promise)
   }
-  return directorPromise
+  return promise
 }
 
-/** Drop any cached Director so the next call rebuilds (after a settings change). */
-function invalidateDirector(): void {
-  if (cadence) {
-    try { cadence.dispose() } catch { /* ignore */ }
-    cadence = null
+/** Drop cached Director(s) so the next call rebuilds. host omitted = all cameras. */
+function invalidateDirector(host?: string): void {
+  const hosts = host ? [host] : [...directors.keys(), ...cadences.keys()]
+  for (const h of new Set(hosts)) {
+    const c = cadences.get(h)
+    if (c) {
+      try { c.dispose() } catch { /* ignore */ }
+      cadences.delete(h)
+    }
+    directors.delete(h)
   }
-  directorHost = null
-  directorPromise = null
 }
 
 // ── Breathing oscillation REMOVED ────────────────────────────────
@@ -278,13 +331,16 @@ export function applyRoutineForTrigger(dancerCount?: number | undefined): void {
     const s = settings.getAll()
     // Auto-Mode guard: trigger-driven framing ONLY when the operator opted in.
     if (s.cameraAutoMode !== true) return // feature/auto OFF — complete no-op
-    const host = resolveCameraHost(s)
+    // Auto-framing always drives the PROGRAM camera (camera 1), independent of which
+    // camera the operator is manually steering (active).
+    const host = resolveProgramCameraHost(s)
     if (!host) return
 
     // Run async, detached — the show flow does not await the camera.
     void (async () => {
       try {
         const director = await getDirector(host)
+        const cadence = getCadence(host)
         if (!director || !cadence) return
         // Every routine runs the SAME cadence — no count-derived framing.
         cadence.onRoutineStart()
@@ -316,6 +372,7 @@ export function saveHomeViaCamera(): void {
       try {
         const director = await getDirector(host)
         if (!director) return
+        const cadence = getCadence(host)
         if (cadence) cadence.saveWideHome()
         else director.saveHome()
         logger.info('Saved camera Wide-Home preset (operator-framed wide stage)')
@@ -349,6 +406,7 @@ export function goHomeViaCamera(): void {
         // in-flight ESTABLISH→PUSH→AUTO_HOLD cascade and lost-timer, then does the
         // AI-off + Home recall — keeping the state machine coherent. Falls back to
         // director.goHome() (identical wire) if the cadence isn't built yet.
+        const cadence = getCadence(host)
         if (cadence) cadence.goIdleWide()
         else director.goHome()
         logger.info('Camera went to Home (safety wide, AI off, cadence IDLE_WIDE)')
@@ -599,9 +657,13 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
       await sleep(2000) // let the snap settle
       if (A && B && durationMs > 0) {
         const secs = Math.max(0.5, durationMs / 1000)
+        // Flat horizontal sweep: drive YAW only, hold pitch constant. The
+        // pan-tilt head couples pitch onto the yaw platform, so a simultaneous
+        // yaw+pitch velocity bows the path upward ("arc"). Pure yaw = straight
+        // across. The final triggerPreset(toId) corrects any residual pitch
+        // difference between the two presets.
         const yawCmd = clampVel(-((B.yaw - A.yaw) / secs) / SWEEP_DEG_PER_UNIT)
-        const pitchCmd = clampVel(-((B.pitch - A.pitch) / secs) / SWEEP_DEG_PER_UNIT)
-        cam.gimbalVelocityXY(yawCmd, pitchCmd) // slow interpolating pan
+        cam.gimbalVelocityXY(yawCmd, 0) // pure horizontal pan
         await sleep(durationMs)
         cam.gimbalStopAll()
       }
@@ -610,6 +672,50 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
       logger.info(`Camera move: sweep ${fromId}->${toId} ${durationMs}ms`)
     } catch (err) {
       logger.error('sweepBetweenPresets failed:', err)
+    }
+  })()
+}
+
+// True while a native zoom ease is gliding; a second press cancels it.
+let slowZoomActive = false
+// Camera-native zoom speed for the slow push. LOW = slow, smooth cinematic ramp
+// ("creeps"). Client-side stepping stuttered; the camera's own speed param is the
+// smooth primitive (REST /ptz/zoom {ratio,speed}). Tune 1-3 for slower/faster.
+const SLOW_ZOOM_SPEED = 2
+
+/**
+ * Slow optical-zoom PUSH from the CURRENT zoom toward a tele target (current ×
+ * `factor`, clamped ≤12). Issues ONE native `zoomToRatio(target, lowSpeed)` — the
+ * camera eases there smoothly on its own ramp (no client-side stepping, which
+ * stuttered). Does NOT touch AI workmode: if tracking is on, the gimbal keeps
+ * following while we push in. A second press CANCELS (retargets the live ratio).
+ * `durationMs` only sizes the active-guard window. Guarded / no-op without a host.
+ */
+export function slowZoomPush(durationMs = 10000, factor = 1.5): void {
+  const host = resolveCameraHost()
+  if (!host) return
+  void (async () => {
+    try {
+      const director = await getDirector(host)
+      if (!director) return
+      const cam = director.cam
+      if (slowZoomActive) {
+        // Second press = cancel: camera-native stop (retarget current ratio).
+        slowZoomActive = false
+        await cam.stopZoom()
+        logger.info('Camera slow-zoom push canceled')
+        return
+      }
+      const info = (await cam.getZoomInfo()) as { ratio?: number } | undefined
+      const start = info && typeof info.ratio === 'number' ? info.ratio : 1.0
+      const target = Math.min(12, Math.max(1, start * factor))
+      slowZoomActive = true
+      cam.zoomToRatio(target, SLOW_ZOOM_SPEED) // single smooth native ramp
+      setTimeout(() => { slowZoomActive = false }, Math.max(1000, durationMs))
+      logger.info(`Camera slow-zoom push ${start.toFixed(1)}->${target.toFixed(1)} speed ${SLOW_ZOOM_SPEED}`)
+    } catch (err) {
+      slowZoomActive = false
+      logger.error('slowZoomPush failed:', err)
     }
   })()
 }
@@ -702,11 +808,13 @@ export function setCameraAiEnable(on: boolean): void {
 /** Run `fn` against the connected cadence, detached + guarded. No-op when inactive. */
 function withCadence(label: string, fn: (c: RoutineCadence) => void): void {
   try {
-    const host = resolveCameraHost()
+    // Cadence self-heal acts on the PROGRAM camera (camera 1), the auto-tracking cam.
+    const host = resolveProgramCameraHost()
     if (!host) return // feature OFF — complete no-op
     void (async () => {
       try {
-        await getDirector(host) // ensures `cadence` is built
+        await getDirector(host) // ensures the cadence is built
+        const cadence = getCadence(host)
         if (!cadence) return
         fn(cadence)
         logger.info(`Camera cadence cmd: ${label} (state=${cadence.current})`)

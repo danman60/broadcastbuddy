@@ -428,6 +428,13 @@ export interface AppSettings {
   // no-op on trigger fire). When set, firing a trigger with a numeric
   // dancerCount drives the camera's framing via @compsync/camera.
   cameraHost?: string
+  // ── Second PTZ camera (multi-camera control). Camera 2 is off unless cameraHost2
+  // is set (NO plug-and-play default). `activeCameraId` selects which camera the
+  // manual / Xbox / Stream Deck controls drive (1 or 2; default 1). Camera 1 is the
+  // program/auto camera (routine cadence). See cameraDirector resolveCameraHostFor.
+  cameraHost2?: string // 2nd OBSBOT camera IP. Empty = camera 2 off.
+  cameraPort2?: number // 2nd camera HTTP port. Default 80.
+  activeCameraId?: 1 | 2 // which PTZ the manual/Xbox/deck controls target. Default 1.
   // ── OBSBOT camera — additive controls (all optional; defaults = current OFF
   // behaviour). The camera feature is considered ACTIVE when cameraAutoMode is
   // true OR cameraHost is non-empty (see resolveCameraHost / isCameraFeatureActive
@@ -1060,6 +1067,7 @@ export const IPC = {
   CAMERA_GET_STATE: 'camera:get-state',         // live gimbal/zoom readout (never throws)
   CAMERA_DISCOVER: 'camera:discover',           // scan local subnets for the OBSBOT → auto-set cameraHost
   CAMERA_APPLY_CURRENT: 'camera:apply-current', // re-apply current routine framing (AUTO-enable → real tracking)
+  CAMERA_SELECT: 'camera:select',               // multi-cam: set which PTZ (1|2) the controls drive
 
   // OBS Transition auto-revert (snap back to Cut 500ms after any transition)
   OBS_TRANSITION_REVERT_GET: 'obs:transition-revert-get',

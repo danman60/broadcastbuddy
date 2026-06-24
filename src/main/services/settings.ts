@@ -50,6 +50,11 @@ const store = new Store<AppSettings>({
     cameraFramingMode: 'recital',
     cameraPort: 80,
     cameraBreathing: true, // slow AutoZoom in/out on group routines (kill-switch)
+    // Multi-camera (2nd PTZ). Camera 2 off unless cameraHost2 set; activeCameraId
+    // selects which PTZ the manual/Xbox/deck controls drive (1 = program/auto cam).
+    cameraHost2: '',
+    cameraPort2: 80,
+    activeCameraId: 1,
   },
 })
 

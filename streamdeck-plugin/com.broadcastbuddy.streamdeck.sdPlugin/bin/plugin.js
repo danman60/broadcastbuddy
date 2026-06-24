@@ -9455,6 +9455,16 @@ function cameraSweep(label, connected) {
     <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="20" font-weight="bold" font-family="sans-serif">${label}</text>
   `, '#241019');
 }
+function cameraPush(connected) {
+    const c = connected ? '#f472b6' : '#555';
+    return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW ZOOM</text>
+    <rect x="38" y="54" width="68" height="44" rx="5" fill="none" stroke="${c}" stroke-width="3"/>
+    <rect x="54" y="64" width="36" height="24" rx="3" fill="none" stroke="${c}" stroke-width="3"/>
+    <path d="M58 76 H86 M72 66 V86" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">PUSH IN</text>
+  `, '#241019');
+}
 function cameraMode(mode, connected) {
     const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b';
     const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113';
@@ -9462,6 +9472,13 @@ function cameraMode(mode, connected) {
     <text x="72" y="50" text-anchor="middle" fill="${color}" font-size="13" font-family="sans-serif" letter-spacing="2">PTZ</text>
     <text x="72" y="96" text-anchor="middle" fill="${color}" font-size="${mode === 'MANUAL' ? 20 : 26}" font-weight="bold" font-family="sans-serif">${mode}</text>
   `, bg);
+}
+function cameraSelect(n, connected) {
+    const c = connected ? '#38bdf8' : '#555';
+    return wrap(`
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">SELECT CAM</text>
+    <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
+  `, '#0e2233');
 }
 
 let FireAction = class FireAction extends SingletonAction {
@@ -9959,6 +9976,56 @@ let StageSweepAction = class StageSweepAction extends SingletonAction {
 StageSweepAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.stage-sweep' })
 ], StageSweepAction);
+// ── PTZ slow optical PUSH IN (10s, from current zoom, keeps AI tracking) ───────
+// cameraSlowZoom -> slowZoomPush(ms): closed-loop optical zoom ramp on the OBSBOT.
+// This is the PTZ camera zoom, NOT the OBS Move-Transition slow-zoom. Press again
+// to cancel an in-flight push.
+let CameraSlowZoomAction = class CameraSlowZoomAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraPush(isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraSlowZoom', { ms: 10000, factor: 1.5 });
+        await ev.action.showOk();
+    }
+};
+CameraSlowZoomAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-slow-zoom' })
+], CameraSlowZoomAction);
+// ── Multi-camera: select which PTZ the controls/Xbox drive (1 or 2) ────────────
+let CameraSelect1Action = class CameraSelect1Action extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraSelect(1, isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraSelect', { id: 1 });
+        await ev.action.showOk();
+    }
+};
+CameraSelect1Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-1' })
+], CameraSelect1Action);
+let CameraSelect2Action = class CameraSelect2Action extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraSelect(2, isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraSelect', { id: 2 });
+        await ev.action.showOk();
+    }
+};
+CameraSelect2Action = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-2' })
+], CameraSelect2Action);
 
 streamDeck.actions.registerAction(new FireAction());
 streamDeck.actions.registerAction(new HideAction());
@@ -9991,6 +10058,9 @@ streamDeck.actions.registerAction(new CameraPos5Action());
 streamDeck.actions.registerAction(new CameraPos6Action());
 streamDeck.actions.registerAction(new AudienceSweepAction());
 streamDeck.actions.registerAction(new StageSweepAction());
+streamDeck.actions.registerAction(new CameraSlowZoomAction());
+streamDeck.actions.registerAction(new CameraSelect1Action());
+streamDeck.actions.registerAction(new CameraSelect2Action());
 streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
     const s = ev.settings || {};
     setHostPort(s.bbHost, s.bbPort ? Number(s.bbPort) : undefined);

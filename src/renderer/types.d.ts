@@ -139,6 +139,7 @@ interface ElectronAPI {
   cameraProbe: () => Promise<{ ok: boolean; host: string; reachable: boolean; error?: string }>
   cameraDiscover: () => Promise<{ found: boolean; host?: string; scanned: number; subnets: string[] }>
   cameraApplyCurrent: () => Promise<{ ok: boolean }>
+  cameraSelect: (id: 1 | 2) => Promise<{ ok: boolean; active: 1 | 2 }>
   cameraNudge: (args: {
     dir: 'up' | 'down' | 'left' | 'right'
     speed: number

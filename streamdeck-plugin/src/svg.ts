@@ -220,6 +220,17 @@ export function cameraSweep(label: string, connected: boolean): string {
   `, '#241019')
 }
 
+export function cameraPush(connected: boolean): string {
+  const c = connected ? '#f472b6' : '#555'
+  return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW ZOOM</text>
+    <rect x="38" y="54" width="68" height="44" rx="5" fill="none" stroke="${c}" stroke-width="3"/>
+    <rect x="54" y="64" width="36" height="24" rx="3" fill="none" stroke="${c}" stroke-width="3"/>
+    <path d="M58 76 H86 M72 66 V86" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">PUSH IN</text>
+  `, '#241019')
+}
+
 export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string {
   const color = !connected ? '#555' : mode === 'AUTO' ? '#22c55e' : '#f59e0b'
   const bg = !connected ? '#1e1e2e' : mode === 'AUTO' ? '#13241a' : '#2a2113'
@@ -227,4 +238,12 @@ export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string 
     <text x="72" y="50" text-anchor="middle" fill="${color}" font-size="13" font-family="sans-serif" letter-spacing="2">PTZ</text>
     <text x="72" y="96" text-anchor="middle" fill="${color}" font-size="${mode === 'MANUAL' ? 20 : 26}" font-weight="bold" font-family="sans-serif">${mode}</text>
   `, bg)
+}
+
+export function cameraSelect(n: number, connected: boolean): string {
+  const c = connected ? '#38bdf8' : '#555'
+  return wrap(`
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">SELECT CAM</text>
+    <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
+  `, '#0e2233')
 }

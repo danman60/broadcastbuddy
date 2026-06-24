@@ -229,6 +229,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.CAMERA_DISCOVER),
   cameraApplyCurrent: (): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.CAMERA_APPLY_CURRENT),
+  cameraSelect: (id: 1 | 2): Promise<{ ok: boolean; active: 1 | 2 }> =>
+    ipcRenderer.invoke(IPC.CAMERA_SELECT, { id }),
   cameraNudge: (args: {
     dir: 'up' | 'down' | 'left' | 'right'
     speed: number

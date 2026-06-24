@@ -19,6 +19,7 @@
  *   - D-pad (12–15) → recall preset 5–8 (edge-triggered).
  *   - LB(4) + face button → SAVE preset (setPreset) instead of recall.
  *   - Guide(16) → goHome. Start/Menu(9) → toggle AI. LS(10) → cycle tracking speed.
+ *   - Back(8) → toggle active PTZ camera (1↔2) on the same controller.
  *   - RB(5) held → fine mode ×0.3.
  *
  * Interlock: any stick deflection past the deadzone OR analog zoom flips AI OFF
@@ -47,6 +48,8 @@ export interface GamepadCallbacks {
   onToggleAi: () => void
   /** Cycle tracking-speed mode (0–5). */
   onCycleTrackingSpeed: (mode: number) => void
+  /** Multi-cam: toggle which PTZ (1↔2) this controller drives (Back button). */
+  onToggleCamera: () => void
   /** Interlock latched manual (a stick/zoom deflection forced AI off). */
   onManualLatched: () => void
   /** Connection state changed — pass the pad label or null. */
@@ -238,6 +241,9 @@ export class GamepadController {
 
     // Guide(16) → goHome
     if (this.edgePress(16, pressed(16))) this.cb.onGoHome()
+
+    // Back(8) → toggle active PTZ camera (drive cam 1 ↔ cam 2 on this same pad)
+    if (this.edgePress(8, pressed(8))) this.cb.onToggleCamera()
 
     // Start/Menu(9) → toggle AI (the operator's explicit re-enable path)
     if (this.edgePress(9, pressed(9))) {

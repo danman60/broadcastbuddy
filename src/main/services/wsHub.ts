@@ -28,7 +28,7 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera } from './cameraDirector'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -184,6 +184,22 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       const to = Number(data?.to)
       const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 6000
       if (Number.isInteger(from) && Number.isInteger(to)) sweepBetweenPresets(from, to, ms)
+      break
+    }
+    case 'cameraSelect': {
+      // Multi-cam: choose which PTZ (1|2) the camera controls/Xbox/deck drive. All
+      // subsequent camera commands route to this active camera. No-op for bad ids.
+      const id = Number(data?.id)
+      if (id === 1 || id === 2) setActiveCamera(id)
+      break
+    }
+    case 'cameraSlowZoom': {
+      // PTZ optical slow PUSH from current zoom over `ms` (default 10s), keeping
+      // any AI tracking active. Closed-loop (zoom has read-back). Second press
+      // cancels an in-flight push. No-op unless a camera host is set.
+      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 10000
+      const factor = Number(data?.factor) > 1 ? Number(data?.factor) : 1.5
+      slowZoomPush(ms, factor)
       break
     }
     case 'toggleClock':

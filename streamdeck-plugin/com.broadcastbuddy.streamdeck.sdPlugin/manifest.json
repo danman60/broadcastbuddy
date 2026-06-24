@@ -497,6 +497,51 @@
           "Title": ""
         }
       ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-select-1",
+      "Name": "Select Camera 1",
+      "Tooltip": "Drive PTZ camera 1 with the controls/Xbox/deck",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-select-2",
+      "Name": "Select Camera 2",
+      "Tooltip": "Drive PTZ camera 2 with the controls/Xbox/deck",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-slow-zoom",
+      "Name": "Camera Slow Zoom (PTZ)",
+      "Tooltip": "PTZ: slow 10s optical push-in from current zoom, keeps AI tracking",
+      "Icon": "imgs/actions/slow-zoom",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
     }
   ],
   "Category": "BroadcastBuddy",

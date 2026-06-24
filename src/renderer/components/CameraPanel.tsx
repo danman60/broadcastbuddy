@@ -120,6 +120,10 @@ function CameraPanelActive(): React.ReactElement {
   const [zoomSpeed, setZoomSpeed] = useState(0.6) // zoom rocker speed multiplier 0–1
   const [savedFlashId, setSavedFlashId] = useState<number | null>(null)
   const [padLabel, setPadLabel] = useState<string | null>(null)
+  // Multi-cam: which PTZ (1|2) the controls/Xbox drive. Mirrors activeCameraId.
+  const [activeCam, setActiveCam] = useState<1 | 2>(settings?.activeCameraId === 2 ? 2 : 1)
+  const activeCamRef = useRef<1 | 2>(activeCam)
+  useEffect(() => { activeCamRef.current = activeCam }, [activeCam])
   // Collapsible sub-sections — PTZ (above) stays open; these start collapsed.
   const [trackingCollapsed, setTrackingCollapsed] = useState(true)
   const [imageCollapsed, setImageCollapsed] = useState(true)
@@ -255,6 +259,12 @@ function CameraPanelActive(): React.ReactElement {
         onGoHome: () => { void window.api.cameraGoHome() },
         onToggleAi: () => { void toggleAi() },
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
+        onToggleCamera: () => {
+          const next: 1 | 2 = activeCamRef.current === 1 ? 2 : 1
+          activeCamRef.current = next
+          setActiveCam(next)
+          void window.api.cameraSelect(next)
+        },
         onManualLatched: () => {
           setAiEnabled(false)
           setManualFlash(true)
@@ -351,6 +361,13 @@ function CameraPanelActive(): React.ReactElement {
     setSettings(updated)
   }, [setSettings])
 
+  // Multi-cam: switch which PTZ the controls/Xbox/deck drive (main persists it).
+  const selectCamera = useCallback(async (id: 1 | 2) => {
+    activeCamRef.current = id
+    setActiveCam(id)
+    await window.api.cameraSelect(id)
+  }, [])
+
   // Re-discover the camera on the network (e.g. its DHCP IP changed at a venue).
   // On a hit, repoints cameraHost; the next probe/action reconnects to the new IP.
   const [scanning, setScanning] = useState(false)
@@ -394,6 +411,31 @@ function CameraPanelActive(): React.ReactElement {
         <button className="camera-btn small" onClick={() => void findCamera()} disabled={scanning} title="Scan the network for the camera (use if its IP changed)">
           {scanning ? '…' : 'Find'}
         </button>
+      </div>
+
+      {/* ── Multi-camera select (which PTZ the controls / Xbox / deck drive) ── */}
+      <div className="camera-row">
+        <span className="camera-label">Camera</span>
+        <div className="camera-segment">
+          <button className={activeCam === 1 ? 'active' : ''} onClick={() => void selectCamera(1)}>Cam 1</button>
+          <button
+            className={activeCam === 2 ? 'active' : ''}
+            onClick={() => void selectCamera(2)}
+            disabled={!(settings?.cameraHost2 || '').trim()}
+            title={(settings?.cameraHost2 || '').trim() ? 'Drive PTZ camera 2' : 'Set Camera 2 IP below to enable'}
+          >Cam 2</button>
+        </div>
+        <span className="camera-manual-flash" style={{ opacity: 0.6 }}>Xbox: Back = switch</span>
+      </div>
+      <div className="camera-row">
+        <span className="camera-label">Cam 2 IP</span>
+        <input
+          className="camera-text"
+          type="text"
+          defaultValue={settings?.cameraHost2 || ''}
+          placeholder="192.168.x.x (empty = off)"
+          onBlur={(e) => void persist('cameraHost2', e.target.value.trim())}
+        />
       </div>
 
       {/* ── AUTO / MANUAL ── */}
