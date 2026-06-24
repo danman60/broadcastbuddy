@@ -80,7 +80,39 @@ feedback: BB heard-toast + deck key flash; reject tone below confidence floor
 Everything downstream of the command router already exists:
 `setActiveCamera`, `recallCameraPreset`, `saveCameraPreset`, `slowZoomPush`,
 `zoomCameraVelocity`, `sweepBetweenPresets` (to be fixed — see below),
-`goHomeViaCamera`, `setCameraAutoMode`, gimbal/zoom stop.
+`goHomeViaCamera`, `setCameraAiEnable`, `nudgeCameraXY`. One NEW primitive:
+`stopAllCameraMotion()` (composes existing zoom/gimbal stops + push cancel).
+
+### Helper ↔ BB wire protocol
+
+**Transport:** newline-delimited JSON (NDJSON) over the helper's **stdio** (stdin = BB→helper,
+stdout = helper→BB). One JSON object per line. Chosen over named pipe for simplicity and
+cross-process robustness on Windows.
+
+**BB → helper messages:**
+```jsonc
+{ "t": "grammar", "verbs": [...], "shots": { "1": ["3","drummer"], "2": ["1","wide"] } }
+// verbs = fixed list; shots = per-camera map of recognizable shot tokens (numbers + labels)
+{ "t": "listen", "on": true }     // PTT keyDown
+{ "t": "listen", "on": false }    // PTT keyUp → recognize buffered audio, emit best match
+{ "t": "mic", "deviceId": "..." } // select capture device
+{ "t": "ping" }
+```
+
+**Helper → BB messages:**
+```jsonc
+{ "t": "ready" }                                  // handshake after SAPI engine + grammar load
+{ "t": "result", "camera": 2, "verb": "pushIn",
+  "target": "drummer", "confidence": 0.86 }       // confidence 0.0–1.0; camera/target null if absent
+{ "t": "reject", "reason": "low-confidence", "confidence": 0.31 }
+{ "t": "error", "reason": "no-mic" | "engine-fail" | "..." }
+{ "t": "pong" }
+```
+
+BB applies the confidence floor (default 0.6, tunable) on `result`; below floor → treat as
+reject. BB owns the floor, not the helper, so it's adjustable without rebuilding the exe.
+Helper waits for a `grammar` message before emitting `ready`; BB re-sends `grammar` on every
+shot-label change.
 
 ## Grammar + command mapping
 
@@ -93,16 +125,42 @@ active camera). Number words map to ints in the bounded grammar.
 | "camera one shot three" / "shot three" | recall preset 3 | `recallCameraPreset(3)` |
 | "push in" | standard slow push (~10s) | `slowZoomPush(10000, 1.5)` |
 | "slow push in" | very gradual push (~15s, gentle) | `slowZoomPush(15000, 1.3)` |
-| "pull out" / "zoom out" | zoom out | `zoomCameraVelocity('out', …)` |
-| "zoom in" | zoom in (manual, not the slow push) | `zoomCameraVelocity('in', …)` |
+| "pull out" / "zoom out" | bounded zoom-out nudge | `zoomCameraVelocity('out', ZOOM_SPEED)` then stop after `ZOOM_NUDGE_MS` |
+| "zoom in" | bounded zoom-in nudge (manual, not the slow push) | `zoomCameraVelocity('in', ZOOM_SPEED)` then stop after `ZOOM_NUDGE_MS` |
 | "wide" / "go wide" / "home" | recall stage-home | `goHomeViaCamera()` |
 | "sweep shot two to shot three" | glide preset 2→3 | `sweepBetweenPresets(2,3,…)` (fixed path) |
-| "track" / "follow" | AI-lock person in frame | `setCameraAutoMode(true)` |
-| "stop" | halt motion / cancel push | zoom + gimbal stop |
+| "track" / "follow" | AI-lock person in frame | `setCameraAiEnable(true)` |
+| "stop" | halt all motion / cancel push | `stopAllCameraMotion()` (new) |
 | (labeled) "camera two drummer" | recall labeled preset | `recallCameraPreset(slotForLabel)` |
 
+### Primitive notes (verified against cameraDirector.ts)
+
+- **Camera prefix = set active, then apply.** "camera N <verb>" first calls
+  `setActiveCamera(N)` (returns clamped `1|2`), then runs the verb. All verb primitives
+  resolve their host via `resolveCameraHost()` = active camera, so the verb lands on cam N.
+  Bare verb = current active. This matches the existing multi-PTZ model (active = the camera
+  manual/joystick drives). Voice never touches which camera is program/auto (cam1).
+- **"track" = `setCameraAiEnable(true)`** (the real OBSBOT person-lock). NOT
+  `setCameraAutoMode` — that one persists a settings opt-in and its OFF branch calls
+  `goHomeViaCamera()`; wrong primitive for "lock whoever's in frame".
+- **"zoom in/out" are bounded nudges, not latched ramps.** With push-to-talk released there
+  is no held key to stop a velocity zoom, so voice zoom runs `zoomCameraVelocity(dir, SPEED)`
+  then auto-stops after `ZOOM_NUDGE_MS` (default ~600ms). Repeat the word to zoom further.
+  Distinct from the slow-push verbs (those use the self-easing `slowZoomPush`). Constants
+  `ZOOM_SPEED`, `ZOOM_NUDGE_MS` exposed in the Voice panel.
+- **"stop" needs a new `stopAllCameraMotion()` primitive** (cameraDirector.ts). It composes:
+  cancel the in-flight slow-push (`slowZoomPush` already self-cancels via its `slowZoomActive`
+  flag → `cam.stopZoom()`), `zoomCameraVelocity(_, 0, true)`, and `nudgeCameraXY(0, 0, true)`.
+  Routes via active camera host. **Caveat:** a "sweep" implemented as a native
+  recall-A→recall-B move is a fire-and-forget camera trajectory and is **not cleanly
+  cancelable mid-move** — "stop" is best-effort against an in-flight sweep. Push and velocity
+  motion ARE cancelable. Test plan reflects this.
+- **Return values consumed:** the command router awaits `setActiveCamera`'s return for the
+  camera shown in the heard-toast; `setCameraAiEnable` is fire-and-forget (withCam) so the
+  toast reflects intent.
+
 - **Confidence floor:** matches below threshold → no action + reject tone. Never guess a
-  camera move on stream.
+  camera move on stream. Confidence is normalized **0.0–1.0** (SAPI 0–1 scale passed through).
 - **`sweep` fix folded in:** current `sweepBetweenPresets` uses the broken open-loop
   velocity engine (tilt drift + end-jerk, documented in CURRENT_WORK). Voice "sweep" must
   use the **recall-A → recall-B** native coordinated move (the post-show fix). This rewrite
@@ -136,6 +194,11 @@ Operator is watching OBS/stage, not the BB window:
   device-list pattern); launch preflight check.
 - **Camera offline:** command parses, primitive no-ops (as today); toast `CAM2 ▸ (no camera)`.
 - **Empty target shot:** said "shot five", slot unset → reject tone + `shot 5 not set`.
+  Slot-set state is **persisted in settings** by the Voice/Shots panel when a shot is saved
+  (`recallCameraPreset` is fire-and-forget with no "is set" query; preset existence is only
+  indirectly readable via `getGimbalPos().presetList`). The grammar BB pushes only includes
+  shot tokens that are actually saved, so an unset shot won't match in the first place; the
+  explicit reject covers a stale-grammar race.
 - **Two cameras:** "camera N" routes explicitly; bare verb → active camera. Voice never
   changes which camera is program/auto (cam1 stays program per the multi-PTZ model). Voice
   drives the active/manual camera exactly like the joystick does.
@@ -164,6 +227,7 @@ DART (same as prior camera-action additions).
 3. Number-word shots recall correct presets; labeled shots recall by label.
 4. Confidence floor rejects garbage (crew chatter during hold) with reject tone, no move.
 5. "sweep" performs a smooth native recall-A→recall-B (no tilt drift / end-jerk).
-6. "push in" vs "slow push in" durations distinct; "stop" cancels mid-push.
+6. "push in" vs "slow push in" durations distinct; "stop" cancels an in-flight push and
+   halts velocity zoom/gimbal. (A native recall-sweep is best-effort cancelable only.)
 7. Helper crash → auto-relaunch; voice no-ops while down; manual controls unaffected.
 8. Latency key-release→move < ~500ms.
