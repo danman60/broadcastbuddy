@@ -44,46 +44,33 @@ BuildTools MSBuild — no .NET SDK required.
 JSON uses `System.Web.Script.Serialization.JavaScriptSerializer`
 (`System.Web.Extensions.dll`), not `System.Text.Json` (which is not in the framework).
 
-### Option A — direct `csc.exe` (preferred, no MSBuild)
+### Option A — Roslyn `csc.exe` + GAC references (VERIFIED on FIRMAMENT 2026-06-23)
 
-The in-box compiler is `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (modern
-Roslyn; the source is kept to C# 7.3). Run this **from the `voice-helper` directory**.
+FIRMAMENT has **no .NET Framework 4.8 targeting pack** (the `Reference Assemblies\…\v4.8`
+dir is absent) and the in-box `Framework64\v4.0.30319\csc.exe` is the **legacy** compiler
+(C#5 max → rejects `/langversion:7.3`). The build that WORKS uses the **Roslyn** csc from
+VS 2022 BuildTools with explicit framework + GAC DLL references and `/nostdlib+`:
 
-Most robust single command (explicit reference-assembly paths — works even when the GAC
-isn't on the lib path):
-
-```bat
-"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" ^
-  /target:exe ^
-  /out:voice-helper.exe ^
-  /langversion:7.3 ^
-  /nologo ^
-  /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.dll" ^
-  /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Core.dll" ^
-  /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Speech.dll" ^
-  /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Web.Extensions.dll" ^
+```powershell
+$csc = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe'
+$fw  = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
+$sp  = 'C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Speech\v4.0_4.0.0.0__31bf3856ad364e35\System.Speech.dll'
+$we  = 'C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Web.Extensions\v4.0_4.0.0.0__31bf3856ad364e35\System.Web.Extensions.dll'
+& $csc /nologo /nostdlib+ /target:exe /out:voice-helper.exe /langversion:7.3 `
+  "/r:$fw\mscorlib.dll" "/r:$fw\System.dll" "/r:$fw\System.Core.dll" "/r:$fw\System.Xml.dll" `
+  "/r:$sp" "/r:$we" `
   Program.cs Protocol.cs GrammarFactory.cs
 ```
 
-Shorter form (works if the GAC reference assemblies are already on the compiler's lib
-path, which they usually are when run from a Developer/BuildTools shell):
+Notes:
+- `/nostdlib+` + explicit `mscorlib.dll` is REQUIRED — the standalone Roslyn csc does NOT
+  auto-reference mscorlib (without it: `CS0246 IFormattable could not be found`).
+- All three .cs files need `using System;` (they don't get implicit usings — classic project).
+- The GAC `__31bf3856ad364e35` hash + `v4.0_4.0.0.0` version dir are stable across machines.
+- Smoke-tested: launching the exe emits `{"t":"ready"}` then `{"t":"pong"}` to `{"t":"ping"}`.
 
-```bat
-"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:exe /out:voice-helper.exe /langversion:7.3 ^
-  /r:System.dll /r:System.Core.dll /r:System.Speech.dll /r:System.Web.Extensions.dll ^
-  Program.cs Protocol.cs GrammarFactory.cs
-```
-
-> **Path to confirm on the build box.** The `v4.8` reference-assembly directory above
-> (`C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\`)
-> ships with the **.NET Framework 4.8 Targeting Pack** (installed by VS 2022 BuildTools).
-> If only `v4.7.2` (or another version) is present, point the `/reference:` paths at that
-> directory instead — `System.Speech.dll` and `System.Web.Extensions.dll` live in the same
-> folder for every 4.x targeting pack. If neither exists, use Option B (MSBuild resolves
-> the assemblies itself). The runtime `System.Speech.dll` also lives in the GAC at
-> `%WINDIR%\Microsoft.NET\assembly\GAC_MSIL\System.Speech\<version>\System.Speech.dll`
-> (the `<version>` subfolder name varies — there's exactly one), which the short `/r:` form
-> resolves automatically.
+A ready-to-run script lives at `D:\Shared\voice-helper-build\build.ps1` on FIRMAMENT
+(`/mnt/firmament/voice-helper-build/build.ps1` from Linux).
 
 ### Option B — VS 2022 BuildTools MSBuild (fallback)
 
