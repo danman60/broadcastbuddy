@@ -1,5 +1,43 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-23 PM/overnight — VOICE PTZ DIRECTOR + DUAL-XBOX + SHOT RECORDER (BUILT, hardware-UNTESTED)
+
+Branch `ui-redesign`. Commits this session (LOCAL only, push gated): `b9226c1` spec → `7bedc0f`
+voice → `78e4b64` dual-cam+recorder → `1ba73ef` 5-and-5 picks → `d31f802` C# helper exe.
+Spec: `docs/superpowers/specs/2026-06-23-voice-ptz-director-design.md`. 5-and-5: `docs/five-and-five-2026-06-23.md`.
+
+**Shipped (electron-vite + plugin builds GREEN; C# helper compiled + smoke-tested):**
+1. **Voice-driven PTZ director** — push-to-talk (Stream Deck "Hold to Direct" key) → offline
+   Windows SAPI grammar (`voice-helper.exe`, net48/System.Speech) → `voiceDirector.ts` confidence-gated
+   router → camera primitives. Verbs: camera 1/2, shot N / label, push in, slow push in, pull out,
+   zoom in, wide/home, sweep A→B, track, stop. Shots = saved presets w/ optional spoken labels (typed
+   in VoicePanel). NO vision/LLM. `VoicePanel` (enable/mic/confidence/shots/hold-to-talk-test/history/
+   accept-reject ratio).
+2. **Sweep tilt/vertical-drift FIX** — `sweepBetweenPresets` rewritten to native recall-A→recall-B
+   (dropped the open-loop velocity glide that drifted+jerked). The documented post-show fix, folded in.
+3. **Dual-Xbox simultaneous 2-camera** — L stick→Cam1, R stick→Cam2 (Y inv, both live); LT/RT click→
+   slow push-in; LB/RB→slow pull-out; Back→shot record. Per-camera primitives (`*For(id)`) + per-camera
+   AI interlock (each stick disables ITS camera's AI). cameraControl dual flush path; joystick active path intact.
+4. **Motion shot recorder** — `shotRecorder.ts`: record manual move (timed command stream via cameraDirector
+   command sink) → replay open-loop (drift caveat, Tail 2 has no pose read-back). Recallable by voice label,
+   deck "Play Shot N", or `ShotRecorderPanel`. Back button / deck "Record Shot" toggles.
+5. **C# voice-helper.exe** — net48, compiled on FIRMAMENT with **Roslyn csc + GAC refs + /nostdlib+**
+   (legacy csc = C#5; no targeting pack). 16.9KB, committed to `resources/voice-helper/`, bundled via
+   extraResources. Smoke-tested live: emits `{t:ready}` + `{t:pong}`. Build script: `/mnt/firmament/voice-helper-build/build.ps1`.
+
+**OPEN — DART hardware test (DART offline since 2026-06-21 venue teardown):**
+- Build NSIS installer on FIRMAMENT (electron-vite build → electron-builder --win; voice-helper.exe already staged).
+- Deploy to DART, reinstall Stream Deck plugin (manifest changed: Hold to Direct, Record Shot, Play Shot).
+- Test: en-US recognizer on DART; PTT voice commands fire correct camera; dual-stick drives both cams;
+  shot record→replay; sweep smooth (no drift). Confirm `{t:ready}` not `{t:error,no-recognizer}` on DART.
+- Helper uses Windows DEFAULT mic only (System.Speech limit) — mic picker UI persists pref but helper ignores deviceId.
+
+**Deferred (5-and-5 roadmap, NOT built):** preset-verify badge (~half-day), slow-glide stepped-preset
+sweep (multi-session), wake-word hands-free (multi-session). See `docs/five-and-five-2026-06-23.md`.
+
+---
+
+
 ## 2026-06-22 — NEW FEATURE: Multi-PTZ control (2 cameras, easy switch) — BUILT, hardware-UNTESTED
 
 Goal: control TWO OBSBOT PTZ cameras easily; switch which one the single Xbox controller
