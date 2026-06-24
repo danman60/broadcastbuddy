@@ -94,6 +94,7 @@ function pushStatus(extra?: Partial<VoiceStatus>): void {
   const status: VoiceStatus = {
     helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
     listening,
+    wake: wakeActive(),
     lastResult,
     ...extra,
   }
@@ -102,8 +103,20 @@ function pushStatus(extra?: Partial<VoiceStatus>): void {
   }
 }
 
+/** Hands-free wake mode active = enabled + a non-empty wake word configured. */
+function wakeActive(): boolean {
+  const s = settings.getAll()
+  return s.voiceWakeEnabled === true && !!(s.voiceWakeWord && s.voiceWakeWord.trim())
+}
+
+/** The configured wake word, lower-cased, or '' when wake mode is off. */
+function wakeWord(): string {
+  if (!wakeActive()) return ''
+  return (settings.getAll().voiceWakeWord || '').trim().toLowerCase()
+}
+
 // ── Grammar (built from settings, pushed on (re)start + label change) ─────────
-function buildGrammar(): { t: 'grammar'; verbs: typeof VOICE_VERBS; shots: Record<string, string[]> } {
+function buildGrammar(): { t: 'grammar'; verbs: typeof VOICE_VERBS; shots: Record<string, string[]>; wakeWord: string } {
   const s = settings.getAll()
   const shots: Record<string, string[]> = { '1': [], '2': [] }
   for (const camKey of ['1', '2'] as const) {
@@ -119,7 +132,9 @@ function buildGrammar(): { t: 'grammar'; verbs: typeof VOICE_VERBS; shots: Recor
     }
     shots[camKey] = Array.from(new Set(tokens))
   }
-  return { t: 'grammar', verbs: VOICE_VERBS, shots }
+  // wakeWord non-empty → the helper makes it a REQUIRED prefix on every utterance
+  // and listens continuously; empty → classic PTT grammar (no prefix).
+  return { t: 'grammar', verbs: VOICE_VERBS, shots, wakeWord: wakeWord() }
 }
 
 function send(obj: unknown): void {
@@ -216,6 +231,7 @@ export function applyVoiceEnabled(): void {
 // ── Push-to-talk (deck via WS, or renderer test button via IPC) ──────────────
 export function pttDown(): void {
   if (!enabled() || !helper || !helperReady) return
+  if (wakeActive()) return // already listening continuously — PTT is redundant
   listening = true
   send({ t: 'listen', on: true })
   pushStatus()
@@ -223,6 +239,7 @@ export function pttDown(): void {
 
 export function pttUp(): void {
   if (!helper) return
+  if (wakeActive()) return // continuous listening stays on; don't flip it off
   listening = false
   send({ t: 'listen', on: false })
   pushStatus()
@@ -232,8 +249,27 @@ export function getStatus(): VoiceStatus {
   return {
     helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
     listening,
+    wake: wakeActive(),
     lastResult,
   }
+}
+
+/**
+ * React to a wake-word setting change (word edited or hands-free toggled). Re-push
+ * the grammar (which now carries — or drops — the required wake prefix) and tell the
+ * helper to start/stop CONTINUOUS recognition. No-op unless the helper is up.
+ */
+export function applyWakeMode(): void {
+  if (!helper || !helperReady) {
+    pushStatus()
+    return
+  }
+  send(buildGrammar())
+  const on = wakeActive()
+  send({ t: 'wake', on })
+  listening = on // continuous listening reflects hands-free state
+  logger.info(`voice wake mode ${on ? `ON ("${wakeWord()}")` : 'OFF'}`)
+  pushStatus()
 }
 
 // ── Helper message handling ──────────────────────────────────────────────────
@@ -250,7 +286,12 @@ function handleHelperLine(line: string): void {
       helperReady = true
       send(buildGrammar())
       send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
-      logger.info('voice-helper ready, grammar pushed')
+      // Hands-free: kick the helper into continuous recognition immediately.
+      if (wakeActive()) {
+        send({ t: 'wake', on: true })
+        listening = true
+      }
+      logger.info(`voice-helper ready, grammar pushed${wakeActive() ? ` (wake "${wakeWord()}")` : ''}`)
       pushStatus()
       break
     case 'result':

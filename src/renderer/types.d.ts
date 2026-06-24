@@ -197,6 +197,8 @@ interface ElectronAPI {
   cameraRecallPresetFor: (args: { camera: 1 | 2; n: number }) => Promise<{ ok: boolean }>
   cameraStopFor: (args: { camera: 1 | 2 }) => Promise<{ ok: boolean }>
   cameraSetAiEnableFor: (args: { camera: 1 | 2; on: boolean }) => Promise<{ ok: boolean }>
+  cameraGetPresetIds: (args: { camera: 1 | 2 }) => Promise<{ ok: boolean; reachable: boolean; ids: number[]; error?: string }>
+  cameraSweepWaypoints: (args: { ids: number[]; ms?: number }) => Promise<{ ok: boolean }>
 
   // Shot recorder
   shotRecordToggle: (label?: string) => Promise<{ ok: boolean; move: RecordedMove | null }>

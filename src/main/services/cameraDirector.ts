@@ -633,7 +633,14 @@ export function recallCameraPreset(n: number): void {
  * toward preset `toId`, then recalls `toId` to land exactly. Fully guarded /
  * detached / no-op unless a camera host is set. Never throws back to the caller.
  */
-export function sweepBetweenPresets(fromId: number, toId: number, durationMs: number): void {
+export function sweepBetweenPresets(fromId: number, toId: number, durationMs: number, waypoints?: number[]): void {
+  // With operator-set intermediate WAYPOINTS → a multi-hop GLIDE (native recalls,
+  // evenly paced). Without → the original native A → settle → B move (unchanged for
+  // every existing caller: voice "sweep A to B", deck Audience/Stage Sweep).
+  if (waypoints && waypoints.length > 0) {
+    sweepWaypoints([fromId, ...waypoints, toId], durationMs)
+    return
+  }
   const host = resolveCameraHost()
   if (!host) return
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -657,6 +664,44 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
       logger.info(`Camera move: sweep ${fromId}->${toId} (native recall, settle ${settle}ms)`)
     } catch (err) {
       logger.error('sweepBetweenPresets failed:', err)
+    }
+  })()
+}
+
+/**
+ * GLIDE sweep across an ORDERED list of REAL stored presets, evenly paced over
+ * `durationMs`. Each hop is a NATIVE coordinated preset recall — the firmware
+ * handles the pitch/yaw/roll coupling that wrecked the old open-loop velocity
+ * glide — so a multi-waypoint path reads as a slow cinematic glide while staying
+ * reliable on the Tail 2. SYNTHETIC interpolation between two presets is NOT
+ * possible on this camera (no live-pose read-back, no absolute-angle command,
+ * `/ptz/preset set` stores only the live pose), so the waypoints MUST be presets
+ * the operator physically set. Needs ≥2 ids. Guarded / detached / no-op without a
+ * host. Never throws.
+ */
+export function sweepWaypoints(ids: number[], durationMs: number): void {
+  const host = resolveCameraHost()
+  if (!host) return
+  const path = (ids || []).filter((n) => Number.isFinite(n)).map((n) => Math.round(n))
+  if (path.length < 2) return
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  // Even dwell per hop, clamped: a long path shouldn't crawl, a short one shouldn't
+  // machine-gun recalls faster than the gimbal can travel between them.
+  const hops = path.length - 1
+  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 6000))
+  void (async () => {
+    try {
+      const director = await getDirector(host)
+      if (!director) return
+      const cam = director.cam
+      cam.triggerPreset(path[0])
+      for (let i = 1; i < path.length; i++) {
+        await sleep(leg)
+        cam.triggerPreset(path[i])
+      }
+      logger.info(`Camera move: glide sweep [${path.join('→')}] (leg ${leg}ms, ${durationMs}ms total)`)
+    } catch (err) {
+      logger.error('sweepWaypoints failed:', err)
     }
   })()
 }
@@ -1022,6 +1067,37 @@ export async function getCameraState(): Promise<CameraStateResult> {
     return result
   } catch (err) {
     return { ok: false, reachable: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export interface CameraPresetIdsResult {
+  ok: boolean
+  reachable: boolean
+  ids: number[]
+  error?: string
+}
+
+/**
+ * Read the set of preset slot ids ACTUALLY stored on a specific camera
+ * (GET /ptz/preset → { presetlist:[{id,...}] }). Backs the VoicePanel verify
+ * badge: a saved shot whose slot is absent here was deleted on the camera, so its
+ * voice/deck recall would silently no-op. Per-camera (id 1|2). Never throws —
+ * always resolves a result object.
+ */
+export async function getCameraPresetIds(id: 1 | 2): Promise<CameraPresetIdsResult> {
+  try {
+    const host = resolveCameraHostFor(id)
+    if (!host) return { ok: false, reachable: false, ids: [], error: 'Camera not configured' }
+    const director = await getDirector(host)
+    if (!director) return { ok: false, reachable: false, ids: [], error: 'Could not connect to camera' }
+    const raw = (await director.cam.getGimbalPos()) as { presetlist?: Array<{ id?: number }> } | undefined
+    const ids: number[] = []
+    if (raw && Array.isArray(raw.presetlist)) {
+      for (const p of raw.presetlist) if (p && typeof p.id === 'number') ids.push(p.id)
+    }
+    return { ok: true, reachable: true, ids }
+  } catch (err) {
+    return { ok: false, reachable: false, ids: [], error: err instanceof Error ? err.message : String(err) }
   }
 }
 

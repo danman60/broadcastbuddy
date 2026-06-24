@@ -44,6 +44,8 @@ import {
   recallCameraPresetFor,
   stopAllCameraMotionFor,
   setCameraAiEnableFor,
+  getCameraPresetIds,
+  sweepWaypoints,
 } from './services/cameraDirector'
 import * as voiceDirector from './services/voiceDirector'
 import * as shotRecorder from './services/shotRecorder'
@@ -533,6 +535,9 @@ export function registerIpcHandlers(): void {
     // SAPI grammar when shot labels change.
     if (key === 'voiceEnabled' || key === 'cameraHost' || key === 'cameraHost2') voiceDirector.applyVoiceEnabled()
     if (key === 'voiceShots') voiceDirector.refreshGrammar()
+    // Wake-word mode: re-push grammar (with/without the required prefix) + start/stop
+    // the helper's continuous recognition.
+    if (key === 'voiceWakeEnabled' || key === 'voiceWakeWord') voiceDirector.applyWakeMode()
     return settings.getAll()
   })
 
@@ -1529,6 +1534,13 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.CAMERA_SET_AI_ENABLE_FOR, (_e, a: { camera: 1 | 2; on: boolean }) => {
     setCameraAiEnableFor(a.camera, a.on)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC.CAMERA_PRESET_IDS, async (_e, a: { camera: 1 | 2 }) => {
+    return getCameraPresetIds(a?.camera === 2 ? 2 : 1)
+  })
+  ipcMain.handle(IPC.CAMERA_SWEEP_WAYPOINTS, (_e, a: { ids: number[]; ms?: number }) => {
+    sweepWaypoints(a?.ids ?? [], a?.ms && a.ms > 0 ? a.ms : 6000)
     return { ok: true }
   })
 

@@ -464,6 +464,11 @@ export interface AppSettings {
   voiceSlowPushMs?: number // "slow push in" duration. Default 15000.
   voiceSlowPushFactor?: number // "slow push in" tele factor (current × this). Default 1.3.
   voiceShots?: VoiceShotMap // per-camera saved shots (slot id + optional spoken label).
+  // Hands-free wake word: when voiceWakeEnabled, the helper listens CONTINUOUSLY and
+  // every command must be prefixed by voiceWakeWord (e.g. "broadcast push in"), so the
+  // deck PTT key is no longer required. PTT still works as an override. Default off.
+  voiceWakeEnabled?: boolean // continuous hands-free recognition gated by the wake word.
+  voiceWakeWord?: string // required spoken prefix in wake mode. Default "broadcast".
 
   // ── Shot recorder — saved manual moves (record joystick path → replay). ──
   recordedMoves?: RecordedMove[]
@@ -495,7 +500,8 @@ export interface VoiceResult {
 /** Helper process / engine status pushed to the renderer. */
 export interface VoiceStatus {
   helper: 'starting' | 'ready' | 'down' // child-process state
-  listening: boolean // true while the PTT key is held
+  listening: boolean // true while the PTT key is held (or continuously, in wake mode)
+  wake?: boolean // true when hands-free wake-word mode is active
   lastResult?: VoiceResult
 }
 
@@ -1154,6 +1160,8 @@ export const IPC = {
   CAMERA_RECALL_PRESET_FOR: 'camera:recall-preset-for', // {camera, n}
   CAMERA_STOP_FOR: 'camera:stop-for',             // {camera} — halt all motion on one camera
   CAMERA_SET_AI_ENABLE_FOR: 'camera:set-ai-enable-for', // {camera, on} — per-camera AI on/off (Xbox interlock)
+  CAMERA_PRESET_IDS: 'camera:preset-ids',         // {camera} → preset slot ids stored ON the camera (verify badge)
+  CAMERA_SWEEP_WAYPOINTS: 'camera:sweep-waypoints', // {ids[], ms} — glide across ordered real presets
 
   // Shot recorder (motion record/replay → recallable by voice/hotkey/deck).
   SHOT_RECORD_TOGGLE: 'shot:record-toggle',       // start/stop recording (label? on stop)

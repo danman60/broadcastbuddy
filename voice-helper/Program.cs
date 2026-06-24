@@ -28,6 +28,7 @@ namespace VoiceHelper
         private SpeechRecognitionEngine _engine;
         private RecognitionResult _best;                 // highest-confidence result during a hold
         private bool _listening;
+        private bool _continuous;                        // hands-free wake mode: emit per recognition, no key-up
 
         private static int Main()
         {
@@ -114,8 +115,16 @@ namespace VoiceHelper
                     break;
 
                 case "listen":
+                    // PTT path. Inert while continuous (hands-free) recognition owns the engine.
+                    if (_continuous) break;
                     if (msg.On == true) StartListening();
                     else StopListeningAndEmit();
+                    break;
+
+                case "wake":
+                    // Hands-free continuous recognition gated by the wake-word grammar prefix.
+                    if (msg.On == true) StartContinuous();
+                    else StopContinuous();
                     break;
 
                 case "mic":
@@ -141,7 +150,7 @@ namespace VoiceHelper
             Grammar grammar;
             try
             {
-                grammar = GrammarFactory.Build(msg.Verbs ?? new List<VerbSpec>(), msg.Shots);
+                grammar = GrammarFactory.Build(msg.Verbs ?? new List<VerbSpec>(), msg.Shots, msg.WakeWord);
             }
             catch (Exception ex)
             {
@@ -149,11 +158,13 @@ namespace VoiceHelper
                 return;
             }
 
+            bool resumeContinuous;
             try
             {
                 // Unload prior grammar, load the new one. Must not be mid-recognition.
                 lock (_gate)
                 {
+                    resumeContinuous = _continuous;
                     if (_listening)
                     {
                         _engine.RecognizeAsyncCancel();
@@ -167,7 +178,12 @@ namespace VoiceHelper
             catch (Exception ex)
             {
                 Emit(Outbound.Error("grammar-load-fail: " + ex.GetType().Name));
+                return;
             }
+
+            // A grammar reload cancels any in-flight recognition; if we were running
+            // hands-free, resume continuous recognition against the new grammar.
+            if (resumeContinuous) StartContinuous();
         }
 
         // ── PTT capture model ──────────────────────────────────────────────────────
@@ -230,19 +246,65 @@ namespace VoiceHelper
             Emit(BuildResult(best));
         }
 
+        // ── hands-free (continuous wake-word) capture model ─────────────────────────
+
+        private void StartContinuous()
+        {
+            if (_engine == null) return;
+            lock (_gate)
+            {
+                if (_continuous && _listening) return; // already running hands-free
+                _continuous = true;
+                _listening = true;
+                _best = null;
+            }
+            try
+            {
+                _engine.RecognizeAsync(RecognizeMode.Multiple);
+            }
+            catch (Exception ex)
+            {
+                lock (_gate) { _continuous = false; _listening = false; }
+                Emit(Outbound.Error("wake-start-fail: " + ex.GetType().Name));
+            }
+        }
+
+        private void StopContinuous()
+        {
+            lock (_gate)
+            {
+                _continuous = false;
+                _listening = false;
+                _best = null;
+            }
+            try { _engine.RecognizeAsyncCancel(); }
+            catch { /* engine may already be idle */ }
+        }
+
         // ── recognition handlers ───────────────────────────────────────────────────
 
         private void OnRecognized(object sender, SpeechRecognizedEventArgs e)
         {
             RecognitionResult r = e.Result;
             if (r == null) return;
+            bool emitNow = false;
             lock (_gate)
             {
-                if (!_listening) return; // ignore late events after key-up
-                // Keep the highest-confidence result seen during the hold.
-                if (_best == null || r.Confidence > _best.Confidence)
-                    _best = r;
+                if (!_listening) return; // ignore late events after key-up / stop
+                if (_continuous)
+                {
+                    // Hands-free: every full "<wake> <command>" match fires immediately
+                    // (there is no key-up to flush a best result on).
+                    emitNow = true;
+                }
+                else
+                {
+                    // PTT: keep the highest-confidence result seen during the hold.
+                    if (_best == null || r.Confidence > _best.Confidence)
+                        _best = r;
+                }
             }
+            if (emitNow) Emit(BuildResult(r)); // Emit takes _gate — must be outside the lock above
         }
 
         private void OnRejected(object sender, SpeechRecognitionRejectedEventArgs e)

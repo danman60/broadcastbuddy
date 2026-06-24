@@ -48,6 +48,8 @@ export function VoicePanel(): React.ReactElement {
   const confidenceFloor = settings?.voiceConfidenceFloor ?? 0.6
   const micDeviceId = settings?.voiceMicDeviceId ?? ''
   const shotMap = settings?.voiceShots ?? {}
+  const wakeEnabled = settings?.voiceWakeEnabled === true
+  const wakeWord = settings?.voiceWakeWord ?? 'broadcast'
 
   // ── Live helper status (push + initial fetch) ──
   const [status, setStatus] = useState<VoiceStatus>({ helper: 'down', listening: false })
@@ -134,6 +136,42 @@ export function VoicePanel(): React.ReactElement {
   const [activeCam, setActiveCam] = useState<1 | 2>(1)
   const [addLabel, setAddLabel] = useState('')
 
+  // ── Preset-verify badge (Feature A): the slot ids actually stored on the camera ──
+  const [presetIds, setPresetIds] = useState<number[] | null>(null)
+  const [verifyMsg, setVerifyMsg] = useState<string>('')
+  const [verifying, setVerifying] = useState(false)
+  const verifyPresets = useCallback(async () => {
+    setVerifying(true)
+    setVerifyMsg('')
+    try {
+      const res = await window.api.cameraGetPresetIds({ camera: activeCam })
+      if (res.ok && res.reachable) {
+        setPresetIds(res.ids)
+        setVerifyMsg(`Camera has ${res.ids.length} preset${res.ids.length === 1 ? '' : 's'}`)
+      } else {
+        setPresetIds(null)
+        setVerifyMsg(res.error || 'Camera unreachable')
+      }
+    } catch {
+      setPresetIds(null)
+      setVerifyMsg('Verify failed')
+    } finally {
+      setVerifying(false)
+    }
+  }, [activeCam])
+  // Switching cameras invalidates the last verify + glide (both are per-camera).
+  useEffect(() => { setPresetIds(null); setVerifyMsg(''); setGlide([]) }, [activeCam])
+
+  // ── Glide builder (Feature B): ordered list of shot ids → waypoint sweep ──
+  const [glide, setGlide] = useState<number[]>([])
+  const [glideSec, setGlideSec] = useState(6)
+  const addGlideStop = (id: number): void => setGlide((g) => [...g, id])
+  const removeGlideStop = (idx: number): void => setGlide((g) => g.filter((_, i) => i !== idx))
+  const playGlide = useCallback(() => {
+    if (glide.length < 2) return
+    void window.api.cameraSweepWaypoints({ ids: glide, ms: Math.max(1, glideSec) * 1000 })
+  }, [glide, glideSec])
+
   const shotsFor = (cam: 1 | 2): VoiceShot[] => (cam === 1 ? shotMap[1] : shotMap[2]) ?? []
 
   // Next free preset slot for the active camera (presets start at 2; 1 = Home).
@@ -213,7 +251,7 @@ export function VoicePanel(): React.ReactElement {
           </span>
           <span className={'voice-listening' + (status.listening ? ' on' : '')}>
             <span className="voice-dot" />
-            {status.listening ? 'Listening' : 'Idle'}
+            {status.wake ? 'Hands-free' : status.listening ? 'Listening' : 'Idle'}
           </span>
         </div>
 
@@ -301,8 +339,52 @@ export function VoicePanel(): React.ReactElement {
           </button>
         </div>
 
+        {/* ── Hands-free wake word (Feature C) ── */}
+        <div className="voice-section-title">Hands-free</div>
+        <div className="voice-row">
+          <input
+            type="checkbox"
+            id="voice-wake-enabled"
+            checked={wakeEnabled}
+            disabled={!enabled}
+            onChange={(e) => void persist('voiceWakeEnabled', e.target.checked)}
+          />
+          <label htmlFor="voice-wake-enabled" className="voice-label" style={{ flex: 1 }}>
+            Wake word (no PTT key)
+          </label>
+          <input
+            className="voice-text"
+            type="text"
+            defaultValue={wakeWord}
+            placeholder="broadcast"
+            disabled={!enabled}
+            style={{ maxWidth: 120 }}
+            onBlur={(e) => {
+              const w = e.target.value.trim() || 'broadcast'
+              if (w !== wakeWord) void persist('voiceWakeWord', w)
+            }}
+          />
+        </div>
+        <p className="voice-help" style={{ marginTop: -2 }}>
+          {wakeEnabled
+            ? `Listening continuously — prefix every command, e.g. "${wakeWord} push in".`
+            : 'On: the helper listens continuously and every command must start with the wake word.'}
+        </p>
+
         {/* ── Shots manager ── */}
-        <div className="voice-section-title">Shots (spoken: "shot N" or its label)</div>
+        <div className="voice-section-title voice-section-title-row">
+          <span>Shots (spoken: "shot N" or its label)</span>
+          <button
+            type="button"
+            className="voice-btn small"
+            disabled={!enabled || verifying}
+            onClick={() => void verifyPresets()}
+            title="Read the camera's stored presets and flag any saved shot whose slot was deleted on the camera"
+          >
+            {verifying ? 'Verifying…' : 'Verify'}
+          </button>
+        </div>
+        {verifyMsg && <div className="voice-verify-msg">{verifyMsg}</div>}
         <div className="voice-row">
           <span className="voice-label">Camera</span>
           <div className="voice-segment">
@@ -315,9 +397,19 @@ export function VoicePanel(): React.ReactElement {
           {shots.length === 0 ? (
             <span className="voice-shots-empty">No shots saved for Camera {activeCam}.</span>
           ) : (
-            shots.map((s) => (
+            shots.map((s) => {
+              const onCamera = presetIds == null ? null : presetIds.includes(s.id)
+              return (
               <div className="voice-shot-row" key={s.id}>
                 <span className="voice-shot-id">{s.id}</span>
+                {onCamera != null && (
+                  <span
+                    className={'voice-shot-badge' + (onCamera ? ' ok' : ' missing')}
+                    title={onCamera ? 'Preset is stored on the camera' : 'Preset is NOT on the camera — recall will do nothing. Re-save it.'}
+                  >
+                    {onCamera ? '✓' : '⚠'}
+                  </span>
+                )}
                 <input
                   className="voice-text"
                   type="text"
@@ -330,6 +422,9 @@ export function VoicePanel(): React.ReactElement {
                     }
                   }}
                 />
+                <button className="voice-btn small" disabled={!enabled} onClick={() => addGlideStop(s.id)} title="Append this shot to the glide sequence below">
+                  +Glide
+                </button>
                 <button className="voice-btn small" disabled={!enabled} onClick={() => recallShot(s.id)} title="Recall this preset on the camera">
                   Recall
                 </button>
@@ -337,7 +432,8 @@ export function VoicePanel(): React.ReactElement {
                   ✕
                 </button>
               </div>
-            ))
+              )
+            })
           )}
         </div>
 
@@ -354,6 +450,49 @@ export function VoicePanel(): React.ReactElement {
           />
           <button className="voice-btn" disabled={!enabled} onClick={() => void saveCurrentAsShot()} title="Store the current camera view into the next slot as a shot">
             Save current view as Shot {nextSlotId(activeCam)}
+          </button>
+        </div>
+
+        {/* ── Glide builder (Feature B): waypoint sweep across ≥2 real presets ── */}
+        <div className="voice-section-title">Glide (cinematic sweep across shots)</div>
+        <p className="voice-help" style={{ marginTop: -2 }}>
+          Add shots above with "+Glide", set the duration, then play. The camera glides
+          through each saved preset in order (native recalls — smooth, no drift).
+        </p>
+        <div className="voice-glide-seq">
+          {glide.length === 0 ? (
+            <span className="voice-shots-empty">No glide stops — add shots with "+Glide".</span>
+          ) : (
+            glide.map((id, idx) => (
+              <span className="voice-glide-chip" key={`${id}-${idx}`}>
+                {idx > 0 && <span className="voice-glide-arrow">→</span>}
+                <span className="voice-glide-chip-id">{id}</span>
+                <button className="voice-glide-chip-del" disabled={!enabled} onClick={() => removeGlideStop(idx)} title="Remove this stop">✕</button>
+              </span>
+            ))
+          )}
+        </div>
+        <div className="voice-row">
+          <span className="voice-label">Duration (s)</span>
+          <input
+            className="voice-num"
+            type="number"
+            min={1} max={60} step={1}
+            value={glideSec}
+            disabled={!enabled}
+            onChange={(e) => setGlideSec(Math.max(1, Number(e.target.value) || 6))}
+          />
+          <button
+            type="button"
+            className="voice-btn"
+            disabled={!enabled || glide.length < 2}
+            onClick={playGlide}
+            title={glide.length < 2 ? 'Add at least 2 stops' : 'Glide through the sequence now'}
+          >
+            ▸ Play Glide
+          </button>
+          <button type="button" className="voice-btn small" disabled={glide.length === 0} onClick={() => setGlide([])} title="Clear the glide sequence">
+            Clear
           </button>
         </div>
 

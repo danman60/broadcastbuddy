@@ -51,7 +51,7 @@ namespace VoiceHelper
         /// If shots are empty, the recall/sweep branches are simply omitted so the
         /// motion verbs still work.
         /// </summary>
-        public static Grammar Build(List<VerbSpec> verbs, Dictionary<string, List<string>> shots)
+        public static Grammar Build(List<VerbSpec> verbs, Dictionary<string, List<string>> shots, string wakeWord)
         {
             // 1. Union + dedupe target tokens across both cameras.
             var targetTokens = new List<string>();
@@ -78,8 +78,13 @@ namespace VoiceHelper
             // 3. The verb body is a Choices over every supported verb pattern.
             var verbBody = BuildVerbBody(verbs, targetTokens);
 
-            // 4. Full utterance = optional prefix + verb body.
+            // 4. Full utterance = [wake word] + optional camera prefix + verb body.
+            //    A non-empty wakeWord becomes a REQUIRED leading literal so continuous
+            //    (hands-free) recognition only fires on "<wake> <command>" and ignores
+            //    ambient speech. Empty wakeWord = classic PTT grammar (no prefix).
             var utterance = new GrammarBuilder();
+            if (!string.IsNullOrEmpty(wakeWord) && wakeWord.Trim().Length > 0)
+                utterance.Append(wakeWord.Trim().ToLowerInvariant());
             utterance.Append(cameraPrefix);
             utterance.Append(verbBody);
 

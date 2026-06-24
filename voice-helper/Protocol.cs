@@ -80,8 +80,9 @@ namespace VoiceHelper
         // grammar
         public List<VerbSpec> Verbs;
         public Dictionary<string, List<string>> Shots;
+        public string WakeWord;   // grammar: required spoken prefix (hands-free); null/empty = PTT
 
-        // listen
+        // listen / wake
         public bool? On;
 
         // mic
@@ -107,6 +108,9 @@ namespace VoiceHelper
             object shotsObj;
             if (map.TryGetValue("shots", out shotsObj))
                 msg.Shots = ParseShots(shotsObj);
+
+            // grammar.wakeWord : string (required prefix in hands-free mode; absent/"" = PTT)
+            msg.WakeWord = GetString(map, "wakeWord");
 
             // listen.on : bool
             object onObj;
