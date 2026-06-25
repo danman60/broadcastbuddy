@@ -1,5 +1,37 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-24 AM — 5-AND-5 ROADMAP CLEARED: verify badge + glide sweep + wake word (BUILT, hardware-UNTESTED)
+
+Branch `ui-redesign`. Commit `8106312` (LOCAL only, push gated). Built the 3 remaining
+roadmap items from `docs/five-and-five-2026-06-23.md`. electron-vite build GREEN; tsc clean
+(only pre-existing ccRelay/chatBridge errors); C# helper recompiled on FIRMAMENT + smoke-tested.
+
+1. **Preset-verify badge** — `cameraDirector.getCameraPresetIds(id)` reads `GET /ptz/preset`
+   → stored slot ids; `VoicePanel` "Verify" button cross-checks vs `voiceShots`, renders ✓
+   (on-camera) / ⚠ (deleted-on-camera, recall would no-op) per shot row. IPC `CAMERA_PRESET_IDS`.
+2. **Glide sweep** — `sweepWaypoints(ids[], ms)` glides across an ordered list of REAL presets
+   via native coordinated recalls (smooth, no tilt drift), evenly paced. `sweepBetweenPresets`
+   gained an optional `waypoints?` arg (existing voice/deck A→B callers unchanged). `VoicePanel`
+   glide builder (+Glide per shot → ordered chips → duration → Play Glide). IPC `CAMERA_SWEEP_WAYPOINTS`.
+   HARDWARE LIMIT: synthetic interpolation between 2 presets is impossible on Tail 2 (no
+   absolute-angle command, no live-pose read-back, `/ptz/preset set` stores live pose only) —
+   so waypoints MUST be presets the operator physically set. This is the honest reliable build.
+3. **Wake-word hands-free** — C# helper: new `{t:wake,on}` → continuous `RecognizeAsync(Multiple)`,
+   emits per recognition (no key-up); grammar gets a REQUIRED wake-word prefix (e.g. "broadcast
+   push in") so ambient speech is ignored. `voiceDirector` wake mode (`applyWakeMode`, ready-time
+   auto-start, PTT inert while continuous). Settings `voiceWakeEnabled`/`voiceWakeWord` (default
+   "broadcast"); `VoicePanel` Hands-free row + status pill shows "Hands-free". Helper recompiled
+   (csc on FIRMAMENT, 17920B, `{t:ready}`+`{t:pong}` verified). build.ps1 / 3 .cs synced to
+   `/mnt/firmament/voice-helper-build/`.
+
+**OPEN — hardware test (DART offline since 2026-06-21):** Verify needs a reachable camera; glide
+needs ≥2 real presets set; wake-word needs a Windows mic + en-US recognizer (SAPI recognition +
+wake-prefix matching are the only UNVERIFIED pieces — code/build/smoke all pass). Build NSIS on
+FIRMAMENT → deploy DART → test. No deck-plugin change this session (all app-side).
+
+---
+
+
 ## 2026-06-23 PM/overnight — VOICE PTZ DIRECTOR + DUAL-XBOX + SHOT RECORDER (BUILT, hardware-UNTESTED)
 
 Branch `ui-redesign`. Commits this session (LOCAL only, push gated): `b9226c1` spec → `7bedc0f`

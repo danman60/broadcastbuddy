@@ -8,15 +8,20 @@ session where marked; others are roadmap.
 1. **[industry-standard] Voice command history / audit log** — scrollback of last N
    voice commands + confidence so the operator spots misfires mid-show (not a 3s toast).
    `voiceDirector.ts emitResult` / `VoicePanel.tsx` toast. (~1hr) — **BUILT**
-2. **[boring-overlooked] Per-shot saved-pose verification badge** — cross-check
-   `getGimbalPos().presetList` against `voiceShots` so deleted-on-camera presets are
-   flagged. `VoicePanel.tsx recallShot` / spec stale-grammar race. (~half-day) — *roadmap*
-3. **[creative] Slow-glide sweep (stepped intermediate presets)** — real cinematic glide
-   for "sweep shot A to shot B" vs today's native A→dwell→B.
-   `cameraDirector.ts sweepBetweenPresets`. (multi-session) — *roadmap*
-4. **[creative] Wake-word / hands-free PTT** — bounded wake word over the already-continuous
-   recognition loop, removes the deck-key dependency for a solo operator.
-   `voiceDirector.ts pttDown/Up` + helper `RecognizeAsync(Multiple)`. (multi-session) — *roadmap*
+2. **[boring-overlooked] Per-shot saved-pose verification badge** — cross-check the
+   camera's stored `presetlist` (`getGimbalPos`) against `voiceShots` so deleted-on-camera
+   presets are flagged. `cameraDirector.getCameraPresetIds` + `VoicePanel` Verify button +
+   per-shot ✓/⚠ badge. (~half-day) — **BUILT 2026-06-24** (hardware-untested)
+3. **[creative] Glide sweep (stepped REAL presets)** — cinematic glide across an ordered
+   list of operator-set presets (native recalls, no drift), evenly paced over a duration.
+   `cameraDirector.sweepWaypoints` + `sweepBetweenPresets(waypoints?)` + `VoicePanel` glide
+   builder. NOTE: synthetic interpolation between two presets is hardware-impossible on the
+   Tail 2 (no absolute-angle command, no live-pose read-back, `/ptz/preset set` stores only
+   the live pose) — so waypoints must be real presets. (multi-session) — **BUILT 2026-06-24** (hardware-untested)
+4. **[creative] Wake-word / hands-free PTT** — required spoken wake-word prefix over a
+   continuous recognition loop, removes the deck-key dependency for a solo operator.
+   C# helper `{t:wake}` continuous mode + grammar prefix; `voiceDirector` wake mode;
+   `voiceWakeEnabled`/`voiceWakeWord`. (multi-session) — **BUILT 2026-06-24** (recognition hardware-untested)
 5. **[boring-overlooked] Confidence-floor accept/reject readout** — show the running
    accept/reject ratio next to the slider so the floor is tuned empirically, not by feel.
    `voiceDirector.ts` floor + `VoicePanel.tsx` slider. (~1hr) — **BUILT**
