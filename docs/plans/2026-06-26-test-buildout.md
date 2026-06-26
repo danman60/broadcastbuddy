@@ -58,10 +58,29 @@ ALL 15 failures are pre-existing test fragility, NOT app bugs:
   load (load avg 8+ from other sessions on this box). Fix = `nativeClick()` helper
   doing `element.click()` via evaluate (trusted click, zero actionability wait).
 
-## zz suite results (74 tests as of first full run)
-- Green: ipc-contracts(17), overlay-commands(8), concurrency(6), camera-voice(7),
-  camera-voice-shot-ipc(20→fix 1), screens-coverage(10), runtime-errors(3),
-  validation-negative, viewport-a11y, obs-degradation, broadcast-package.
-- Fixed mid-run: `gallerySetOffset` (void handler — assertion corrected),
-  trigger/session return-shape assumptions, positional vs object IPC args.
-- Investigating: `zz-persistence-restart` (relaunch same userData dir).
+## zz suite — FINAL (17 files, ~137 tests, ALL GREEN)
+Files: ipc-contracts, overlay-commands, overlay-content-ipc, concurrency-race,
+camera-voice, camera-voice-shot-ipc, screens-coverage, runtime-errors,
+validation-negative, viewport-a11y, obs-degradation, broadcast-package,
+day-checklist-deep, fire-flows, chat-moderation-ipc, persistence-restart, + harness.
+Run: `npm run build && xvfb-run -a npx playwright test tests/zz-*.spec.ts --workers=1`.
+
+Test-authoring bugs fixed during triage (my wrong assumptions, NOT app bugs):
+- IPC return shapes: `triggerList` → `{triggers,selectedIndex}` (not array);
+  `triggerAdd/update/reorder/delete` return the full array; `triggerSelect`/`Next`
+  take an INDEX not an id; `addTrigger` needs a caller-supplied `id`;
+  `sessionNew` is in-memory (must `sessionSave` before it lists).
+- Positional vs object args: `overlayFireAdhoc(title,subtitle)`, `tickerShow(text,…)`,
+  `overlayShowChatMessage(author,text)`, `overlayFeatureUpNext(kicker)`.
+- Void handlers (`gallerySetOffset`, `notesDelete`) → assert side-effect, not return.
+- `fireUpNext/ThatWas` preview the NEIGHBOUR routine → need ≥2 triggers.
+- `importDocument` rejects on a bad path (ImportPanel try/catches it + only passes
+  picker paths) — documented as expected, not changed.
+
+## App change (committed)
+`role="dialog" aria-modal="true"` added to Settings / Brand Kit / Import overlays
+(a11y; matched DayChecklist). The only app-code change; rebuilt green.
+
+## Commits (branch ui-redesign, LOCAL — push held; see CURRENT_WORK)
+- `be25c6a` — 15 zz files + harness + a11y fix + 22 screenshots + this doc.
+- (pending) fire-flows + chat-moderation-ipc.

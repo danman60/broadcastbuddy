@@ -1,5 +1,34 @@
 # Current Work — BroadcastBuddy
 
+## 2026-06-26 — TEST BUILDOUT: exhaustive deterministic zz suite (122 tests, GREEN) + a11y fix
+Branch `ui-redesign`. Commit `be25c6a` (LOCAL only — NOT pushed; pushing ui-redesign would
+also publish ~15 prior hardware-untested commits the user gated, so held).
+
+**Delivered:** 15 new `tests/zz-*.spec.ts` files (122 tests, all green) on a shared
+`tests/zz-harness.ts`:
+- `zz-harness.ts` — isolated `--user-data-dir` per run (deterministic, never pollutes the
+  operator's real `~/.config/broadcast-buddy`); `nativeClick()` (Playwright force-click
+  misses the redesign's `<div onClick>` headers + stalls 30s under fleet CPU load → use
+  `element.click()` via evaluate); `api()` IPC invoker.
+- IPC contracts, overlay commands, negative/validation, concurrency/race, persistence-
+  across-restart, viewport/a11y, OBS degradation, broadcast-package oracle, camera/voice/
+  shot (NEWEST features — were 0% covered), day-checklist deep, overlay-content
+  (logos/styling/presets/starting-soon), runtime-error oracle, screens coverage (22 PNGs
+  in `tests/screenshots/`).
+
+**App fix (small, revertable):** added `role="dialog" aria-modal="true"` to Settings /
+Brand Kit / Import overlays (a11y; matched DayChecklist's existing pattern). Rebuilt green.
+
+**Legacy suite triage (309 tests, 294 pass / 15 fail):** ALL 15 = stale ui-redesign
+selectors (Counter/Clock buttons now preview-only; CC moved to Load dropdown; `Tools ▼`)
++ shared-userData state leak (no isolation → `compactMode`/`chat enabled` persisted &
+leaked across files). **ZERO real app bugs.** Full log `docs/plans/2026-06-26-test-buildout.md`.
+
+**Run:** `npm run build && xvfb-run -a npx playwright test tests/zz-*.spec.ts --workers=1`.
+**Next (optional):** dedup/repair the 15 stale legacy specs; or push when Vercel gate lifts.
+
+---
+
 ## 2026-06-24 AM — 5-AND-5 ROADMAP CLEARED: verify badge + glide sweep + wake word (BUILT, hardware-UNTESTED)
 
 Branch `ui-redesign`. Commit `8106312` (LOCAL only, push gated). Built the 3 remaining
