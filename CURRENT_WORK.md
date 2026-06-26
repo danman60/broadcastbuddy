@@ -1,8 +1,9 @@
 # Current Work — BroadcastBuddy
 
 ## 2026-06-26 — TEST BUILDOUT: exhaustive deterministic zz suite (122 tests, GREEN) + a11y fix
-Branch `ui-redesign`. Commit `be25c6a` (LOCAL only — NOT pushed; pushing ui-redesign would
-also publish ~15 prior hardware-untested commits the user gated, so held).
+Branch `ui-redesign`. Commits `be25c6a` + `cb1efe2` + `1bccd0a` (LOCAL only — NOT pushed;
+pushing ui-redesign would also publish ~15 prior hardware-untested commits the user gated).
+**FINAL: 18 `tests/zz-*.spec.ts` files, 141 tests, ALL GREEN.**
 
 **Delivered:** 15 new `tests/zz-*.spec.ts` files (122 tests, all green) on a shared
 `tests/zz-harness.ts`:

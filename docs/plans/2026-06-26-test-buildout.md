@@ -83,4 +83,16 @@ Test-authoring bugs fixed during triage (my wrong assumptions, NOT app bugs):
 
 ## Commits (branch ui-redesign, LOCAL — push held; see CURRENT_WORK)
 - `be25c6a` — 15 zz files + harness + a11y fix + 22 screenshots + this doc.
-- (pending) fire-flows + chat-moderation-ipc.
+- `cb1efe2` — fire-flows + chat-moderation-ipc.
+- `1bccd0a` — overlay-mode multi-window + window-resize.
+
+## FINAL TALLY: 18 zz files, 141 tests, ALL GREEN.
+
+## Remaining (for a fresh cycle) — NOT yet covered, mostly non-deterministic here
+- Import preview/apply-mapping with a synthetic doc (legacy `import-flow.spec`
+  partly covers; could add oracle depth with a temp CSV).
+- Network/hardware-bound (NOT deterministic on this box): brand-scrape, gallery
+  R2/Gemini, wifi-display/BLE/P2P transports, Stream Deck install, live OBS,
+  live OBSBOT camera, voice-helper.exe recognition.
+- Repair the 15 stale LEGACY specs (selector drift + add userData isolation) so the
+  whole 309-test legacy suite goes green — separate cleanup task.
