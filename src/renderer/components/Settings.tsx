@@ -406,7 +406,7 @@ export function Settings() {
   }
 
   return (
-    <div className="settings-overlay">
+    <div className="settings-overlay" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="settings-header">
         <h2>Settings</h2>
         <button className="btn btn-ghost" onClick={() => setShowSettings(false)}>

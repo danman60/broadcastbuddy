@@ -188,7 +188,7 @@ export function App() {
       <RecoveryBanner />
       <StartupToast />
       {showBrandKit && (
-        <div className="settings-overlay">
+        <div className="settings-overlay" role="dialog" aria-modal="true" aria-label="Brand Kit">
           <div className="settings-header">
             <h2>Brand Kit</h2>
             <button className="btn btn-ghost" onClick={() => useStore.getState().setShowBrandKit(false)}>Close</button>
@@ -199,7 +199,7 @@ export function App() {
         </div>
       )}
       {showImport && (
-        <div className="settings-overlay">
+        <div className="settings-overlay" role="dialog" aria-modal="true" aria-label="Import">
           <div className="settings-header">
             <h2>Import</h2>
             <button className="btn btn-ghost" onClick={() => useStore.getState().setShowImport(false)}>Close</button>
