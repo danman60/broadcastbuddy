@@ -28,7 +28,7 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity } from './cameraDirector'
 import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
@@ -202,6 +202,28 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 10000
       const factor = Number(data?.factor) > 1 ? Number(data?.factor) : 1.5
       slowZoomPush(ms, factor)
+      break
+    }
+    case 'cameraNudge': {
+      // Live PTZ pad from the tablet popup. data.dir = up/down/left/right,
+      // data.stop = release-to-halt (press = velocity move, release = stop).
+      // Drives the ACTIVE camera via the same path as the in-app joystick.
+      // No-op unless a camera host is set. gimbal speed 1-100 (default 40).
+      const dir = data?.dir
+      const stop = data?.stop === true
+      const speed = Number(data?.speed) > 0 ? Number(data?.speed) : 40
+      if (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right') {
+        nudgeCamera(dir, speed, stop)
+      }
+      break
+    }
+    case 'cameraZoom': {
+      // Hold-to-zoom from the tablet popup. data.dir = in/out, data.stop = release.
+      // Active-camera zoom velocity (0-10, default 5). No-op unless a host is set.
+      const dir = data?.dir === 'out' ? 'out' : 'in'
+      const stop = data?.stop === true
+      const speed = Number(data?.speed) > 0 ? Number(data?.speed) : 5
+      zoomCameraVelocity(dir, speed, stop)
       break
     }
     case 'voicePttDown':
