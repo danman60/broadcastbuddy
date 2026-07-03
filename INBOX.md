@@ -166,3 +166,19 @@ ffmpeg -ss 5 -i "{video_file}" -vframes 1 -q:v 2 -vf scale=1280:-1 -update 1 thu
 3. **Lower-thirds / broadcast_triggers** — populate CC `broadcast_triggers` for lower-thirds. Only Ancaster has routine data (`RemotionVideo/src/data/adaRoutines.json`).
 
 Context: CC↔BB contract = `/api/v1/broadcast-package*` REST (`X-API-Key` + `X-Tenant-Id`); WS push port 19081. Many back-to-back events next weekend — connect reliability is the priority.
+
+## From RemotionVideo — 2026-06-25 09:00 EDT
+**Feature request: sync the fire-event log (events.jsonl) to cloud.**
+
+Why: recital post-production (RemotionVideo) needs the live "Lower third fired" timestamps to auto-place routine cards / generate Resolve markers. Hit a wall on 7 Attitudes "Soaking Wet" (Jun 20) — the only copy of that show's fire log is local on the field rig (`userData/logs/events.jsonl`). Not on SPYBALLOON, not on FIRMAMENT, and `events.ts` confirms it's written local-only (no remote path; Supabase is chat-bridge only). If the rig is wiped/reimaged, the marker data is gone.
+
+Ask:
+- Push each `recordEvent('overlay', 'Lower third fired: …')` (and ideally all events) to cloud — Supabase table or R2 — keyed by event/show + machine, with the wall-clock `t` already in the record.
+- Include enough to reconstruct timeline position: fire `t`, trigger name/id, act/category, and (if available) recording-start reference so post can convert fire time → recording frame.
+- Backfill mechanism / manual "upload this show's events.jsonl" button would also solve the immediate Soaking-Wet gap if the field rig is still intact.
+
+Ref: `src/main/services/events.ts:69` (local write), `overlay.ts:518` (fire event), `chatBridge.ts` (existing Supabase wiring to reuse).
+
+## From SYSADMIN — 2026-07-02 — switch to your own Gemini key
+Shared Gemini key caused an unattributable GCP bill. Your dedicated key is in `~/.env.keys` as `GEMINI_KEY_BroadcastBuddy` (restricted to generativelanguage, project shining-sol).
+Do: grep this repo for the Gemini env var (GEMINI_API_KEY / GOOGLE_GENERATIVE_AI_API_KEY / generativelanguage) → set it to `GEMINI_KEY_BroadcastBuddy`'s value in Vercel/deploy env (prod+preview) → redeploy → test one real Gemini call. Full plan: sysadmin/docs/plans/2026-07-02-per-app-gemini-keys.md
