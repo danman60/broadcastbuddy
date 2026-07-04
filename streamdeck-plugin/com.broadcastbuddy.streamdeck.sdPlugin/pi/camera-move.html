@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Slow Move (P to P)</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: #d8d8d8; background: #2d2d2d; margin: 0; padding: 12px; }
+    .row { display: flex; align-items: center; margin-bottom: 10px; }
+    label { width: 90px; flex-shrink: 0; color: #9a9a9a; }
+    input { flex: 1; padding: 5px 8px; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #fff; }
+    .hint { color: #7a7a7a; font-size: 11px; margin-top: 4px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <label for="from">From preset</label>
+    <input id="from" type="number" min="1" max="254" placeholder="1" />
+  </div>
+  <div class="row">
+    <label for="to">To preset</label>
+    <input id="to" type="number" min="1" max="254" placeholder="2" />
+  </div>
+  <div class="row">
+    <label for="seconds">Duration (s)</label>
+    <input id="seconds" type="number" min="1" max="120" placeholder="20" />
+  </div>
+  <div class="row">
+    <label for="waypoints">Waypoints</label>
+    <input id="waypoints" type="text" placeholder="e.g. 7,8,9 (optional)" />
+  </div>
+  <div class="hint">
+    Glides the PTZ from one saved preset to another. The camera cannot slow its
+    own preset recall, so a genuinely slow move needs WAYPOINTS: save extra
+    presets along the path (in-app grid or Cam Pos keys), list their ids here in
+    order, and the move paces through them hop-by-hop over the full duration.
+    Without waypoints the move is snap-to-From, dwell, then one native-speed
+    recall to To.
+  </div>
+
+  <script>
+    let websocket = null
+    let uuid = null
+
+    const fromEl = document.getElementById('from')
+    const toEl = document.getElementById('to')
+    const secondsEl = document.getElementById('seconds')
+    const waypointsEl = document.getElementById('waypoints')
+
+    // Stream Deck calls this global function when the PI loads.
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, _inInfo, inActionInfo) {
+      uuid = inUUID
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort)
+
+      websocket.onopen = function () {
+        websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }))
+      }
+
+      // Prefill from the action's current settings (delivered in actionInfo).
+      try {
+        const info = JSON.parse(inActionInfo)
+        const s = (info.payload && info.payload.settings) || {}
+        if (s.from) fromEl.value = s.from
+        if (s.to) toEl.value = s.to
+        if (s.seconds) secondsEl.value = s.seconds
+        if (s.waypoints) waypointsEl.value = s.waypoints
+      } catch (e) { /* leave placeholders */ }
+    }
+
+    function save() {
+      if (!websocket || websocket.readyState !== 1) return
+      const settings = {
+        from: parseInt(fromEl.value, 10) || 1,
+        to: parseInt(toEl.value, 10) || 2,
+        seconds: parseInt(secondsEl.value, 10) || 20,
+        waypoints: waypointsEl.value.trim(),
+      }
+      websocket.send(JSON.stringify({
+        event: 'setSettings',
+        context: uuid,
+        payload: settings,
+      }))
+    }
+
+    fromEl.addEventListener('change', save)
+    toEl.addEventListener('change', save)
+    secondsEl.addEventListener('change', save)
+    waypointsEl.addEventListener('change', save)
+  </script>
+</body>
+</html>

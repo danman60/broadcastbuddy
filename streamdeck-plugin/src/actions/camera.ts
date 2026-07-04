@@ -107,6 +107,54 @@ export class StageSweepAction extends SingletonAction {
   }
 }
 
+// ── Configurable SLOW MOVE: glide preset A -> B, per-key settings ──────────────
+// Unlike Audience/Stage Sweep (hardcoded 2->3 / 4->5), this single action reads
+// from/to/duration/waypoints from the key's settings (property inspector). The
+// Tail 2 can't synthetically interpolate between two presets (no pose read-back),
+// so a genuinely slow move needs intermediate WAYPOINT presets: the camera glides
+// hop-by-hop through them, evenly paced over the duration. Set the zone presets
+// first (camera-pos keys / in-app grid), then list the in-between ones here.
+interface CameraMoveSettings {
+  from?: number
+  to?: number
+  seconds?: number
+  waypoints?: string // comma-separated preset ids, e.g. "7,8,9"
+}
+function moveCfg(s?: CameraMoveSettings): { from: number; to: number; seconds: number; waypoints: number[] } {
+  const num = (v: unknown, dflt: number): number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : dflt
+  const waypoints = (s?.waypoints || '')
+    .split(',')
+    .map((t) => parseInt(t.trim(), 10))
+    .filter((n) => Number.isInteger(n) && n >= 1 && n <= 254)
+  return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints }
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-move' })
+export class CameraMoveAction extends SingletonAction<CameraMoveSettings> {
+  override async onWillAppear(ev: WillAppearEvent<CameraMoveSettings>): Promise<void> {
+    const cfg = moveCfg(ev.payload.settings)
+    conn.onState(async () => {
+      const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<CameraMoveSettings>): Promise<void> {
+    const cfg = moveCfg(ev.payload.settings)
+    const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected())
+    await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+  }
+  override async onKeyDown(ev: KeyDownEvent<CameraMoveSettings>): Promise<void> {
+    const cfg = moveCfg(ev.payload.settings)
+    conn.sendCommand('cameraSweep', {
+      from: cfg.from,
+      to: cfg.to,
+      ms: cfg.seconds * 1000,
+      ...(cfg.waypoints.length > 0 ? { waypoints: cfg.waypoints } : {}),
+    })
+    await ev.action.showOk()
+  }
+}
+
 // ── PTZ slow optical PUSH IN (10s, from current zoom, keeps AI tracking) ───────
 // cameraSlowZoom -> slowZoomPush(ms): closed-loop optical zoom ramp on the OBSBOT.
 // This is the PTZ camera zoom, NOT the OBS Move-Transition slow-zoom. Press again

@@ -22,7 +22,7 @@ import { FeatureUpNextAction, FeatureThatWasAction } from './actions/feature-car
 import { CameraWideAction, CameraAutoAction, CameraManualAction,
   CameraPos1Action, CameraPos2Action, CameraPos3Action,
   CameraPos4Action, CameraPos5Action, CameraPos6Action,
-  AudienceSweepAction, StageSweepAction, CameraSlowZoomAction,
+  AudienceSweepAction, StageSweepAction, CameraMoveAction, CameraSlowZoomAction,
   CameraSelect1Action, CameraSelect2Action, VoiceHoldAction,
   RecordShotAction, PlayShotAction } from './actions/camera'
 
@@ -57,6 +57,7 @@ streamDeck.actions.registerAction(new CameraPos5Action())
 streamDeck.actions.registerAction(new CameraPos6Action())
 streamDeck.actions.registerAction(new AudienceSweepAction())
 streamDeck.actions.registerAction(new StageSweepAction())
+streamDeck.actions.registerAction(new CameraMoveAction())
 streamDeck.actions.registerAction(new CameraSlowZoomAction())
 streamDeck.actions.registerAction(new CameraSelect1Action())
 streamDeck.actions.registerAction(new CameraSelect2Action())

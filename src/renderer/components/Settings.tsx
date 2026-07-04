@@ -15,7 +15,7 @@ import '../styles/settings.css'
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
   { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
-  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Voice Control', 'Shot Recorder'] },
+  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
   { id: 'network', label: 'Network', sections: ['Tablet Display', 'Operator Chat'] },
   { id: 'tools', label: 'Tools', sections: ['Stream Deck Plugin'] },
@@ -63,6 +63,11 @@ export function Settings() {
   const [cameraFramingMode, setCameraFramingMode] = useState<'recital' | 'competition'>('recital')
   const [cameraPort, setCameraPort] = useState(80)
   const [cameraBreathing, setCameraBreathing] = useState(true)
+
+  // Xbox controller / joystick calibration
+  const [stickMaxSpeed, setStickMaxSpeed] = useState(30)
+  const [stickDeadzone, setStickDeadzone] = useState(0.12)
+  const [stickExpo, setStickExpo] = useState(0.6)
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -148,6 +153,9 @@ export function Settings() {
       setCameraFramingMode(settings.cameraFramingMode === 'competition' ? 'competition' : 'recital')
       setCameraPort(typeof settings.cameraPort === 'number' ? settings.cameraPort : 80)
       setCameraBreathing(settings.cameraBreathing !== false)
+      setStickMaxSpeed(typeof settings.cameraStickMaxSpeed === 'number' ? settings.cameraStickMaxSpeed : 30)
+      setStickDeadzone(typeof settings.cameraJoystickDeadzone === 'number' ? settings.cameraJoystickDeadzone : 0.12)
+      setStickExpo(typeof settings.cameraExpo === 'number' ? settings.cameraExpo : 0.6)
     }
     checkObsStatus()
     refreshMonitors()
@@ -391,6 +399,9 @@ export function Settings() {
     await window.api.settingsSet('cameraFramingMode', cameraFramingMode)
     await window.api.settingsSet('cameraPort', cameraPort)
     await window.api.settingsSet('cameraBreathing', cameraBreathing)
+    await window.api.settingsSet('cameraStickMaxSpeed', Math.max(1, Math.min(178, stickMaxSpeed)))
+    await window.api.settingsSet('cameraJoystickDeadzone', Math.max(0, Math.min(0.5, stickDeadzone)))
+    await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -573,6 +584,57 @@ export function Settings() {
             192.168.88.10 over USB, so no IP is needed. Set a Camera Host only to
             override that address. Leave Auto Mode off and Host blank to disable the
             camera entirely.
+          </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Xbox Controller (joystick calibration)</div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Max Speed</label>
+            <input
+              type="range"
+              min={1}
+              max={178}
+              step={1}
+              value={stickMaxSpeed}
+              onChange={(e) => setStickMaxSpeed(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, minWidth: 70, textAlign: 'right' }}>
+              {stickMaxSpeed} (~{Math.round(stickMaxSpeed * 0.78)}°/s)
+            </span>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Deadzone</label>
+            <input
+              type="range"
+              min={0}
+              max={0.5}
+              step={0.01}
+              value={stickDeadzone}
+              onChange={(e) => setStickDeadzone(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, minWidth: 70, textAlign: 'right' }}>{stickDeadzone.toFixed(2)}</span>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Expo Curve</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={stickExpo}
+              onChange={(e) => setStickExpo(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, minWidth: 70, textAlign: 'right' }}>{stickExpo.toFixed(2)}</span>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            Applies to both Xbox sticks (left = Cam 1, right = Cam 2). Max Speed caps the
+            gimbal velocity at full deflection — 30 is a slow cinematic crawl, 178 is
+            near the gimbal&apos;s hardware limit. Higher Expo makes small deflections even
+            gentler without losing the top end. Changes apply live once saved.
           </p>
         </div>
 

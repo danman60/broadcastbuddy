@@ -182,10 +182,18 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     case 'cameraSweep': {
       // Custom choreographed move: snap to preset `from`, slow-pan to preset `to`
       // over `ms` (default 6s). Audience Sweep = 2->3; Stage Sweep = 4->5.
+      // Optional `waypoints` (array of preset ids) turns the move into a paced
+      // multi-hop glide through those presets — the slow-reposition primitive.
       const from = Number(data?.from)
       const to = Number(data?.to)
       const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 6000
-      if (Number.isInteger(from) && Number.isInteger(to)) sweepBetweenPresets(from, to, ms)
+      const rawWaypoints = data?.waypoints
+      const waypoints = Array.isArray(rawWaypoints)
+        ? rawWaypoints.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 254)
+        : undefined
+      if (Number.isInteger(from) && Number.isInteger(to)) {
+        sweepBetweenPresets(from, to, ms, waypoints && waypoints.length > 0 ? waypoints : undefined)
+      }
       break
     }
     case 'cameraSelect': {

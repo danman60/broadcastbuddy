@@ -108,6 +108,7 @@ function CameraPanelActive(): React.ReactElement {
 
   const deadzone = settings?.cameraJoystickDeadzone ?? 0.12
   const expo = settings?.cameraExpo ?? 0.6
+  const stickMaxSpeed = settings?.cameraStickMaxSpeed ?? 30
   const rateHz = settings?.cameraCommandRateHz ?? 10
   const savedDeviceId = settings?.cameraPreviewDeviceId ?? ''
 
@@ -274,7 +275,7 @@ function CameraPanelActive(): React.ReactElement {
         },
         onConnection: (label) => setPadLabel(label),
       },
-      { deadzone, expo },
+      { deadzone, expo, maxSpeed: stickMaxSpeed },
     )
     gamepadRef.current = ctrl
     ctrl.start()
@@ -285,10 +286,10 @@ function CameraPanelActive(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Push live deadzone/expo edits into the controller.
+  // Push live deadzone/expo/max-speed edits into the controller.
   useEffect(() => {
-    gamepadRef.current?.updateConfig({ deadzone, expo })
-  }, [deadzone, expo])
+    gamepadRef.current?.updateConfig({ deadzone, expo, maxSpeed: stickMaxSpeed })
+  }, [deadzone, expo, stickMaxSpeed])
 
   // ── AUTO/MANUAL toggle ──
   // AUTO/MANUAL drives BOTH the live AI tracker AND cameraAutoMode (the routine-

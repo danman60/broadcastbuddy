@@ -220,6 +220,15 @@ export function cameraSweep(label: string, connected: boolean): string {
   `, '#241019')
 }
 
+export function cameraMove(from: number, to: number, seconds: number, connected: boolean): string {
+  const c = connected ? '#f472b6' : '#555'
+  return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW MOVE</text>
+    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}&#8594;P${to}</text>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${seconds}s</text>
+  `, '#241019')
+}
+
 export function cameraPush(connected: boolean): string {
   const c = connected ? '#f472b6' : '#555'
   return wrap(`

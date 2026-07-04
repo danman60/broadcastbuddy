@@ -499,6 +499,22 @@
       ]
     },
     {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-move",
+      "Name": "Slow Move (P to P)",
+      "Tooltip": "Custom slow reposition: glide from one preset to another over a configurable duration — set From/To/seconds/waypoints per key",
+      "Icon": "imgs/actions/slow-zoom",
+      "PropertyInspectorPath": "pi/camera-move.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
       "UUID": "com.broadcastbuddy.streamdeck.camera-select-1",
       "Name": "Select Camera 1",
       "Tooltip": "Drive PTZ camera 1 with the controls/Xbox/deck",

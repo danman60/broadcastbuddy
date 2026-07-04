@@ -49,10 +49,11 @@
 
 import * as control from './cameraControl'
 
-// Max gimbal velocity at full stick deflection. Gimbal accepts ±180; 178 was
-// near-max and made on-air moves jerky. 30 ≈ 23°/s max pan (0.78°/s per unit),
-// so a half-deflection with default expo crawls at ~6°/s — deliberate, cinematic.
-const GIMBAL_SCALE = 30
+// Default max gimbal velocity at full stick deflection (operator-tunable via
+// Settings → cameraStickMaxSpeed). Gimbal accepts ±180; 178 was near-max and made
+// on-air moves jerky. 30 ≈ 23°/s max pan (0.78°/s per unit), so a half-deflection
+// with default expo crawls at ~6°/s — deliberate, cinematic.
+export const DEFAULT_STICK_MAX_SPEED = 30
 const TRIGGER_FULL_THRESHOLD = 0.6 // LT/RT must cross this (edge) to fire a slow push-in
 const TRACKING_SPEED_MODES = 6 // 0–5
 
@@ -82,6 +83,7 @@ export interface GamepadCallbacks {
 export interface GamepadConfig {
   deadzone: number // 0–1 (default 0.12)
   expo: number // 0–1 (default 0.6)
+  maxSpeed?: number // max gimbal velocity at full deflection, 1–178 (default 30)
 }
 
 interface ButtonEdges {
@@ -210,19 +212,21 @@ export class GamepadController {
     const pressed = (i: number): boolean => !!btn(i)?.pressed
     const analog = (i: number): number => btn(i)?.value ?? 0
 
+    const scale = this.cfg.maxSpeed ?? DEFAULT_STICK_MAX_SPEED
+
     // ── Camera 1 pan/tilt from the LEFT stick (tilt inverted: stick-up = tilt-up) ──
     const lx = pad.axes[0] ?? 0
     const ly = pad.axes[1] ?? 0
     const lStick = applyDeadzoneExpo(lx, ly, this.cfg.deadzone, this.cfg.expo)
-    const yaw1 = lStick.x * GIMBAL_SCALE
-    const pitch1 = -lStick.y * GIMBAL_SCALE // invert: up on stick → tilt up
+    const yaw1 = lStick.x * scale
+    const pitch1 = -lStick.y * scale // invert: up on stick → tilt up
 
     // ── Camera 2 pan/tilt from the RIGHT stick (tilt inverted: stick-up = tilt-up) ──
     const rx = pad.axes[2] ?? 0
     const ry = pad.axes[3] ?? 0
     const rStick = applyDeadzoneExpo(rx, ry, this.cfg.deadzone, this.cfg.expo)
-    const yaw2 = rStick.x * GIMBAL_SCALE
-    const pitch2 = -rStick.y * GIMBAL_SCALE // invert: up on stick → tilt up
+    const yaw2 = rStick.x * scale
+    const pitch2 = -rStick.y * scale // invert: up on stick → tilt up
 
     // ── Per-stick interlock: each stick disables ITS OWN camera's AI on first
     // deflection (edge), and re-arms when that stick returns to center. ──

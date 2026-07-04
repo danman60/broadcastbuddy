@@ -449,6 +449,7 @@ export interface AppSettings {
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
+  cameraStickMaxSpeed?: number // gamepad max gimbal velocity at full deflection (1–178). Default 30.
   cameraCommandRateHz?: number // shared command-sender flush rate (Hz). Default 10.
   cameraPreviewDeviceId?: string // chosen videoinput deviceId for the live preview monitor.
 
