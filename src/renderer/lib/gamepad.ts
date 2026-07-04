@@ -49,7 +49,10 @@
 
 import * as control from './cameraControl'
 
-const GIMBAL_SCALE = 178 // normalized magnitude → ±178 gimbal velocity limit
+// Max gimbal velocity at full stick deflection. Gimbal accepts ±180; 178 was
+// near-max and made on-air moves jerky. 30 ≈ 23°/s max pan (0.78°/s per unit),
+// so a half-deflection with default expo crawls at ~6°/s — deliberate, cinematic.
+const GIMBAL_SCALE = 30
 const TRIGGER_FULL_THRESHOLD = 0.6 // LT/RT must cross this (edge) to fire a slow push-in
 const TRACKING_SPEED_MODES = 6 // 0–5
 
