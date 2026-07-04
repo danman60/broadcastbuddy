@@ -9455,6 +9455,17 @@ function cameraSweep(label, connected) {
     <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="20" font-weight="bold" font-family="sans-serif">${label}</text>
   `, '#241019');
 }
+function cameraBounce(connected, running = false) {
+    const c = !connected ? '#555' : running ? '#4ade80' : '#f472b6';
+    const bg = !connected ? '#1e1e2e' : running ? '#0d2a14' : '#241019';
+    return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">BOUNCE</text>
+    <path d="M30 80 Q 51 60, 72 80 T 114 80" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M26 68 L18 80 L30 86 Z" fill="${c}"/>
+    <path d="M118 68 L126 80 L114 86 Z" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">${running ? 'ON' : 'OFF'}</text>
+  `, bg);
+}
 function cameraStop(connected) {
     const c = connected ? '#ef4444' : '#555';
     const bg = connected ? '#2a1010' : '#1e1e2e';
@@ -9464,13 +9475,16 @@ function cameraStop(connected) {
     <text x="72" y="128" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">STOP</text>
   `, bg);
 }
-function cameraMove(from, to, seconds, connected) {
-    const c = connected ? '#f472b6' : '#555';
+function cameraMove(from, to, seconds, connected, loop = false, running = false) {
+    const c = !connected ? '#555' : running ? '#4ade80' : '#f472b6';
+    const bg = !connected ? '#1e1e2e' : running ? '#0d2a14' : '#241019';
+    const arrow = loop ? '&#8646;' : '&#8594;'; // ⇆ for loop, → for one-shot
+    const label = loop ? `${seconds}s &#8734;` : `${seconds}s`;
     return wrap(`
-    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW MOVE</text>
-    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}&#8594;P${to}</text>
-    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${seconds}s</text>
-  `, '#241019');
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">${loop ? 'LOOP MOVE' : 'SLOW MOVE'}</text>
+    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}${arrow}P${to}</text>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${label}</text>
+  `, bg);
 }
 function cameraPush(connected) {
     const c = connected ? '#f472b6' : '#555';
@@ -10038,6 +10052,28 @@ let StageSweepAction = class StageSweepAction extends SingletonAction {
 StageSweepAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.stage-sweep' })
 ], StageSweepAction);
+let CameraBounceAction = class CameraBounceAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async (state) => {
+            const img = cameraBounce(isConnected(), state.camera?.bounceRunning === true);
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        const s = ev.payload.settings || {};
+        sendCommand('cameraBounce', {
+            ...(s.camera === 1 || s.camera === 2 ? { camera: s.camera } : {}),
+            ...(typeof s.preset === 'number' && s.preset >= 1 ? { preset: s.preset } : {}),
+            ...(typeof s.yaw === 'number' && s.yaw !== 0 ? { yaw: s.yaw } : {}),
+            ...(typeof s.pitch === 'number' && s.pitch !== 0 ? { pitch: s.pitch } : {}),
+            ...(typeof s.legSec === 'number' && s.legSec > 0 ? { legSec: s.legSec } : {}),
+        });
+        await ev.action.showOk();
+    }
+};
+CameraBounceAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-bounce' })
+], CameraBounceAction);
 // ── PANIC STOP: halt ALL camera motion on both PTZs ─────────────────────────────
 // wsHub 'cameraStop' aborts in-flight sweep/glide legs, cancels a running shot
 // replay, cancels slow zooms, and stops gimbal+zoom velocity on cameras 1 AND 2.
@@ -10062,24 +10098,26 @@ function moveCfg(s) {
         .split(',')
         .map((t) => parseInt(t.trim(), 10))
         .filter((n) => Number.isInteger(n) && n >= 1 && n <= 254);
-    return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints };
+    return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints, loop: s?.loop === true };
 }
 let CameraMoveAction = class CameraMoveAction extends SingletonAction {
     async onWillAppear(ev) {
         const cfg = moveCfg(ev.payload.settings);
-        onState(async () => {
-            const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected());
+        onState(async (state) => {
+            const running = cfg.loop && state.camera?.sweepRunning === true;
+            const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected(), cfg.loop, running);
             await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
         });
     }
     async onDidReceiveSettings(ev) {
         const cfg = moveCfg(ev.payload.settings);
-        const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected());
+        const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected(), cfg.loop);
         await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
     }
     async onKeyDown(ev) {
         const cfg = moveCfg(ev.payload.settings);
-        sendCommand('cameraSweep', {
+        // loop = endless A<->B ping-pong; host treats a repeat press as STOP.
+        sendCommand(cfg.loop ? 'cameraLoop' : 'cameraSweep', {
             from: cfg.from,
             to: cfg.to,
             ms: cfg.seconds * 1000,
@@ -10246,6 +10284,7 @@ streamDeck.actions.registerAction(new AudienceSweepAction());
 streamDeck.actions.registerAction(new StageSweepAction());
 streamDeck.actions.registerAction(new CameraMoveAction());
 streamDeck.actions.registerAction(new CameraStopAction());
+streamDeck.actions.registerAction(new CameraBounceAction());
 streamDeck.actions.registerAction(new CameraSlowZoomAction());
 streamDeck.actions.registerAction(new CameraSelect1Action());
 streamDeck.actions.registerAction(new CameraSelect2Action());

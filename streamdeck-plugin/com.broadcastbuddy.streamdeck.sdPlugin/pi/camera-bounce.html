@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Camera Bounce</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: #d8d8d8; background: #2d2d2d; margin: 0; padding: 12px; }
+    .row { display: flex; align-items: center; margin-bottom: 10px; }
+    label { width: 90px; flex-shrink: 0; color: #9a9a9a; }
+    input { flex: 1; padding: 5px 8px; border: 1px solid #3d3d3d; border-radius: 4px; background: #1d1d1d; color: #fff; }
+    .hint { color: #7a7a7a; font-size: 11px; margin-top: 4px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <label for="camera">Camera (1/2)</label>
+    <input id="camera" type="number" min="1" max="2" placeholder="active" />
+  </div>
+  <div class="row">
+    <label for="preset">Start preset</label>
+    <input id="preset" type="number" min="1" max="254" placeholder="optional" />
+  </div>
+  <div class="row">
+    <label for="yaw">Pan speed</label>
+    <input id="yaw" type="number" min="-178" max="178" placeholder="8 (&#8776;6&#176;/s; negative = left first)" />
+  </div>
+  <div class="row">
+    <label for="pitch">Tilt speed</label>
+    <input id="pitch" type="number" min="-178" max="178" placeholder="0" />
+  </div>
+  <div class="row">
+    <label for="legSec">Leg seconds</label>
+    <input id="legSec" type="number" min="2" max="600" placeholder="15" />
+  </div>
+  <div class="hint">
+    Endless smooth auto-pan: recalls the start preset, then cruises at the given
+    speed for Leg seconds, eases through a reversal (never a jerk), and cruises
+    back — forever, until the key is pressed again or Camera STOP. Tune speed +
+    leg so each end of the bounce lands on your far framing (speed &#215; 0.78 =
+    &#176;/s; 8 &#215; 15s &#8776; 94&#176; of pan per leg).
+  </div>
+
+  <script>
+    let websocket = null
+    let uuid = null
+
+    const els = ['camera', 'preset', 'yaw', 'pitch', 'legSec'].map((id) => document.getElementById(id))
+    const [cameraEl, presetEl, yawEl, pitchEl, legSecEl] = els
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, _inInfo, inActionInfo) {
+      uuid = inUUID
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort)
+      websocket.onopen = function () {
+        websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }))
+      }
+      try {
+        const info = JSON.parse(inActionInfo)
+        const s = (info.payload && info.payload.settings) || {}
+        if (s.camera) cameraEl.value = s.camera
+        if (s.preset) presetEl.value = s.preset
+        if (s.yaw) yawEl.value = s.yaw
+        if (s.pitch) pitchEl.value = s.pitch
+        if (s.legSec) legSecEl.value = s.legSec
+      } catch (e) { /* leave placeholders */ }
+    }
+
+    function save() {
+      if (!websocket || websocket.readyState !== 1) return
+      const num = (el) => { const n = parseInt(el.value, 10); return Number.isNaN(n) ? undefined : n }
+      websocket.send(JSON.stringify({
+        event: 'setSettings',
+        context: uuid,
+        payload: {
+          camera: num(cameraEl),
+          preset: num(presetEl),
+          yaw: num(yawEl),
+          pitch: num(pitchEl),
+          legSec: num(legSecEl),
+        },
+      }))
+    }
+    for (const el of els) el.addEventListener('change', save)
+  </script>
+</body>
+</html>

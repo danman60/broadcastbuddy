@@ -220,6 +220,18 @@ export function cameraSweep(label: string, connected: boolean): string {
   `, '#241019')
 }
 
+export function cameraBounce(connected: boolean, running = false): string {
+  const c = !connected ? '#555' : running ? '#4ade80' : '#f472b6'
+  const bg = !connected ? '#1e1e2e' : running ? '#0d2a14' : '#241019'
+  return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">BOUNCE</text>
+    <path d="M30 80 Q 51 60, 72 80 T 114 80" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M26 68 L18 80 L30 86 Z" fill="${c}"/>
+    <path d="M118 68 L126 80 L114 86 Z" fill="${c}"/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">${running ? 'ON' : 'OFF'}</text>
+  `, bg)
+}
+
 export function cameraStop(connected: boolean): string {
   const c = connected ? '#ef4444' : '#555'
   const bg = connected ? '#2a1010' : '#1e1e2e'
@@ -230,13 +242,16 @@ export function cameraStop(connected: boolean): string {
   `, bg)
 }
 
-export function cameraMove(from: number, to: number, seconds: number, connected: boolean): string {
-  const c = connected ? '#f472b6' : '#555'
+export function cameraMove(from: number, to: number, seconds: number, connected: boolean, loop = false, running = false): string {
+  const c = !connected ? '#555' : running ? '#4ade80' : '#f472b6'
+  const bg = !connected ? '#1e1e2e' : running ? '#0d2a14' : '#241019'
+  const arrow = loop ? '&#8646;' : '&#8594;' // ⇆ for loop, → for one-shot
+  const label = loop ? `${seconds}s &#8734;` : `${seconds}s`
   return wrap(`
-    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW MOVE</text>
-    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}&#8594;P${to}</text>
-    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${seconds}s</text>
-  `, '#241019')
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">${loop ? 'LOOP MOVE' : 'SLOW MOVE'}</text>
+    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}${arrow}P${to}</text>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${label}</text>
+  `, bg)
 }
 
 export function cameraPush(connected: boolean): string {

@@ -108,6 +108,39 @@ export class StageSweepAction extends SingletonAction {
   }
 }
 
+// ── BOUNCE: continuous smooth velocity ping-pong (auto-pan) — toggle key ───────
+// Press = start on the configured camera (optional start preset, cruise speeds,
+// leg seconds); press again = stop. Face shows live ON/OFF from the state
+// broadcast's camera.bounceRunning. Host eases every reversal (cosine ramp) so
+// the motion never steps — "always motion, never jerking" wallpaper shots.
+interface CameraBounceSettings {
+  camera?: number
+  preset?: number
+  yaw?: number
+  pitch?: number
+  legSec?: number
+}
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-bounce' })
+export class CameraBounceAction extends SingletonAction<CameraBounceSettings> {
+  override async onWillAppear(ev: WillAppearEvent<CameraBounceSettings>): Promise<void> {
+    conn.onState(async (state) => {
+      const img = svg.cameraBounce(conn.isConnected(), state.camera?.bounceRunning === true)
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent<CameraBounceSettings>): Promise<void> {
+    const s = ev.payload.settings || {}
+    conn.sendCommand('cameraBounce', {
+      ...(s.camera === 1 || s.camera === 2 ? { camera: s.camera } : {}),
+      ...(typeof s.preset === 'number' && s.preset >= 1 ? { preset: s.preset } : {}),
+      ...(typeof s.yaw === 'number' && s.yaw !== 0 ? { yaw: s.yaw } : {}),
+      ...(typeof s.pitch === 'number' && s.pitch !== 0 ? { pitch: s.pitch } : {}),
+      ...(typeof s.legSec === 'number' && s.legSec > 0 ? { legSec: s.legSec } : {}),
+    })
+    await ev.action.showOk()
+  }
+}
+
 // ── PANIC STOP: halt ALL camera motion on both PTZs ─────────────────────────────
 // wsHub 'cameraStop' aborts in-flight sweep/glide legs, cancels a running shot
 // replay, cancels slow zooms, and stops gimbal+zoom velocity on cameras 1 AND 2.
@@ -137,33 +170,36 @@ interface CameraMoveSettings {
   to?: number
   seconds?: number
   waypoints?: string // comma-separated preset ids, e.g. "7,8,9"
+  loop?: boolean // true = endless A<->B ping-pong (press again to stop)
 }
-function moveCfg(s?: CameraMoveSettings): { from: number; to: number; seconds: number; waypoints: number[] } {
+function moveCfg(s?: CameraMoveSettings): { from: number; to: number; seconds: number; waypoints: number[]; loop: boolean } {
   const num = (v: unknown, dflt: number): number =>
     typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : dflt
   const waypoints = (s?.waypoints || '')
     .split(',')
     .map((t) => parseInt(t.trim(), 10))
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 254)
-  return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints }
+  return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints, loop: s?.loop === true }
 }
 @action({ UUID: 'com.broadcastbuddy.streamdeck.camera-move' })
 export class CameraMoveAction extends SingletonAction<CameraMoveSettings> {
   override async onWillAppear(ev: WillAppearEvent<CameraMoveSettings>): Promise<void> {
     const cfg = moveCfg(ev.payload.settings)
-    conn.onState(async () => {
-      const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected())
+    conn.onState(async (state) => {
+      const running = cfg.loop && state.camera?.sweepRunning === true
+      const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected(), cfg.loop, running)
       await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
     })
   }
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<CameraMoveSettings>): Promise<void> {
     const cfg = moveCfg(ev.payload.settings)
-    const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected())
+    const img = svg.cameraMove(cfg.from, cfg.to, cfg.seconds, conn.isConnected(), cfg.loop)
     await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
   }
   override async onKeyDown(ev: KeyDownEvent<CameraMoveSettings>): Promise<void> {
     const cfg = moveCfg(ev.payload.settings)
-    conn.sendCommand('cameraSweep', {
+    // loop = endless A<->B ping-pong; host treats a repeat press as STOP.
+    conn.sendCommand(cfg.loop ? 'cameraLoop' : 'cameraSweep', {
       from: cfg.from,
       to: cfg.to,
       ms: cfg.seconds * 1000,

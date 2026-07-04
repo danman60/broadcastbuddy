@@ -664,8 +664,141 @@ function setSweepRunning(on: boolean): void {
   sweepRunning = on
   notifyActivity()
 }
-export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean } {
-  return { activeCam: getActiveCameraId(), sweepRunning }
+export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean; bounceRunning: boolean } {
+  return { activeCam: getActiveCameraId(), sweepRunning, bounceRunning: bounces.size > 0 }
+}
+
+// ── BOUNCE program: continuous velocity ping-pong ("auto-pan" / cruise mode) ──
+// The Tail 2 can't glide between two presets (no pose read-back), so "always
+// slow motion" is built from the one primitive that IS perfectly smooth: constant
+// LOW gimbal velocity. The program recalls an optional start preset, eases the
+// gimbal up to a cruise velocity (cosine ramp — never a step), cruises for
+// `legSec`, eases through a reversal to the opposite velocity, cruises back, and
+// repeats forever. The operator tunes speed + leg time so each end of the bounce
+// lands on the framing of the far preset (0.78°/s per velocity unit).
+// One bounce per camera; starting a new one replaces it. Killed by stopBounce,
+// cameraStop (panic), or any abortCameraMoves() bump (moveGeneration check).
+export interface BounceConfig {
+  camera: 1 | 2
+  preset?: number // start preset to recall before the first leg
+  yaw: number // signed cruise yaw velocity (units; + = right first)
+  pitch: number // signed cruise pitch velocity
+  legSec: number // cruise seconds per direction
+  easeSec?: number // reversal ease seconds (default 2.5)
+}
+
+const BOUNCE_TICK_MS = 100
+const bounces = new Map<1 | 2, { timer: NodeJS.Timeout }>()
+
+export function stopBounce(camera: 1 | 2): void {
+  const b = bounces.get(camera)
+  if (!b) return
+  clearInterval(b.timer)
+  bounces.delete(camera)
+  nudgeCameraXYFor(camera, 0, 0, true)
+  logger.info(`Camera${camera} bounce stopped`)
+  notifyActivity()
+}
+
+export function startBounce(cfg: BounceConfig): void {
+  const cam = cfg.camera === 2 ? 2 : 1
+  stopBounce(cam) // replace any running bounce on this camera
+  const host = resolveCameraHostFor(cam)
+  if (!host) return // camera not configured — no-op
+
+  const yawV = Math.max(-178, Math.min(178, Math.round(cfg.yaw || 0)))
+  const pitchV = Math.max(-178, Math.min(178, Math.round(cfg.pitch || 0)))
+  if (yawV === 0 && pitchV === 0) return
+  const legMs = Math.max(2000, Math.round((cfg.legSec || 15) * 1000))
+  const easeMs = Math.max(1000, Math.round((cfg.easeSec ?? 2.5) * 1000))
+  const gen = moveGeneration
+
+  // Bounce is manual motion — the camera's AI tracker would fight it.
+  setCameraAiEnableFor(cam, false)
+  if (cfg.preset && Number.isInteger(cfg.preset)) recallCameraPresetFor(cam, cfg.preset)
+
+  // Timeline per full cycle: ease-in is half a reversal (0→+V), so model the
+  // cycle as: [reversal(-V→+V)] cruise(+V) [reversal(+V→-V)] cruise(-V), and
+  // start `t` mid-first-reversal so the program opens with the 0→+V half-ramp.
+  const cycleMs = 2 * legMs + 2 * easeMs
+  const settleMs = cfg.preset ? 1500 : 0
+  let t = -settleMs + easeMs / 2 // wait for the recall to settle, then half-ramp in
+
+  const timer = setInterval(() => {
+    if (gen !== moveGeneration) { stopBounce(cam); return } // panic/abort wins
+    t += BOUNCE_TICK_MS
+    if (t < 0) return // still settling on the start preset
+    const tc = t % cycleMs
+    // Phase → velocity multiplier m ∈ [-1, 1] (cosine-eased at both reversals).
+    let m: number
+    if (tc < easeMs) {
+      m = -Math.cos((tc / easeMs) * Math.PI) // -1 → +1
+    } else if (tc < easeMs + legMs) {
+      m = 1
+    } else if (tc < 2 * easeMs + legMs) {
+      m = Math.cos(((tc - easeMs - legMs) / easeMs) * Math.PI) // +1 → -1
+    } else {
+      m = -1
+    }
+    nudgeCameraXYFor(cam, Math.round(yawV * m), Math.round(pitchV * m))
+  }, BOUNCE_TICK_MS)
+
+  bounces.set(cam, { timer })
+  logger.info(`Camera${cam} bounce started (yaw ${yawV}, pitch ${pitchV}, leg ${legMs}ms, ease ${easeMs}ms${cfg.preset ? `, from P${cfg.preset}` : ''})`)
+  notifyActivity()
+}
+
+/** True when any bounce program is running (state broadcast). */
+export function isBounceRunning(): boolean {
+  return bounces.size > 0
+}
+
+/**
+ * SWEEP LOOP — preset-defined endless ping-pong: recall `fromId`, glide the
+ * waypoint path to `toId`, then walk it back, forever, until abortCameraMoves()
+ * (cameraStop / a repeat toggle press). Endpoints are EXACT preset framings
+ * (native recalls), so unlike the velocity bounce nothing drifts overnight —
+ * the unattended "always moving between my two shots" program. Each direction
+ * is paced over `durationMs` (leg clamps as in sweepWaypoints). Motion per hop
+ * is the firmware's own coordinated recall; add intermediate waypoint presets
+ * for a slower, smoother read.
+ */
+export function startSweepLoop(fromId: number, toId: number, durationMs: number, waypoints?: number[]): void {
+  const host = resolveCameraHost()
+  if (!host) return
+  const fwd = [fromId, ...(waypoints ?? []), toId].filter((n) => Number.isFinite(n)).map((n) => Math.round(n))
+  if (fwd.length < 2) return
+  const back = [...fwd].reverse()
+  const hops = fwd.length - 1
+  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 6000))
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  const gen = moveGeneration
+  void (async () => {
+    try {
+      const director = await getDirector(host)
+      if (!director) return
+      const cam = director.cam
+      setSweepRunning(true)
+      cam.triggerPreset(fwd[0])
+      logger.info(`Camera loop: [${fwd.join('→')}] ping-pong forever (leg ${leg}ms)`)
+      // Endless ping-pong; every hop re-checks the abort generation.
+      for (let dir = 0; ; dir = 1 - dir) {
+        const path = dir === 0 ? fwd : back
+        for (let i = 1; i < path.length; i++) {
+          await sleep(leg)
+          if (gen !== moveGeneration) {
+            logger.info('Camera loop: stopped')
+            return
+          }
+          cam.triggerPreset(path[i])
+        }
+      }
+    } catch (err) {
+      logger.error('startSweepLoop failed:', err)
+    } finally {
+      setSweepRunning(false)
+    }
+  })()
 }
 
 export function sweepBetweenPresets(fromId: number, toId: number, durationMs: number, waypoints?: number[]): void {

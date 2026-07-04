@@ -499,6 +499,22 @@
       ]
     },
     {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-bounce",
+      "Name": "Camera Bounce (auto-pan)",
+      "Tooltip": "Endless smooth velocity ping-pong: cruise, eased reversal, cruise back — forever. Press again to stop. Configure camera/start preset/speeds/leg per key.",
+      "Icon": "imgs/actions/slow-zoom",
+      "PropertyInspectorPath": "pi/camera-bounce.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/slow-zoom",
+          "Title": ""
+        }
+      ]
+    },
+    {
       "UUID": "com.broadcastbuddy.streamdeck.camera-stop",
       "Name": "Camera STOP",
       "Tooltip": "PANIC: halt all motion on both PTZ cameras — aborts sweeps, replays, slow zooms, gimbal and zoom velocity",

@@ -28,6 +28,11 @@
     <label for="waypoints">Waypoints</label>
     <input id="waypoints" type="text" placeholder="e.g. 7,8,9 (optional)" />
   </div>
+  <div class="row">
+    <label for="loop">Loop forever</label>
+    <input id="loop" type="checkbox" style="flex: 0 0 auto; width: auto;" />
+    <span style="color:#7a7a7a; font-size:11px; margin-left:6px;">ping-pong A&#8646;B until pressed again (or Camera STOP)</span>
+  </div>
   <div class="hint">
     Glides the PTZ from one saved preset to another. The camera cannot slow its
     own preset recall, so a genuinely slow move needs WAYPOINTS: save extra
@@ -45,6 +50,7 @@
     const toEl = document.getElementById('to')
     const secondsEl = document.getElementById('seconds')
     const waypointsEl = document.getElementById('waypoints')
+    const loopEl = document.getElementById('loop')
 
     // Stream Deck calls this global function when the PI loads.
     function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, _inInfo, inActionInfo) {
@@ -63,6 +69,7 @@
         if (s.to) toEl.value = s.to
         if (s.seconds) secondsEl.value = s.seconds
         if (s.waypoints) waypointsEl.value = s.waypoints
+        loopEl.checked = s.loop === true
       } catch (e) { /* leave placeholders */ }
     }
 
@@ -73,6 +80,7 @@
         to: parseInt(toEl.value, 10) || 2,
         seconds: parseInt(secondsEl.value, 10) || 20,
         waypoints: waypointsEl.value.trim(),
+        loop: loopEl.checked,
       }
       websocket.send(JSON.stringify({
         event: 'setSettings',
@@ -85,6 +93,7 @@
     toEl.addEventListener('change', save)
     secondsEl.addEventListener('change', save)
     waypointsEl.addEventListener('change', save)
+    loopEl.addEventListener('change', save)
   </script>
 </body>
 </html>

@@ -28,7 +28,7 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged, startBounce, stopBounce, isBounceRunning, getActiveCameraId, startSweepLoop } from './cameraDirector'
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
 import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
@@ -68,6 +68,7 @@ function buildStateMessage(): WsStateMessage {
       recording: shot.recording,
       replayingMoveId: shot.replayingMoveId,
       sweepRunning: activity.sweepRunning,
+      bounceRunning: activity.bounceRunning,
     },
   }
 }
@@ -207,13 +208,54 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     }
     case 'cameraStop': {
       // PANIC STOP — halt everything camera-motion on BOTH PTZs: abort in-flight
-      // sweep/glide legs, cancel a running shot replay (which also stops its
-      // cameras), cancel slow zooms, stop gimbal + zoom velocity. Deck/tablet/
-      // script safe-button. No-op per camera without a host.
+      // sweep/glide legs, kill bounce programs, cancel a running shot replay
+      // (which also stops its cameras), cancel slow zooms, stop gimbal + zoom
+      // velocity. Deck/tablet/script safe-button. No-op per camera without a host.
       abortCameraMoves()
+      stopBounce(1)
+      stopBounce(2)
       shotCancelReplay()
       stopAllCameraMotionFor(1)
       stopAllCameraMotionFor(2)
+      break
+    }
+    case 'cameraLoop': {
+      // ENDLESS preset ping-pong toggle — {from, to, ms?, waypoints?} starts the
+      // unattended A↔B loop; {on:false} or a repeat press while a move program
+      // is running stops it (abort generation).
+      if (data?.on === false || getCameraActivity().sweepRunning) {
+        abortCameraMoves()
+        break
+      }
+      const from = Number(data?.from)
+      const to = Number(data?.to)
+      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : SWEEP_DEFAULT_MS
+      const rawWp = data?.waypoints
+      const wp = Array.isArray(rawWp)
+        ? rawWp.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 254)
+        : undefined
+      if (Number.isInteger(from) && Number.isInteger(to)) startSweepLoop(from, to, ms, wp)
+      break
+    }
+    case 'cameraBounce': {
+      // BOUNCE program toggle — continuous smooth velocity ping-pong (auto-pan).
+      // {on:false} or a repeat press while running stops it; otherwise
+      // {camera?, preset?, yaw?, pitch?, legSec?, easeSec?} starts one on the
+      // active (or given) camera. All params optional with slow-pan defaults.
+      const cam: 1 | 2 = Number(data?.camera) === 2 ? 2 : Number(data?.camera) === 1 ? 1 : getActiveCameraId()
+      if (data?.on === false || isBounceRunning()) {
+        stopBounce(1)
+        stopBounce(2)
+        break
+      }
+      startBounce({
+        camera: cam,
+        preset: Number.isInteger(Number(data?.preset)) && Number(data?.preset) >= 1 ? Number(data?.preset) : undefined,
+        yaw: Number.isFinite(Number(data?.yaw)) && Number(data?.yaw) !== 0 ? Number(data?.yaw) : 8,
+        pitch: Number.isFinite(Number(data?.pitch)) ? Number(data?.pitch) : 0,
+        legSec: Number(data?.legSec) > 0 ? Number(data?.legSec) : 15,
+        easeSec: Number(data?.easeSec) > 0 ? Number(data?.easeSec) : undefined,
+      })
       break
     }
     case 'cameraSelect': {

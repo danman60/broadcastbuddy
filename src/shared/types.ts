@@ -1299,6 +1299,7 @@ export interface WsStateMessage {
     recording: boolean
     replayingMoveId: number | null
     sweepRunning: boolean
+    bounceRunning: boolean
   }
 }
 

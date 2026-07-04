@@ -26,6 +26,7 @@ export interface AppState {
     recording: boolean
     replayingMoveId: number | null
     sweepRunning: boolean
+    bounceRunning: boolean
   }
 }
 
