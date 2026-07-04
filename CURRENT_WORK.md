@@ -1,32 +1,49 @@
 # Current Work - BroadcastBuddy
 
-## Last Session Summary (2026-07-02/03)
-Built a tablet-side OBSBOT camera control popup on CSController (Android) that drives
-BroadcastBuddy's camera over the existing tablet WS channel. E2E-verified on emulator
-(commands land on host with correct payloads). Shipped to one of two Fire tablets; the
-second (`kftrwi`) went offline before its update.
+## Last Session Summary (2026-07-04)
+Big PTZ session: merged ui-redesign → main (branch deleted), slowed Xbox sticks,
+added joystick calibration UI + configurable slow-move deck action, then built the
+full 5-and-5 (docs/five-and-five-2026-07-04.md) — all 10 items. Deployed to DART
+via first-ever asar swap (canonical FIRMAMENT --dir build). Deck plugin files copied
+to DART. CSController APK staged for tablet (HTTP + Drive) — adb network debugging
+off on the Fire, so install pending operator action.
 
-## What Changed
-- **BB `c164204`** — `feat: WS camera nudge + zoom actions for tablet PTZ popup`
-  - `src/main/services/wsHub.ts` — 2 new WS actions in `handleCommand`:
-    `cameraNudge {dir,stop}` → `nudgeCamera` (gimbal 1-100, default 40);
-    `cameraZoom {dir,stop}` → `zoomCameraVelocity` (0-10, default 5).
-    Presets/AUTO/MANUAL/select were already wired. No-op unless a camera host is set.
-  - **LOCAL ONLY — NOT PUSHED.** ui-redesign push-gate still active (publishing the branch
-    also publishes ~15 prior hardware-untested commits the user gated). Push only on OK.
-- **CSController `6f7d3d8`** (branch master, **PUSHED**) — `feat: OBSBOT camera control popup`
-  - `app/.../ui/DisplayScreen.kt` — `CAM` HUD button → `CameraControlDialog` (first dialog
-    in the app) + `HoldButton` (press-hold velocity, stop on release). Cross PTZ pad
-    (▲▼◀▶) + hold ZOOM +/− + AUTO/MANUAL + P1–P6 recall.
-  - `app/.../network/WsController.kt` — `sendCommand` now carries a `data` payload;
-    `sendCameraNudge/Zoom/Preset` helpers.
-  - `app/build.gradle.kts` — version **0.2.0-obsbot-cam** (code 4, was 0.1.2/code 3).
-- **BB uncommitted (pre-existing, NOT this session):** `INBOX.md` + 6
-  `tests/screenshots/*.png` — dirty at session start, unrelated to camera work.
+## What Changed (all on main, PUSHED)
+- `60d81dc` — Xbox stick max gimbal velocity 178 → 30 (jerky fix)
+- `45fca20` — Settings > Camera > "Xbox Controller" calibration group (max speed/
+  deadzone/expo, live-applied); deck "Slow Move (P to P)" action w/ per-key
+  from/to/seconds/waypoints PI (pi/camera-move.html); wsHub cameraSweep waypoints
+- `9ca5b85` — 5-and-5 buildout:
+  - PANIC STOP: wsHub `cameraStop` + deck key; sweeps abortable (moveGeneration)
+  - PTZ activity in WS state (`camera:{activeCam,recording,replayingMoveId,sweepRunning}`);
+    deck REC face live, Select Cam active highlight
+  - Trigger-attached camera moves (sweep/replay) — TriggerEditor UI, fire-time only
+  - Xbox haptics: rumble preset/AI-latch, double-pulse record
+  - Preset thumbnails (UVC snapshot on save, settings cameraPresetThumbs) +
+    grey-out slots not stored on camera (cameraGetPresetIds)
+  - cancelReplay now stops commanded cameras (was: stranded gimbal panning)
+  - Dead settings removed (cameraBreathing, cameraTrackingSpeed)
+  - shared/cameraMoves.ts constants (+ deck moveDefaults.ts mirror)
+  - On-screen joystick obeys cameraStickMaxSpeed (GIMBAL_SCALE 178 deleted)
+
+## Deploy State
+- DART: app.asar SWAPPED (39,367,687 / 2026-07-04 16:52; old kept as .bak).
+  **BB is STOPPED on DART — operator must relaunch from desktop.**
+  Deck plugin bin/manifest/pi copied — **operator must restart Stream Deck app.**
+- Tablet (kftrwi-1, 100.72.217.68): CSController-2026-07-04.apk on Drive APKs folder
+  + served at http://100.122.177.91:8899/CSController.apk (SpyBalloon, session-temp).
+  adb watcher runs; needs "ADB over network" ON, or install via Silk from URL.
+
+## Hardware-Untested (verify at next camera session)
+Haptics, STOP under a live glide, preset thumbs/grey-out, trigger moves, waypoint
+glide pacing, deck REC/active faces, new stick calibration feel.
 
 ## Build Status
-PASSING. BB `npm run build` (electron-vite) green. CSController `assembleDebug` green
-(APK 0.2.0 at `app/build/outputs/apk/debug/app-debug.apk`).
+PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
+
+---
+
+# Previous Session (2026-07-02/03)
 
 ## Known Bugs & Issues
 - None open in the camera popup. Two layout bugs found + fixed during test:
