@@ -20,6 +20,13 @@ export interface AppState {
     autoFire: boolean
     upNextTitle: string | null
   }
+  // PTZ activity (BB ≥ this build) — absent on older hosts.
+  camera?: {
+    activeCam: 1 | 2
+    recording: boolean
+    replayingMoveId: number | null
+    sweepRunning: boolean
+  }
 }
 
 type StateCallback = (state: AppState) => void

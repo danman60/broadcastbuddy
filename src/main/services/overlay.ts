@@ -22,7 +22,9 @@ import { buildOverlayHTML } from './overlaySource'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
 import * as session from './session'
-import { applyRoutineForTrigger, deriveDancerCount } from './cameraDirector'
+import { applyRoutineForTrigger, deriveDancerCount, sweepBetweenPresets } from './cameraDirector'
+import { replayMove as shotReplayMove } from './shotRecorder'
+import { SWEEP_DEFAULT_MS } from '../../shared/cameraMoves'
 import { getRecordStatus } from './obsConnection'
 
 // Record a routine-change MARKER stamped with the OBS recording timecode. On every
@@ -469,6 +471,25 @@ export function getGridVisible(): boolean {
 
 // ── Overlay control ──────────────────────────────────────────────
 
+// Run a trigger's attached choreographed camera move (fire-time only — select/
+// next/prev do NOT run it, or scrubbing the playlist would fling the camera).
+// Both primitives are individually guarded (no-op without a camera host) and
+// never throw; the extra try/catch keeps a malformed cameraMove from ever
+// touching the fire path.
+function runTriggerCameraMove(move: NonNullable<Trigger['cameraMove']>): void {
+  try {
+    if (move.kind === 'sweep' && Number.isInteger(move.from) && Number.isInteger(move.to)) {
+      const ms = typeof move.ms === 'number' && move.ms > 0 ? move.ms : SWEEP_DEFAULT_MS
+      const waypoints = Array.isArray(move.waypoints) && move.waypoints.length > 0 ? move.waypoints : undefined
+      sweepBetweenPresets(move.from as number, move.to as number, ms, waypoints)
+    } else if (move.kind === 'replay' && typeof move.moveId === 'number') {
+      shotReplayMove(move.moveId)
+    }
+  } catch (err) {
+    logger.error('trigger cameraMove failed:', err)
+  }
+}
+
 // forceLowerThird: transient text fires (chat pins) always render as a lower
 // third even when the currently-selected playlist trigger is a title_card/feature.
 export function fireLowerThird(forceLowerThird = false): void {
@@ -480,6 +501,9 @@ export function fireLowerThird(forceLowerThird = false): void {
     // GUARDED OBSBOT camera framing — complete no-op unless a camera host is
     // configured AND this trigger has a numeric dancerCount. Never throws.
     applyRoutineForTrigger(selected.dancerCount)
+    // Trigger-attached choreographed move (sweep / recorded replay) — the routine
+    // carries its own cinematic camera cue. No-op without a camera host.
+    if (selected.cameraMove) runTriggerCameraMove(selected.cameraMove)
   }
 
   // title_card / feature triggers render as the FULL-SCREEN feature card instead

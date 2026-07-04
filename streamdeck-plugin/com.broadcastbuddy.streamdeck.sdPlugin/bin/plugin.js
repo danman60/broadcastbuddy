@@ -9455,6 +9455,23 @@ function cameraSweep(label, connected) {
     <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="20" font-weight="bold" font-family="sans-serif">${label}</text>
   `, '#241019');
 }
+function cameraStop(connected) {
+    const c = connected ? '#ef4444' : '#555';
+    const bg = connected ? '#2a1010' : '#1e1e2e';
+    return wrap(`
+    <text x="72" y="38" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">CAMERA</text>
+    <rect x="48" y="52" width="48" height="48" rx="8" fill="${c}"/>
+    <text x="72" y="128" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">STOP</text>
+  `, bg);
+}
+function cameraMove(from, to, seconds, connected) {
+    const c = connected ? '#f472b6' : '#555';
+    return wrap(`
+    <text x="72" y="40" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="1">SLOW MOVE</text>
+    <text x="72" y="92" text-anchor="middle" fill="${c}" font-size="30" font-weight="bold" font-family="sans-serif">P${from}&#8594;P${to}</text>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="16" font-family="sans-serif">${seconds}s</text>
+  `, '#241019');
+}
 function cameraPush(connected) {
     const c = connected ? '#f472b6' : '#555';
     return wrap(`
@@ -9473,23 +9490,26 @@ function cameraMode(mode, connected) {
     <text x="72" y="96" text-anchor="middle" fill="${color}" font-size="${mode === 'MANUAL' ? 20 : 26}" font-weight="bold" font-family="sans-serif">${mode}</text>
   `, bg);
 }
-function cameraSelect(n, connected) {
-    const c = connected ? '#38bdf8' : '#555';
+function cameraSelect(n, connected, active = false) {
+    const c = !connected ? '#555' : active ? '#4ade80' : '#38bdf8';
+    const bg = !connected ? '#1e1e2e' : active ? '#0d2a14' : '#0e2233';
     return wrap(`
-    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">SELECT CAM</text>
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">${active ? 'ACTIVE CAM' : 'SELECT CAM'}</text>
     <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
-  `, '#0e2233');
+    ${active ? '<circle cx="122" cy="24" r="9" fill="#4ade80"/>' : ''}
+  `, bg);
 }
 // ── Recorded camera MOVES: record a live move, replay it later ──────────────
 // shotRecord  -> wsHub 'shotRecordToggle' (start/stop recording the live move)
 // shotPlay    -> wsHub 'shotReplay' {id}  (replay recorded move <id>)
-function shotRecord(connected) {
-    const c = connected ? '#ef4444' : '#555';
-    const bg = connected ? '#2a1010' : '#1e1e2e';
+function shotRecord(connected, recording = false) {
+    const c = !connected ? '#555' : recording ? '#ff2222' : '#ef4444';
+    const bg = !connected ? '#1e1e2e' : recording ? '#4a0808' : '#2a1010';
+    const label = recording ? 'REC ●' : 'SHOT';
     return wrap(`
     <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">RECORD</text>
-    <circle cx="72" cy="74" r="24" fill="${c}"/>
-    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">SHOT</text>
+    <circle cx="72" cy="74" r="24" fill="${c}"${recording ? ' stroke="#fff" stroke-width="4"' : ''}/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">${label}</text>
   `, bg);
 }
 function shotPlay(connected, id) {
@@ -9876,6 +9896,15 @@ FeatureThatWasAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.feature-that-was' })
 ], FeatureThatWasAction);
 
+// Cinematic camera-move tuning constants — deck-plugin mirror of the app's
+// src/shared/cameraMoves.ts (separate build target, can't share the module).
+// Change a number here → change it there too.
+/** Default preset-to-preset sweep duration (ms). */
+const SWEEP_DEFAULT_MS = 6000;
+/** Slow optical zoom push: default guard window (ms) and push-in factor. */
+const SLOW_ZOOM_DEFAULT_MS = 10000;
+const SLOW_ZOOM_IN_FACTOR = 1.5;
+
 // ── OBSBOT PTZ deck buttons: Wide-safe / AUTO / MANUAL ──────────────────────
 // Each maps to a wsHub command consumed by BroadcastBuddy:
 //   cameraWide   -> goHomeViaCamera() (recall the safe wide Home preset, AI off)
@@ -9987,7 +10016,7 @@ let AudienceSweepAction = class AudienceSweepAction extends SingletonAction {
         });
     }
     async onKeyDown(ev) {
-        sendCommand('cameraSweep', { from: 2, to: 3, ms: 6000 });
+        sendCommand('cameraSweep', { from: 2, to: 3, ms: SWEEP_DEFAULT_MS });
         await ev.action.showOk();
     }
 };
@@ -10002,13 +10031,66 @@ let StageSweepAction = class StageSweepAction extends SingletonAction {
         });
     }
     async onKeyDown(ev) {
-        sendCommand('cameraSweep', { from: 4, to: 5, ms: 6000 });
+        sendCommand('cameraSweep', { from: 4, to: 5, ms: SWEEP_DEFAULT_MS });
         await ev.action.showOk();
     }
 };
 StageSweepAction = __decorate([
     action({ UUID: 'com.broadcastbuddy.streamdeck.stage-sweep' })
 ], StageSweepAction);
+// ── PANIC STOP: halt ALL camera motion on both PTZs ─────────────────────────────
+// wsHub 'cameraStop' aborts in-flight sweep/glide legs, cancels a running shot
+// replay, cancels slow zooms, and stops gimbal+zoom velocity on cameras 1 AND 2.
+let CameraStopAction = class CameraStopAction extends SingletonAction {
+    async onWillAppear(ev) {
+        onState(async () => {
+            const img = cameraStop(isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onKeyDown(ev) {
+        sendCommand('cameraStop');
+        await ev.action.showOk();
+    }
+};
+CameraStopAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-stop' })
+], CameraStopAction);
+function moveCfg(s) {
+    const num = (v, dflt) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : dflt;
+    const waypoints = (s?.waypoints || '')
+        .split(',')
+        .map((t) => parseInt(t.trim(), 10))
+        .filter((n) => Number.isInteger(n) && n >= 1 && n <= 254);
+    return { from: num(s?.from, 1), to: num(s?.to, 2), seconds: num(s?.seconds, 20), waypoints };
+}
+let CameraMoveAction = class CameraMoveAction extends SingletonAction {
+    async onWillAppear(ev) {
+        const cfg = moveCfg(ev.payload.settings);
+        onState(async () => {
+            const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected());
+            await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+        });
+    }
+    async onDidReceiveSettings(ev) {
+        const cfg = moveCfg(ev.payload.settings);
+        const img = cameraMove(cfg.from, cfg.to, cfg.seconds, isConnected());
+        await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
+    }
+    async onKeyDown(ev) {
+        const cfg = moveCfg(ev.payload.settings);
+        sendCommand('cameraSweep', {
+            from: cfg.from,
+            to: cfg.to,
+            ms: cfg.seconds * 1000,
+            ...(cfg.waypoints.length > 0 ? { waypoints: cfg.waypoints } : {}),
+        });
+        await ev.action.showOk();
+    }
+};
+CameraMoveAction = __decorate([
+    action({ UUID: 'com.broadcastbuddy.streamdeck.camera-move' })
+], CameraMoveAction);
 // ── PTZ slow optical PUSH IN (10s, from current zoom, keeps AI tracking) ───────
 // cameraSlowZoom -> slowZoomPush(ms): closed-loop optical zoom ramp on the OBSBOT.
 // This is the PTZ camera zoom, NOT the OBS Move-Transition slow-zoom. Press again
@@ -10021,7 +10103,7 @@ let CameraSlowZoomAction = class CameraSlowZoomAction extends SingletonAction {
         });
     }
     async onKeyDown(ev) {
-        sendCommand('cameraSlowZoom', { ms: 10000, factor: 1.5 });
+        sendCommand('cameraSlowZoom', { ms: SLOW_ZOOM_DEFAULT_MS, factor: SLOW_ZOOM_IN_FACTOR });
         await ev.action.showOk();
     }
 };
@@ -10030,12 +10112,12 @@ CameraSlowZoomAction = __decorate([
 ], CameraSlowZoomAction);
 // ── Recorded camera MOVES: record a live move, replay a saved one ─────────────
 // shotRecordToggle (no payload) -> wsHub starts/stops recording the live move.
-// We get no recording state back on the deck, so the face is static and a press
-// is confirmed with showOk().
+// The state broadcast's camera.recording drives a live REC face (white-ringed,
+// dark-red) so the operator can SEE a recording is armed.
 let RecordShotAction = class RecordShotAction extends SingletonAction {
     async onWillAppear(ev) {
-        onState(async () => {
-            const img = shotRecord(isConnected());
+        onState(async (state) => {
+            const img = shotRecord(isConnected(), state.camera?.recording === true);
             await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
         });
     }
@@ -10074,8 +10156,8 @@ PlayShotAction = __decorate([
 // ── Multi-camera: select which PTZ the controls/Xbox drive (1 or 2) ────────────
 let CameraSelect1Action = class CameraSelect1Action extends SingletonAction {
     async onWillAppear(ev) {
-        onState(async () => {
-            const img = cameraSelect(1, isConnected());
+        onState(async (state) => {
+            const img = cameraSelect(1, isConnected(), state.camera?.activeCam === 1);
             await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
         });
     }
@@ -10089,8 +10171,8 @@ CameraSelect1Action = __decorate([
 ], CameraSelect1Action);
 let CameraSelect2Action = class CameraSelect2Action extends SingletonAction {
     async onWillAppear(ev) {
-        onState(async () => {
-            const img = cameraSelect(2, isConnected());
+        onState(async (state) => {
+            const img = cameraSelect(2, isConnected(), state.camera?.activeCam === 2);
             await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`);
         });
     }
@@ -10162,6 +10244,8 @@ streamDeck.actions.registerAction(new CameraPos5Action());
 streamDeck.actions.registerAction(new CameraPos6Action());
 streamDeck.actions.registerAction(new AudienceSweepAction());
 streamDeck.actions.registerAction(new StageSweepAction());
+streamDeck.actions.registerAction(new CameraMoveAction());
+streamDeck.actions.registerAction(new CameraStopAction());
 streamDeck.actions.registerAction(new CameraSlowZoomAction());
 streamDeck.actions.registerAction(new CameraSelect1Action());
 streamDeck.actions.registerAction(new CameraSelect2Action());

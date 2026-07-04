@@ -234,6 +234,11 @@ input[type='range'].camera-slider { accent-color: var(--accent, #6366f1); }
   cursor: pointer;
 }
 .camera-preset-btn:hover { background: rgba(255, 255, 255, 0.12); }
+/* Slot not stored on the camera — recalling it would be a no-op or garbage pose. */
+.camera-preset-btn.unset {
+  opacity: 0.35;
+  border-style: dashed;
+}
 .camera-preset-btn.saved-flash {
   background: #16653488;
   border-color: #22c55e;

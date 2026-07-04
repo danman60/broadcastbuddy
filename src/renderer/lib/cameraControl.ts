@@ -19,7 +19,8 @@
  * sources ever fight on the wire.
  *
  * Magnitudes are already scaled by the caller (joystick / gamepad map their
- * normalized [-1..1] axes to gimbal velocity ×178 and zoom speed ×10). This
+ * normalized [-1..1] axes to gimbal velocity ×maxSpeed (Settings-calibrated,
+ * default 30) and zoom speed ×10). This
  * module only throttles + dedupes the IPC and guarantees a crisp STOP on
  * release (sent immediately, not on the next tick).
  *
@@ -34,8 +35,8 @@ export interface ZoomCommand {
 }
 
 export interface DesiredState {
-  yaw: number // signed gimbal velocity, already ×178-scaled (±178)
-  pitch: number // signed gimbal velocity, already ×178-scaled (±178)
+  yaw: number // signed gimbal velocity, already scaled by the sender (≤±178 hw limit)
+  pitch: number // signed gimbal velocity, already scaled by the sender (≤±178 hw limit)
   zoom: ZoomCommand | null // null = no zoom this tick
 }
 
@@ -127,7 +128,7 @@ function tick(): void {
   flushZoomFor(2)
 }
 
-/** Set the desired gimbal velocity (signed, already ×178-scaled). */
+/** Set the desired gimbal velocity (signed, already scaled by the sender). */
 export function setGimbal(yaw: number, pitch: number): void {
   desired.yaw = yaw
   desired.pitch = pitch
@@ -138,7 +139,7 @@ export function setZoom(zoom: ZoomCommand | null): void {
   desired.zoom = zoom
 }
 
-/** Set a per-camera desired gimbal velocity (signed, already ×178-scaled). */
+/** Set a per-camera desired gimbal velocity (signed, already scaled by the sender). */
 export function setGimbalFor(cam: CameraId, yaw: number, pitch: number): void {
   const d = desiredFor[cam]
   d.yaw = yaw

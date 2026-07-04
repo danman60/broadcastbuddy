@@ -15,6 +15,23 @@ export interface Trigger {
   logoDataUrl: string // per-entry logo (base64 data URL, optional)
   type?: 'lower_third' | 'title_card' | 'feature' // visual form (default lower_third); title_card/feature → full-screen feature card
   dancerCount?: number // optional — # of dancers in the routine; drives OBSBOT camera framing on fire (no-op unless a camera host is configured)
+  cameraMove?: TriggerCameraMove // optional — choreographed PTZ move fired WITH this trigger (no-op unless a camera host is configured)
+}
+
+/**
+ * Choreographed camera move attached to a trigger — fires automatically when the
+ * trigger fires, so a routine can carry its own cinematic move (e.g. the finale's
+ * audience sweep) while the operator runs lower thirds.
+ *  - kind 'sweep': preset from → to over ms, optionally via waypoint presets.
+ *  - kind 'replay': replay recorded move `moveId` (shot recorder).
+ */
+export interface TriggerCameraMove {
+  kind: 'sweep' | 'replay'
+  from?: number // sweep: start preset id
+  to?: number // sweep: end preset id
+  ms?: number // sweep: total duration (default SWEEP_DEFAULT_MS)
+  waypoints?: number[] // sweep: intermediate preset ids for a paced glide
+  moveId?: number // replay: recorded move id
 }
 
 // ── Overlay Styling ──────────────────────────────────────────────
@@ -441,15 +458,14 @@ export interface AppSettings {
   // in cameraDirector.ts). When active but cameraHost is blank, the OBSBOT
   // USB/RNDIS default 192.168.88.10 is used so the operator never types an IP.
   cameraAutoMode?: boolean // master opt-in: auto-frame on trigger fire. Default false.
-  cameraTrackingSpeed?: number // OBSBOT track-speed mode 0–5. Default 2 (slow).
   cameraFramingMode?: 'recital' | 'competition' // Director framing floor. Default 'recital'.
   cameraPort?: number // camera HTTP port. Default 80.
-  cameraBreathing?: boolean // slow AutoZoom in/out on group routines. Default true (kill-switch).
   // ── PTZ control panel tuning (all optional; defaults applied in the renderer
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
   cameraStickMaxSpeed?: number // gamepad max gimbal velocity at full deflection (1–178). Default 30.
+  cameraPresetThumbs?: Record<string, string> // preset thumbnails, key `${camera}:${slot}` → small JPEG data URL snapped from the UVC preview on save
   cameraCommandRateHz?: number // shared command-sender flush rate (Hz). Default 10.
   cameraPreviewDeviceId?: string // chosen videoinput deviceId for the live preview monitor.
 
@@ -1274,6 +1290,15 @@ export interface WsStateMessage {
     upNextTitle: string | null
     playedIds: string[]
     loopMode: LoopMode
+  }
+  // PTZ activity — lets deck faces + the tablet popup show live camera status
+  // (record confirm, in-flight move, active-camera highlight). Optional so old
+  // clients that don't know the block keep working unchanged.
+  camera?: {
+    activeCam: 1 | 2
+    recording: boolean
+    replayingMoveId: number | null
+    sweepRunning: boolean
   }
 }
 

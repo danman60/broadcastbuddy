@@ -220,6 +220,16 @@ export function cameraSweep(label: string, connected: boolean): string {
   `, '#241019')
 }
 
+export function cameraStop(connected: boolean): string {
+  const c = connected ? '#ef4444' : '#555'
+  const bg = connected ? '#2a1010' : '#1e1e2e'
+  return wrap(`
+    <text x="72" y="38" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">CAMERA</text>
+    <rect x="48" y="52" width="48" height="48" rx="8" fill="${c}"/>
+    <text x="72" y="128" text-anchor="middle" fill="${c}" font-size="22" font-weight="bold" font-family="sans-serif">STOP</text>
+  `, bg)
+}
+
 export function cameraMove(from: number, to: number, seconds: number, connected: boolean): string {
   const c = connected ? '#f472b6' : '#555'
   return wrap(`
@@ -249,24 +259,27 @@ export function cameraMode(mode: 'AUTO' | 'MANUAL', connected: boolean): string 
   `, bg)
 }
 
-export function cameraSelect(n: number, connected: boolean): string {
-  const c = connected ? '#38bdf8' : '#555'
+export function cameraSelect(n: number, connected: boolean, active = false): string {
+  const c = !connected ? '#555' : active ? '#4ade80' : '#38bdf8'
+  const bg = !connected ? '#1e1e2e' : active ? '#0d2a14' : '#0e2233'
   return wrap(`
-    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">SELECT CAM</text>
+    <text x="72" y="46" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">${active ? 'ACTIVE CAM' : 'SELECT CAM'}</text>
     <text x="72" y="110" text-anchor="middle" fill="${c}" font-size="52" font-weight="bold" font-family="sans-serif">${n}</text>
-  `, '#0e2233')
+    ${active ? '<circle cx="122" cy="24" r="9" fill="#4ade80"/>' : ''}
+  `, bg)
 }
 
 // ── Recorded camera MOVES: record a live move, replay it later ──────────────
 // shotRecord  -> wsHub 'shotRecordToggle' (start/stop recording the live move)
 // shotPlay    -> wsHub 'shotReplay' {id}  (replay recorded move <id>)
-export function shotRecord(connected: boolean): string {
-  const c = connected ? '#ef4444' : '#555'
-  const bg = connected ? '#2a1010' : '#1e1e2e'
+export function shotRecord(connected: boolean, recording = false): string {
+  const c = !connected ? '#555' : recording ? '#ff2222' : '#ef4444'
+  const bg = !connected ? '#1e1e2e' : recording ? '#4a0808' : '#2a1010'
+  const label = recording ? 'REC ●' : 'SHOT'
   return wrap(`
     <text x="72" y="34" text-anchor="middle" fill="${c}" font-size="13" font-family="sans-serif" letter-spacing="2">RECORD</text>
-    <circle cx="72" cy="74" r="24" fill="${c}"/>
-    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">SHOT</text>
+    <circle cx="72" cy="74" r="24" fill="${c}"${recording ? ' stroke="#fff" stroke-width="4"' : ''}/>
+    <text x="72" y="124" text-anchor="middle" fill="${c}" font-size="18" font-weight="bold" font-family="sans-serif">${label}</text>
   `, bg)
 }
 

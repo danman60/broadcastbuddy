@@ -1,6 +1,7 @@
 import { action, DidReceiveSettingsEvent, KeyDownEvent, KeyUpEvent, SingletonAction, WillAppearEvent } from '@elgato/streamdeck'
 import * as conn from '../connection'
 import * as svg from '../svg'
+import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR } from '../moveDefaults'
 
 // ── OBSBOT PTZ deck buttons: Wide-safe / AUTO / MANUAL ──────────────────────
 // Each maps to a wsHub command consumed by BroadcastBuddy:
@@ -89,7 +90,7 @@ export class AudienceSweepAction extends SingletonAction {
     })
   }
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    conn.sendCommand('cameraSweep', { from: 2, to: 3, ms: 6000 })
+    conn.sendCommand('cameraSweep', { from: 2, to: 3, ms: SWEEP_DEFAULT_MS })
     await ev.action.showOk()
   }
 }
@@ -102,7 +103,24 @@ export class StageSweepAction extends SingletonAction {
     })
   }
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    conn.sendCommand('cameraSweep', { from: 4, to: 5, ms: 6000 })
+    conn.sendCommand('cameraSweep', { from: 4, to: 5, ms: SWEEP_DEFAULT_MS })
+    await ev.action.showOk()
+  }
+}
+
+// ── PANIC STOP: halt ALL camera motion on both PTZs ─────────────────────────────
+// wsHub 'cameraStop' aborts in-flight sweep/glide legs, cancels a running shot
+// replay, cancels slow zooms, and stops gimbal+zoom velocity on cameras 1 AND 2.
+@action({ UUID: 'com.broadcastbuddy.streamdeck.camera-stop' })
+export class CameraStopAction extends SingletonAction {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+    conn.onState(async () => {
+      const img = svg.cameraStop(conn.isConnected())
+      await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
+    })
+  }
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    conn.sendCommand('cameraStop')
     await ev.action.showOk()
   }
 }
@@ -168,20 +186,20 @@ export class CameraSlowZoomAction extends SingletonAction {
     })
   }
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    conn.sendCommand('cameraSlowZoom', { ms: 10000, factor: 1.5 })
+    conn.sendCommand('cameraSlowZoom', { ms: SLOW_ZOOM_DEFAULT_MS, factor: SLOW_ZOOM_IN_FACTOR })
     await ev.action.showOk()
   }
 }
 
 // ── Recorded camera MOVES: record a live move, replay a saved one ─────────────
 // shotRecordToggle (no payload) -> wsHub starts/stops recording the live move.
-// We get no recording state back on the deck, so the face is static and a press
-// is confirmed with showOk().
+// The state broadcast's camera.recording drives a live REC face (white-ringed,
+// dark-red) so the operator can SEE a recording is armed.
 @action({ UUID: 'com.broadcastbuddy.streamdeck.shot-record' })
 export class RecordShotAction extends SingletonAction {
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    conn.onState(async () => {
-      const img = svg.shotRecord(conn.isConnected())
+    conn.onState(async (state) => {
+      const img = svg.shotRecord(conn.isConnected(), state.camera?.recording === true)
       await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
     })
   }
@@ -223,8 +241,8 @@ export class PlayShotAction extends SingletonAction<ShotPlaySettings> {
 @action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-1' })
 export class CameraSelect1Action extends SingletonAction {
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    conn.onState(async () => {
-      const img = svg.cameraSelect(1, conn.isConnected())
+    conn.onState(async (state) => {
+      const img = svg.cameraSelect(1, conn.isConnected(), state.camera?.activeCam === 1)
       await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
     })
   }
@@ -236,8 +254,8 @@ export class CameraSelect1Action extends SingletonAction {
 @action({ UUID: 'com.broadcastbuddy.streamdeck.camera-select-2' })
 export class CameraSelect2Action extends SingletonAction {
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    conn.onState(async () => {
-      const img = svg.cameraSelect(2, conn.isConnected())
+    conn.onState(async (state) => {
+      const img = svg.cameraSelect(2, conn.isConnected(), state.camera?.activeCam === 2)
       await ev.action.setImage(`data:image/svg+xml;base64,${Buffer.from(img).toString('base64')}`)
     })
   }

@@ -194,6 +194,7 @@ export function setActiveCamera(id: number): 1 | 2 {
   const v: 1 | 2 = Number(id) === 2 ? 2 : 1
   settings.set('activeCameraId', v)
   logger.info(`Active PTZ camera = ${v}`)
+  notifyActivity() // hoisted fn declaration (defined with the activity block below)
   return v
 }
 
@@ -633,6 +634,40 @@ export function recallCameraPreset(n: number): void {
  * toward preset `toId`, then recalls `toId` to land exactly. Fully guarded /
  * detached / no-op unless a camera host is set. Never throws back to the caller.
  */
+// Abort generation for choreographed moves (sweeps/glides). Bumping it makes
+// every in-flight sweep loop bail before its next preset recall — the panic-STOP
+// path. Firmware preset trajectories themselves can't be aborted; this stops the
+// move at the current leg instead of letting the remaining legs fire.
+let moveGeneration = 0
+export function abortCameraMoves(): void {
+  moveGeneration++
+  setSweepRunning(false)
+}
+
+// ── PTZ activity (for the WS state broadcast → deck faces / tablet popup) ────
+// wsHub registers a notifier at startup; cameraDirector can't import wsHub
+// (wsHub imports us), so the hook is injected.
+let sweepRunning = false
+let onActivityChanged: (() => void) | null = null
+export function setOnCameraActivityChanged(cb: (() => void) | null): void {
+  onActivityChanged = cb
+}
+function notifyActivity(): void {
+  try {
+    onActivityChanged?.()
+  } catch {
+    /* ignore */
+  }
+}
+function setSweepRunning(on: boolean): void {
+  if (sweepRunning === on) return
+  sweepRunning = on
+  notifyActivity()
+}
+export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean } {
+  return { activeCam: getActiveCameraId(), sweepRunning }
+}
+
 export function sweepBetweenPresets(fromId: number, toId: number, durationMs: number, waypoints?: number[]): void {
   // With operator-set intermediate WAYPOINTS → a multi-hop GLIDE (native recalls,
   // evenly paced). Without → the original native A → settle → B move (unchanged for
@@ -658,12 +693,20 @@ export function sweepBetweenPresets(fromId: number, toId: number, durationMs: nu
       // dwell on A so the move reads as A → B; recall speed itself is firmware-fixed.
       // A SLOW fixed-duration glide is a future feature (stepped transient presets).
       const settle = Math.max(800, Math.min(durationMs, 4000))
+      const gen = moveGeneration
+      setSweepRunning(true)
       cam.triggerPreset(fromId) // snap to the start position
       await sleep(settle)       // hold on A so the move reads as A → B
+      if (gen !== moveGeneration) {
+        logger.info(`Camera move: sweep ${fromId}->${toId} aborted (stop)`)
+        return
+      }
       cam.triggerPreset(toId)   // coordinated native recall to the end position
       logger.info(`Camera move: sweep ${fromId}->${toId} (native recall, settle ${settle}ms)`)
     } catch (err) {
       logger.error('sweepBetweenPresets failed:', err)
+    } finally {
+      setSweepRunning(false)
     }
   })()
 }
@@ -694,14 +737,22 @@ export function sweepWaypoints(ids: number[], durationMs: number): void {
       const director = await getDirector(host)
       if (!director) return
       const cam = director.cam
+      const gen = moveGeneration
+      setSweepRunning(true)
       cam.triggerPreset(path[0])
       for (let i = 1; i < path.length; i++) {
         await sleep(leg)
+        if (gen !== moveGeneration) {
+          logger.info(`Camera move: glide sweep aborted at hop ${i}/${path.length - 1} (stop)`)
+          return
+        }
         cam.triggerPreset(path[i])
       }
       logger.info(`Camera move: glide sweep [${path.join('→')}] (leg ${leg}ms, ${durationMs}ms total)`)
     } catch (err) {
       logger.error('sweepWaypoints failed:', err)
+    } finally {
+      setSweepRunning(false)
     }
   })()
 }

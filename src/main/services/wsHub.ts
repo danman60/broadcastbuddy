@@ -28,9 +28,10 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity } from './cameraDirector'
+import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged } from './cameraDirector'
+import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
 import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
-import { toggleRecording as shotRecordToggle, replayMove as shotReplay } from './shotRecorder'
+import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -49,6 +50,8 @@ let heartbeatInterval: NodeJS.Timeout | null = null
 
 function buildStateMessage(): WsStateMessage {
   const playlist = getPlaylistStatus()
+  const shot = getShotState()
+  const activity = getCameraActivity()
   return {
     type: 'state',
     overlay: getOverlayState(),
@@ -59,6 +62,12 @@ function buildStateMessage(): WsStateMessage {
       upNextTitle: playlist.upNext?.title || null,
       playedIds: playlist.playedIds,
       loopMode: playlist.loopMode,
+    },
+    camera: {
+      activeCam: activity.activeCam,
+      recording: shot.recording,
+      replayingMoveId: shot.replayingMoveId,
+      sweepRunning: activity.sweepRunning,
     },
   }
 }
@@ -186,7 +195,7 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // multi-hop glide through those presets — the slow-reposition primitive.
       const from = Number(data?.from)
       const to = Number(data?.to)
-      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 6000
+      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : SWEEP_DEFAULT_MS
       const rawWaypoints = data?.waypoints
       const waypoints = Array.isArray(rawWaypoints)
         ? rawWaypoints.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 254)
@@ -194,6 +203,17 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       if (Number.isInteger(from) && Number.isInteger(to)) {
         sweepBetweenPresets(from, to, ms, waypoints && waypoints.length > 0 ? waypoints : undefined)
       }
+      break
+    }
+    case 'cameraStop': {
+      // PANIC STOP — halt everything camera-motion on BOTH PTZs: abort in-flight
+      // sweep/glide legs, cancel a running shot replay (which also stops its
+      // cameras), cancel slow zooms, stop gimbal + zoom velocity. Deck/tablet/
+      // script safe-button. No-op per camera without a host.
+      abortCameraMoves()
+      shotCancelReplay()
+      stopAllCameraMotionFor(1)
+      stopAllCameraMotionFor(2)
       break
     }
     case 'cameraSelect': {
@@ -207,8 +227,8 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // PTZ optical slow PUSH from current zoom over `ms` (default 10s), keeping
       // any AI tracking active. Closed-loop (zoom has read-back). Second press
       // cancels an in-flight push. No-op unless a camera host is set.
-      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : 10000
-      const factor = Number(data?.factor) > 1 ? Number(data?.factor) : 1.5
+      const ms = Number(data?.ms) > 0 ? Number(data?.ms) : SLOW_ZOOM_DEFAULT_MS
+      const factor = Number(data?.factor) > 1 ? Number(data?.factor) : SLOW_ZOOM_IN_FACTOR
       slowZoomPush(ms, factor)
       break
     }
@@ -219,7 +239,7 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // No-op unless a camera host is set. gimbal speed 1-100 (default 40).
       const dir = data?.dir
       const stop = data?.stop === true
-      const speed = Number(data?.speed) > 0 ? Number(data?.speed) : 40
+      const speed = Number(data?.speed) > 0 ? Number(data?.speed) : TABLET_NUDGE_SPEED
       if (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right') {
         nudgeCamera(dir, speed, stop)
       }
@@ -317,6 +337,11 @@ export function start(port: number): void {
   // control WS and a remote OBS browser source — can reach the hub, not just
   // same-machine clients. Matches the overlay HTTP server (also 0.0.0.0).
   wss = new WebSocketServer({ port, host: '0.0.0.0' })
+
+  // Rebroadcast state on PTZ activity transitions (record/replay/sweep/active-cam)
+  // so deck faces + the tablet popup show live camera status.
+  setOnShotStateChanged(broadcastState)
+  setOnCameraActivityChanged(broadcastState)
 
   wss.on('listening', () => {
     recordEvent('net', 'WS hub listening', { host: '0.0.0.0', port })

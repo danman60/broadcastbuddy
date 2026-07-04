@@ -46,10 +46,8 @@ const store = new Store<AppSettings>({
     cameraHost: '',
     // OBSBOT camera additive controls — defaults preserve current OFF behaviour.
     cameraAutoMode: false,
-    cameraTrackingSpeed: 2,
     cameraFramingMode: 'recital',
     cameraPort: 80,
-    cameraBreathing: true, // slow AutoZoom in/out on group routines (kill-switch)
     // Multi-camera (2nd PTZ). Camera 2 off unless cameraHost2 set; activeCameraId
     // selects which PTZ the manual/Xbox/deck controls drive (1 = program/auto cam).
     cameraHost2: '',

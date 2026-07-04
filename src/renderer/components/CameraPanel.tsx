@@ -3,6 +3,7 @@ import nipplejs from 'nipplejs'
 import { useStore } from '../store/useStore'
 import * as control from '../lib/cameraControl'
 import { GamepadController } from '../lib/gamepad'
+import { SLOW_ZOOM_IN_FACTOR, SLOW_ZOOM_OUT_FACTOR } from '../../shared/cameraMoves'
 import '../styles/camera.css'
 
 /**
@@ -23,7 +24,6 @@ import '../styles/camera.css'
  * single setInterval flush in cameraControl owns the wire, so they can't fight.
  */
 
-const GIMBAL_SCALE = 178 // joystick normalized [-1..1] → ±178 gimbal velocity
 const ZOOM_SCALE = 10 // zoom rocker → 0–10 speed
 
 // nipplejs JoystickManager type isn't exported by name in v1 d.ts; alias loosely.
@@ -123,8 +123,6 @@ function CameraPanelActive(): React.ReactElement {
   const [padLabel, setPadLabel] = useState<string | null>(null)
   // Multi-cam: which PTZ (1|2) the controls/Xbox drive. Mirrors activeCameraId.
   const [activeCam, setActiveCam] = useState<1 | 2>(settings?.activeCameraId === 2 ? 2 : 1)
-  const activeCamRef = useRef<1 | 2>(activeCam)
-  useEffect(() => { activeCamRef.current = activeCam }, [activeCam])
   // Collapsible sub-sections — PTZ (above) stays open; these start collapsed.
   const [trackingCollapsed, setTrackingCollapsed] = useState(true)
   const [imageCollapsed, setImageCollapsed] = useState(true)
@@ -180,7 +178,7 @@ function CameraPanelActive(): React.ReactElement {
         if (!v) return
         const mult = panSpeedRef.current
         maybeLatchManual() // any deflection forces AI off + latches manual
-        control.setGimbal(v.x * GIMBAL_SCALE * mult, v.y * GIMBAL_SCALE * mult)
+        control.setGimbal(v.x * stickMaxRef.current * mult, v.y * stickMaxRef.current * mult)
       })
       m.on('end', () => {
         control.setGimbal(0, 0)
@@ -232,6 +230,13 @@ function CameraPanelActive(): React.ReactElement {
     panSpeedRef.current = panSpeed
   }, [panSpeed])
 
+  // Same for the calibrated max speed — the on-screen joystick obeys the same
+  // Settings → Xbox Controller cap as the gamepad (one calibration, all sticks).
+  const stickMaxRef = useRef(stickMaxSpeed)
+  useEffect(() => {
+    stickMaxRef.current = stickMaxSpeed
+  }, [stickMaxSpeed])
+
   // ── Interlock helper: forcing AI off on any manual deflection ──
   const maybeLatchManual = useCallback(() => {
     if (aiEnabledRef.current) {
@@ -257,9 +262,9 @@ function CameraPanelActive(): React.ReactElement {
         onToggleAi: () => { void toggleAi() },
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
         // LT→cam1 / RT→cam2 slow push-IN (factor>1).
-        onSlowPush: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: 1.5 }) },
+        onSlowPush: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: SLOW_ZOOM_IN_FACTOR }) },
         // LB→cam1 / RB→cam2 slow pull-OUT (factor<1).
-        onSlowPull: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: 0.67 }) },
+        onSlowPull: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: SLOW_ZOOM_OUT_FACTOR }) },
         // Back → start/stop recording a manual move.
         onRecordToggle: () => { void window.api.shotRecordToggle() },
         onManualLatched: () => {
@@ -335,9 +340,38 @@ function CameraPanelActive(): React.ReactElement {
     setTimeout(() => setSavedFlashId((cur) => (cur === id ? null : cur)), 900)
   }
   const recallPreset = (n: number): void => { void window.api.cameraRecallPreset({ n }) }
+
+  // Preset thumbnails: snap a small frame from the UVC preview at save time (the
+  // Tail 2 has no pose read-back, so the preview IS the only "what does this preset
+  // look at" source). Keyed `${camera}:${slot}`; absent when the preview was closed.
+  const captureFrameRef = useRef<(() => string | null) | null>(null)
+  const presetThumbs = settings?.cameraPresetThumbs ?? {}
+
+  // Which preset slots actually exist ON the camera (null until fetched / unreachable).
+  // Recalling an unset slot is a no-op at best and a garbage pose at worst — grey them.
+  const [onCameraIds, setOnCameraIds] = useState<number[] | null>(null)
+  const refreshPresetIds = useCallback(async () => {
+    try {
+      const res = await window.api.cameraGetPresetIds({ camera: activeCam })
+      setOnCameraIds(res.ok && res.reachable ? res.ids : null)
+    } catch {
+      setOnCameraIds(null)
+    }
+  }, [activeCam])
+  useEffect(() => { void refreshPresetIds() }, [refreshPresetIds])
+
   const savePreset = (n: number): void => {
     void window.api.cameraSavePreset({ id: n })
     flashSaved(n)
+    // Thumbnail: only when the preview stream is live (section open).
+    const thumb = captureFrameRef.current?.()
+    if (thumb) {
+      const next = { ...(settings?.cameraPresetThumbs ?? {}), [`${activeCam}:${n}`]: thumb }
+      void persist('cameraPresetThumbs', next)
+    }
+    // The slot now exists on-camera — refresh the stored-slot list (small delay
+    // so the camera has committed the save).
+    setTimeout(() => void refreshPresetIds(), 800)
   }
   const onPresetPointerDown = (n: number): void => {
     longPressTimer.current = setTimeout(() => {
@@ -366,7 +400,6 @@ function CameraPanelActive(): React.ReactElement {
 
   // Multi-cam: switch which PTZ the controls/Xbox/deck drive (main persists it).
   const selectCamera = useCallback(async (id: 1 | 2) => {
-    activeCamRef.current = id
     setActiveCam(id)
     await window.api.cameraSelect(id)
   }, [])
@@ -500,20 +533,31 @@ function CameraPanelActive(): React.ReactElement {
       {/* ── Presets ── */}
       <div className="camera-section-title">Presets (tap = go · long-press / right-click = save)</div>
       <div className="camera-preset-grid">
-        {presetIds.map((n) => (
-          <button
-            key={n}
-            className={'camera-preset-btn' + (savedFlashId === n ? ' saved-flash' : '')}
-            onPointerDown={() => onPresetPointerDown(n)}
-            onPointerUp={() => onPresetPointerUp(n)}
-            onPointerLeave={() => {
-              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
-            }}
-            onContextMenu={(e) => onPresetContextMenu(e, n)}
-          >
-            {savedFlashId === n ? 'saved' : `P${n}`}
-          </button>
-        ))}
+        {presetIds.map((n) => {
+          const thumb = presetThumbs[`${activeCam}:${n}`]
+          // null = unknown (unreachable / not fetched) → don't grey anything.
+          const unset = onCameraIds != null && !onCameraIds.includes(n)
+          return (
+            <button
+              key={n}
+              className={'camera-preset-btn' + (savedFlashId === n ? ' saved-flash' : '') + (unset ? ' unset' : '')}
+              style={thumb ? {
+                backgroundImage: `linear-gradient(rgba(10,10,20,0.35), rgba(10,10,20,0.55)), url(${thumb})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : undefined}
+              title={unset ? `P${n} — not stored on the camera (long-press to save the current view)` : `P${n}`}
+              onPointerDown={() => onPresetPointerDown(n)}
+              onPointerUp={() => onPresetPointerUp(n)}
+              onPointerLeave={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+              }}
+              onContextMenu={(e) => onPresetContextMenu(e, n)}
+            >
+              {savedFlashId === n ? 'saved' : `P${n}`}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Set Home / Home / Recenter ── */}
@@ -558,7 +602,7 @@ function CameraPanelActive(): React.ReactElement {
             </div>
 
             {/* ── Live preview ── */}
-            <CameraPreview savedDeviceId={savedDeviceId} onPersistDevice={(id) => void persist('cameraPreviewDeviceId', id)} />
+            <CameraPreview savedDeviceId={savedDeviceId} onPersistDevice={(id) => void persist('cameraPreviewDeviceId', id)} registerCapture={(fn) => { captureFrameRef.current = fn }} />
           </>
         )}
       </div>
@@ -570,12 +614,37 @@ function CameraPanelActive(): React.ReactElement {
 function CameraPreview({
   savedDeviceId,
   onPersistDevice,
+  registerCapture,
 }: {
   savedDeviceId: string
   onPersistDevice: (id: string) => void
+  /** Hands the parent a frame-grab fn (small JPEG data URL, null when no live stream) — used for preset thumbnails. */
+  registerCapture?: (fn: (() => string | null) | null) => void
 }): React.ReactElement {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+
+  // Expose a frame-grabber to the parent for preset thumbnails. 160×90 JPEG keeps
+  // each thumb ~4-8KB in settings.
+  useEffect(() => {
+    if (!registerCapture) return
+    registerCapture(() => {
+      const v = videoRef.current
+      if (!v || !streamRef.current || v.videoWidth === 0) return null
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = 160
+        canvas.height = 90
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
+        return canvas.toDataURL('image/jpeg', 0.6)
+      } catch {
+        return null
+      }
+    })
+    return () => registerCapture(null)
+  }, [registerCapture])
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState<string>(savedDeviceId)
   const [error, setError] = useState<string>('')

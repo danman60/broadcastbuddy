@@ -91,6 +91,28 @@ interface ButtonEdges {
   pressed: boolean[]
 }
 
+// ── Haptic confirms ──────────────────────────────────────────────────────────
+// The operator's eyes are on the stage/program monitor, not the panel — mode
+// changes must be FELT. Chromium exposes dual-rumble via vibrationActuator.
+// All calls are fire-and-forget + guarded: a pad with no actuator no-ops.
+interface HapticActuator {
+  playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>
+}
+function rumble(pad: Gamepad, durationMs: number, strong: number, weak: number): void {
+  const act = (pad as Gamepad & { vibrationActuator?: HapticActuator }).vibrationActuator
+  if (!act?.playEffect) return
+  void act.playEffect('dual-rumble', {
+    duration: durationMs,
+    strongMagnitude: strong,
+    weakMagnitude: weak,
+  }).catch(() => { /* actuator busy/unsupported — ignore */ })
+}
+/** Two short pulses — used for record toggle so it's distinct from a preset tap. */
+function rumbleDouble(pad: Gamepad): void {
+  rumble(pad, 120, 0.9, 0.6)
+  setTimeout(() => rumble(pad, 120, 0.9, 0.6), 200)
+}
+
 /** Scaled radial deadzone + expo on a 2D stick vector. */
 function applyDeadzoneExpo(
   x: number,
@@ -235,6 +257,7 @@ export class GamepadController {
 
     if (left && !this.latched1) {
       this.latched1 = true
+      rumble(pad, 80, 0.4, 0.7) // felt confirm: Cam 1 AI is now OFF (manual)
       void window.api.cameraSetAiEnableFor({ camera: 1, on: false })
       this.cb.onManualLatchedFor(1)
     } else if (!left) {
@@ -242,6 +265,7 @@ export class GamepadController {
     }
     if (right && !this.latched2) {
       this.latched2 = true
+      rumble(pad, 80, 0.4, 0.7) // felt confirm: Cam 2 AI is now OFF (manual)
       void window.api.cameraSetAiEnableFor({ camera: 2, on: false })
       this.cb.onManualLatchedFor(2)
     } else if (!right) {
@@ -272,18 +296,27 @@ export class GamepadController {
     // ── Edge-triggered buttons ──
     // A/B/X/Y → recall preset 1–4
     for (let i = 0; i < 4; i++) {
-      if (this.edgePress(i, pressed(i))) this.cb.onRecallPreset(i + 1)
+      if (this.edgePress(i, pressed(i))) {
+        rumble(pad, 60, 0.3, 0.5) // felt confirm: preset recall accepted
+        this.cb.onRecallPreset(i + 1)
+      }
     }
     // D-pad 12–15 → recall preset 5–8
     for (let i = 12; i <= 15; i++) {
-      if (this.edgePress(i, pressed(i))) this.cb.onRecallPreset(i - 12 + 5)
+      if (this.edgePress(i, pressed(i))) {
+        rumble(pad, 60, 0.3, 0.5)
+        this.cb.onRecallPreset(i - 12 + 5)
+      }
     }
 
     // Guide(16) → goHome
     if (this.edgePress(16, pressed(16))) this.cb.onGoHome()
 
-    // Back(8) → start/stop recording a manual move
-    if (this.edgePress(8, pressed(8))) this.cb.onRecordToggle()
+    // Back(8) → start/stop recording a manual move (double pulse: unmistakable)
+    if (this.edgePress(8, pressed(8))) {
+      rumbleDouble(pad)
+      this.cb.onRecordToggle()
+    }
 
     // Start/Menu(9) → toggle AI (the operator's explicit re-enable path)
     if (this.edgePress(9, pressed(9))) {

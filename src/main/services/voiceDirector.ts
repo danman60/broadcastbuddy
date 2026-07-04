@@ -27,10 +27,12 @@ import {
   sweepBetweenPresets,
   setCameraAiEnable,
   stopAllCameraMotion,
+  abortCameraMoves,
   getActiveCameraId,
 } from './cameraDirector'
 import { getMoves, replayMoveByLabel } from './shotRecorder'
 import { IPC, VoiceResult, VoiceStatus, VoiceShot } from '../../shared/types'
+import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR } from '../../shared/cameraMoves'
 import { createLogger } from '../logger'
 
 const logger = createLogger('voiceDirector')
@@ -351,7 +353,7 @@ function routeResult(msg: VoiceMsgResult): void {
       break
     }
     case 'pushIn':
-      slowZoomPush(10000, 1.5)
+      slowZoomPush(SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR)
       ok(`CAM${camera} ▸ PUSH IN`)
       break
     case 'slowPushIn':
@@ -376,7 +378,7 @@ function routeResult(msg: VoiceMsgResult): void {
       const from = resolveShotSlot(camera, (msg.from ?? '').toString())
       const to = resolveShotSlot(camera, (msg.to ?? '').toString())
       if (from == null || to == null) return reject('unset-shot', 'sweep shots not set')
-      sweepBetweenPresets(from, to, 6000)
+      sweepBetweenPresets(from, to, SWEEP_DEFAULT_MS)
       ok(`CAM${camera} ▸ SWEEP ${from}→${to}`)
       break
     }
@@ -385,6 +387,7 @@ function routeResult(msg: VoiceMsgResult): void {
       ok(`CAM${camera} ▸ TRACK`)
       break
     case 'stop':
+      abortCameraMoves() // kill any in-flight sweep/glide legs too
       stopAllCameraMotion()
       ok(`CAM${camera} ▸ STOP`)
       break

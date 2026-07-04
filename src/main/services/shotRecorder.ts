@@ -38,6 +38,9 @@ let buffer: RecordedMoveEvent[] = []
 let autoStopTimer: NodeJS.Timeout | null = null
 const replayTimers = new Set<NodeJS.Timeout>()
 let replayingId: number | null = null
+// Cameras the CURRENT replay has already sent commands to — cancelReplay must
+// stop these, or a cleared end-timer strands a gimbal panning at velocity.
+let replayUsedCameras = new Set<1 | 2>()
 
 // Notified after the saved-move list changes (so the voice grammar can rebuild).
 // Registered from index.ts to avoid a shotRecorder↔voiceDirector import cycle.
@@ -57,6 +60,14 @@ function now(): number {
   return Date.now()
 }
 
+// Notified on every recorder state change (recording/replaying transitions) so
+// the WS hub can rebroadcast PTZ activity to deck faces + the tablet popup.
+// Injected by wsHub at startup (wsHub imports us — can't import it back).
+let onStateChanged: (() => void) | null = null
+export function setOnShotStateChanged(cb: (() => void) | null): void {
+  onStateChanged = cb
+}
+
 function pushState(): void {
   const state: ShotRecorderState = {
     recording,
@@ -65,6 +76,11 @@ function pushState(): void {
   }
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(IPC.SHOT_STATE, state)
+  }
+  try {
+    onStateChanged?.()
+  } catch {
+    /* ignore */
   }
 }
 
@@ -138,6 +154,7 @@ export function replayMove(moveId: number): void {
   replayingId = moveId
   setCommandSinkSuppressed(true) // don't re-record our own replay
   const usedCameras = new Set<1 | 2>()
+  replayUsedCameras = usedCameras
   for (const ev of move.events) {
     const t = setTimeout(() => {
       emit(ev)
@@ -172,6 +189,10 @@ export function cancelReplay(): void {
   for (const t of replayTimers) clearTimeout(t)
   replayTimers.clear()
   if (replayingId != null) {
+    // Clearing the timers also killed the scheduled end-of-replay stop — halt
+    // every camera this replay already commanded so nothing keeps panning.
+    for (const cam of replayUsedCameras) stopAllCameraMotionFor(cam)
+    replayUsedCameras = new Set()
     setCommandSinkSuppressed(false)
     replayingId = null
     pushState()

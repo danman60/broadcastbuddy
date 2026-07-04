@@ -59,10 +59,8 @@ export function Settings() {
   const [cameraHost, setCameraHost] = useState('')
   // OBSBOT camera — additive controls (defaults = current OFF behaviour).
   const [cameraAutoMode, setCameraAutoMode] = useState(false)
-  const [cameraTrackingSpeed, setCameraTrackingSpeed] = useState(2)
   const [cameraFramingMode, setCameraFramingMode] = useState<'recital' | 'competition'>('recital')
   const [cameraPort, setCameraPort] = useState(80)
-  const [cameraBreathing, setCameraBreathing] = useState(true)
 
   // Xbox controller / joystick calibration
   const [stickMaxSpeed, setStickMaxSpeed] = useState(30)
@@ -147,12 +145,8 @@ export function Settings() {
       if (settings.hotkeys) setHotkeys({ ...DEFAULT_HOTKEYS, ...settings.hotkeys })
       setCameraHost(settings.cameraHost || '')
       setCameraAutoMode(settings.cameraAutoMode === true)
-      setCameraTrackingSpeed(
-        typeof settings.cameraTrackingSpeed === 'number' ? settings.cameraTrackingSpeed : 2,
-      )
       setCameraFramingMode(settings.cameraFramingMode === 'competition' ? 'competition' : 'recital')
       setCameraPort(typeof settings.cameraPort === 'number' ? settings.cameraPort : 80)
-      setCameraBreathing(settings.cameraBreathing !== false)
       setStickMaxSpeed(typeof settings.cameraStickMaxSpeed === 'number' ? settings.cameraStickMaxSpeed : 30)
       setStickDeadzone(typeof settings.cameraJoystickDeadzone === 'number' ? settings.cameraJoystickDeadzone : 0.12)
       setStickExpo(typeof settings.cameraExpo === 'number' ? settings.cameraExpo : 0.6)
@@ -395,10 +389,8 @@ export function Settings() {
     await window.api.settingsSet('hotkeys', hotkeys)
     await window.api.settingsSet('cameraHost', cameraHost.trim())
     await window.api.settingsSet('cameraAutoMode', cameraAutoMode)
-    await window.api.settingsSet('cameraTrackingSpeed', cameraTrackingSpeed)
     await window.api.settingsSet('cameraFramingMode', cameraFramingMode)
     await window.api.settingsSet('cameraPort', cameraPort)
-    await window.api.settingsSet('cameraBreathing', cameraBreathing)
     await window.api.settingsSet('cameraStickMaxSpeed', Math.max(1, Math.min(178, stickMaxSpeed)))
     await window.api.settingsSet('cameraJoystickDeadzone', Math.max(0, Math.min(0.5, stickDeadzone)))
     await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
@@ -530,31 +522,6 @@ export function Settings() {
             />
             <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
               Auto-frame on routine fire (uses {(cameraHost || '').trim() || '192.168.88.10'})
-            </span>
-          </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 100 }}>Tracking Speed</label>
-            <select
-              value={cameraTrackingSpeed}
-              onChange={(e) => setCameraTrackingSpeed(Number(e.target.value))}
-            >
-              <option value={0}>0 — Super Lazy</option>
-              <option value={1}>1 — Lazy</option>
-              <option value={2}>2 — Slow</option>
-              <option value={3}>3 — Fast</option>
-              <option value={4}>4 — Crazy</option>
-              <option value={5}>5 — Custom</option>
-            </select>
-          </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 100 }}>Group Breathing</label>
-            <input
-              type="checkbox"
-              checked={cameraBreathing}
-              onChange={(e) => setCameraBreathing(e.target.checked)}
-            />
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
-              Slow AutoZoom in/out on group routines so the shot is never static
             </span>
           </div>
           <div className="settings-field-inline">

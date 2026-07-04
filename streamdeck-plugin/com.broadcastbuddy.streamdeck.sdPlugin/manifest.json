@@ -499,6 +499,21 @@
       ]
     },
     {
+      "UUID": "com.broadcastbuddy.streamdeck.camera-stop",
+      "Name": "Camera STOP",
+      "Tooltip": "PANIC: halt all motion on both PTZ cameras — aborts sweeps, replays, slow zooms, gimbal and zoom velocity",
+      "Icon": "imgs/actions/fire",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actions/fire",
+          "Title": ""
+        }
+      ]
+    },
+    {
       "UUID": "com.broadcastbuddy.streamdeck.camera-move",
       "Name": "Slow Move (P to P)",
       "Tooltip": "Custom slow reposition: glide from one preset to another over a configurable duration — set From/To/seconds/waypoints per key",
