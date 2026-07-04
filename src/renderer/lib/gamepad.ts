@@ -17,10 +17,11 @@
  * Mapping implemented (DUAL camera — both live at once, NOT active-cam-gated):
  *   - LEFT stick  → camera 1 pan/tilt (tilt inverted: stick-up = tilt-up).
  *   - RIGHT stick → camera 2 pan/tilt (tilt inverted: stick-up = tilt-up).
- *   - LT(6) full-press (cross 0.6, edge) → camera 1 SLOW push-in (onSlowPush 1).
- *   - RT(7) full-press (cross 0.6, edge) → camera 2 SLOW push-in (onSlowPush 2).
- *   - LB(4) press edge → camera 1 SLOW pull-OUT (onSlowPull 1) — one-shot glide.
- *   - RB(5) press edge → camera 2 SLOW pull-OUT (onSlowPull 2) — one-shot glide.
+ *   - LT(6) HOLD → camera 1 zoom IN, velocity-dependent (light pull = crawl,
+ *     full pull = still-slow max). Release = crisp zoom stop.
+ *   - RT(7) HOLD → camera 2 zoom IN (same velocity mapping).
+ *   - LB(4) HOLD → camera 1 slow zoom OUT (constant slow speed). Release stops.
+ *   - RB(5) HOLD → camera 2 slow zoom OUT. Trigger wins if both held.
  *   - Back(8) edge → onRecordToggle() (start/stop recording a manual move).
  *   - A/B/X/Y (0–3) → recall preset 1–4 (edge-triggered).
  *   - D-pad (12–15) → recall preset 5–8 (edge-triggered).
@@ -54,7 +55,11 @@ import * as control from './cameraControl'
 // on-air moves jerky. 30 ≈ 23°/s max pan (0.78°/s per unit), so a half-deflection
 // with default expo crawls at ~6°/s — deliberate, cinematic.
 export const DEFAULT_STICK_MAX_SPEED = 30
-const TRIGGER_FULL_THRESHOLD = 0.6 // LT/RT must cross this (edge) to fire a slow push-in
+// Hold-to-zoom: trigger analog value → zoom-in velocity (camera-native 0–10
+// scale, capped LOW so even a full pull reads as a slow cinematic push).
+const ZOOM_TRIGGER_DEADZONE = 0.08
+const ZOOM_IN_MAX_SPEED = 4 // full trigger pull
+const ZOOM_OUT_SPEED = 2 // bumper hold — constant slow pull-out
 const TRACKING_SPEED_MODES = 6 // 0–5
 
 export interface GamepadCallbacks {
@@ -66,10 +71,6 @@ export interface GamepadCallbacks {
   onToggleAi: () => void
   /** Cycle tracking-speed mode (0–5). */
   onCycleTrackingSpeed: (mode: number) => void
-  /** Slow push-IN glide on the given camera (LT→cam1, RT→cam2; trigger full-press edge). */
-  onSlowPush: (cam: 1 | 2) => void
-  /** Slow pull-OUT glide on the given camera (LB→cam1, RB→cam2; press edge — one-shot). */
-  onSlowPull: (cam: 1 | 2) => void
   /** Start/stop recording a manual move (Back button edge). */
   onRecordToggle: () => void
   /** Interlock latched manual (a stick deflection forced AI off) — global UI latch. */
@@ -283,15 +284,22 @@ export class GamepadController {
     control.setGimbalFor(1, yaw1, pitch1)
     control.setGimbalFor(2, yaw2, pitch2)
 
-    // ── Slow-zoom triggers: LT/RT full-press (cross 0.6, edge) → slow push-IN ──
-    const ltFull = analog(6) >= TRIGGER_FULL_THRESHOLD
-    const rtFull = analog(7) >= TRIGGER_FULL_THRESHOLD
-    if (this.edgePress(6, ltFull)) this.cb.onSlowPush(1)
-    if (this.edgePress(7, rtFull)) this.cb.onSlowPush(2)
-
-    // ── Slow-zoom bumpers: LB/RB press edge → slow pull-OUT (one-shot glide) ──
-    if (this.edgePress(4, pressed(4))) this.cb.onSlowPull(1)
-    if (this.edgePress(5, pressed(5))) this.cb.onSlowPull(2)
+    // ── HOLD-to-zoom: trigger = velocity-dependent zoom IN, bumper = slow zoom
+    // OUT. Written to the per-camera desiredState every frame — cameraControl's
+    // 10Hz flush dedupes and sends ONE crisp stop on release. Trigger wins if
+    // both are held on the same side.
+    const zoomFor = (cam: 1 | 2, trigger: number, bumperHeld: boolean): void => {
+      if (trigger > ZOOM_TRIGGER_DEADZONE) {
+        const speed = Math.max(1, Math.min(ZOOM_IN_MAX_SPEED, Math.ceil(trigger * ZOOM_IN_MAX_SPEED)))
+        control.setZoomFor(cam, { dir: 'in', speed })
+      } else if (bumperHeld) {
+        control.setZoomFor(cam, { dir: 'out', speed: ZOOM_OUT_SPEED })
+      } else {
+        control.setZoomFor(cam, null)
+      }
+    }
+    zoomFor(1, analog(6), pressed(4)) // LT / LB → camera 1
+    zoomFor(2, analog(7), pressed(5)) // RT / RB → camera 2
 
     // ── Edge-triggered buttons ──
     // A/B/X/Y → recall preset 1–4

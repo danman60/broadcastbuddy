@@ -251,7 +251,7 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       startBounce({
         camera: cam,
         preset: Number.isInteger(Number(data?.preset)) && Number(data?.preset) >= 1 ? Number(data?.preset) : undefined,
-        yaw: Number.isFinite(Number(data?.yaw)) && Number(data?.yaw) !== 0 ? Number(data?.yaw) : 8,
+        yaw: Number.isFinite(Number(data?.yaw)) && Number(data?.yaw) !== 0 ? Number(data?.yaw) : 6,
         pitch: Number.isFinite(Number(data?.pitch)) ? Number(data?.pitch) : 0,
         legSec: Number(data?.legSec) > 0 ? Number(data?.legSec) : 15,
         easeSec: Number(data?.easeSec) > 0 ? Number(data?.easeSec) : undefined,

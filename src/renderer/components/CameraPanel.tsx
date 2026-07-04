@@ -3,7 +3,6 @@ import nipplejs from 'nipplejs'
 import { useStore } from '../store/useStore'
 import * as control from '../lib/cameraControl'
 import { GamepadController } from '../lib/gamepad'
-import { SLOW_ZOOM_IN_FACTOR, SLOW_ZOOM_OUT_FACTOR } from '../../shared/cameraMoves'
 import '../styles/camera.css'
 
 /**
@@ -261,10 +260,6 @@ function CameraPanelActive(): React.ReactElement {
         onGoHome: () => { void window.api.cameraGoHome() },
         onToggleAi: () => { void toggleAi() },
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
-        // LT→cam1 / RT→cam2 slow push-IN (factor>1).
-        onSlowPush: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: SLOW_ZOOM_IN_FACTOR }) },
-        // LB→cam1 / RB→cam2 slow pull-OUT (factor<1).
-        onSlowPull: (cam) => { void window.api.cameraSlowZoomFor({ camera: cam, factor: SLOW_ZOOM_OUT_FACTOR }) },
         // Back → start/stop recording a manual move.
         onRecordToggle: () => { void window.api.shotRecordToggle() },
         onManualLatched: () => {

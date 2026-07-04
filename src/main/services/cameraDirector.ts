@@ -710,7 +710,7 @@ export function startBounce(cfg: BounceConfig): void {
   const pitchV = Math.max(-178, Math.min(178, Math.round(cfg.pitch || 0)))
   if (yawV === 0 && pitchV === 0) return
   const legMs = Math.max(2000, Math.round((cfg.legSec || 15) * 1000))
-  const easeMs = Math.max(1000, Math.round((cfg.easeSec ?? 2.5) * 1000))
+  const easeMs = Math.max(1000, Math.round((cfg.easeSec ?? 4) * 1000))
   const gen = moveGeneration
 
   // Bounce is manual motion — the camera's AI tracker would fight it.
@@ -770,7 +770,7 @@ export function startSweepLoop(fromId: number, toId: number, durationMs: number,
   if (fwd.length < 2) return
   const back = [...fwd].reverse()
   const hops = fwd.length - 1
-  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 6000))
+  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 20000))
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
   const gen = moveGeneration
   void (async () => {
@@ -864,7 +864,7 @@ export function sweepWaypoints(ids: number[], durationMs: number): void {
   // Even dwell per hop, clamped: a long path shouldn't crawl, a short one shouldn't
   // machine-gun recalls faster than the gimbal can travel between them.
   const hops = path.length - 1
-  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 6000))
+  const leg = Math.max(500, Math.min(Math.round(durationMs / hops), 20000))
   void (async () => {
     try {
       const director = await getDirector(host)
