@@ -26,6 +26,7 @@
  *   - A/B/X/Y (0–3) → recall preset 1–4 (edge-triggered).
  *   - D-pad (12–15) → recall preset 5–8 (edge-triggered).
  *   - Guide(16) → goHome. Start/Menu(9) → toggle AI. LS(10) → cycle tracking speed.
+ *   - RS(11) → cycle stick AXIS LOCK free → pan-only → tilt-only (both sticks).
  *
  * REMOVED vs. the single-active-camera driver:
  *   - LB-as-SAVE-preset modifier (LB is now cam-1 slow pull-out; presets recall only).
@@ -73,6 +74,8 @@ export interface GamepadCallbacks {
   onCycleTrackingSpeed: (mode: number) => void
   /** Start/stop recording a manual move (Back button edge). */
   onRecordToggle: () => void
+  /** Cycle stick axis lock free → pan-only → tilt-only (RS click). */
+  onCycleAxisLock: () => void
   /** Interlock latched manual (a stick deflection forced AI off) — global UI latch. */
   onManualLatched: () => void
   /** Per-camera interlock latch: that stick's first deflection forced that camera's AI off. */
@@ -81,10 +84,15 @@ export interface GamepadCallbacks {
   onConnection: (label: string | null) => void
 }
 
+export type AxisLock = 'free' | 'pan' | 'tilt'
+
 export interface GamepadConfig {
   deadzone: number // 0–1 (default 0.12)
   expo: number // 0–1 (default 0.6)
   maxSpeed?: number // max gimbal velocity at full deflection, 1–178 (default 30)
+  // Axis lock: 'pan' = pan only (tilt zeroed — no more up/down drift during a
+  // simple pan), 'tilt' = tilt only, 'free' = both. Applies to BOTH sticks.
+  axisLock?: AxisLock
 }
 
 interface ButtonEdges {
@@ -236,20 +244,21 @@ export class GamepadController {
     const analog = (i: number): number => btn(i)?.value ?? 0
 
     const scale = this.cfg.maxSpeed ?? DEFAULT_STICK_MAX_SPEED
+    const lock = this.cfg.axisLock ?? 'free'
 
     // ── Camera 1 pan/tilt from the LEFT stick (tilt inverted: stick-up = tilt-up) ──
     const lx = pad.axes[0] ?? 0
     const ly = pad.axes[1] ?? 0
     const lStick = applyDeadzoneExpo(lx, ly, this.cfg.deadzone, this.cfg.expo)
-    const yaw1 = lStick.x * scale
-    const pitch1 = -lStick.y * scale // invert: up on stick → tilt up
+    const yaw1 = lock === 'tilt' ? 0 : lStick.x * scale
+    const pitch1 = lock === 'pan' ? 0 : -lStick.y * scale // invert: up on stick → tilt up
 
     // ── Camera 2 pan/tilt from the RIGHT stick (tilt inverted: stick-up = tilt-up) ──
     const rx = pad.axes[2] ?? 0
     const ry = pad.axes[3] ?? 0
     const rStick = applyDeadzoneExpo(rx, ry, this.cfg.deadzone, this.cfg.expo)
-    const yaw2 = rStick.x * scale
-    const pitch2 = -rStick.y * scale // invert: up on stick → tilt up
+    const yaw2 = lock === 'tilt' ? 0 : rStick.x * scale
+    const pitch2 = lock === 'pan' ? 0 : -rStick.y * scale // invert: up on stick → tilt up
 
     // ── Per-stick interlock: each stick disables ITS OWN camera's AI on first
     // deflection (edge), and re-arms when that stick returns to center. ──
@@ -336,6 +345,12 @@ export class GamepadController {
     if (this.edgePress(10, pressed(10))) {
       this.trackingMode = (this.trackingMode + 1) % TRACKING_SPEED_MODES
       this.cb.onCycleTrackingSpeed(this.trackingMode)
+    }
+
+    // RS(11) → cycle stick axis lock free → pan-only → tilt-only (felt confirm)
+    if (this.edgePress(11, pressed(11))) {
+      rumble(pad, 100, 0.6, 0.6)
+      this.cb.onCycleAxisLock()
     }
   }
 }

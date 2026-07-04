@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nipplejs from 'nipplejs'
 import { useStore } from '../store/useStore'
 import * as control from '../lib/cameraControl'
-import { GamepadController } from '../lib/gamepad'
+import { GamepadController, AxisLock } from '../lib/gamepad'
 import '../styles/camera.css'
 
 /**
@@ -117,6 +117,9 @@ function CameraPanelActive(): React.ReactElement {
   const [aiEnabled, setAiEnabled] = useState<boolean>(settings?.cameraAutoMode === true)
   const [manualFlash, setManualFlash] = useState(false)
   const [panSpeed, setPanSpeed] = useState(0.7) // joystick magnitude multiplier 0–1
+  // Stick axis lock (both Xbox sticks + on-screen joystick): 'pan' = pan only
+  // (kills the up/down drift while panning), 'tilt' = tilt only.
+  const [axisLock, setAxisLock] = useState<AxisLock>('free')
   const [zoomSpeed, setZoomSpeed] = useState(0.6) // zoom rocker speed multiplier 0–1
   const [savedFlashId, setSavedFlashId] = useState<number | null>(null)
   const [padLabel, setPadLabel] = useState<string | null>(null)
@@ -177,7 +180,11 @@ function CameraPanelActive(): React.ReactElement {
         if (!v) return
         const mult = panSpeedRef.current
         maybeLatchManual() // any deflection forces AI off + latches manual
-        control.setGimbal(v.x * stickMaxRef.current * mult, v.y * stickMaxRef.current * mult)
+        const lk = axisLockRef.current
+        control.setGimbal(
+          lk === 'tilt' ? 0 : v.x * stickMaxRef.current * mult,
+          lk === 'pan' ? 0 : v.y * stickMaxRef.current * mult,
+        )
       })
       m.on('end', () => {
         control.setGimbal(0, 0)
@@ -235,6 +242,8 @@ function CameraPanelActive(): React.ReactElement {
   useEffect(() => {
     stickMaxRef.current = stickMaxSpeed
   }, [stickMaxSpeed])
+  const axisLockRef = useRef<AxisLock>(axisLock)
+  useEffect(() => { axisLockRef.current = axisLock }, [axisLock])
 
   // ── Interlock helper: forcing AI off on any manual deflection ──
   const maybeLatchManual = useCallback(() => {
@@ -262,6 +271,10 @@ function CameraPanelActive(): React.ReactElement {
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
         // Back → start/stop recording a manual move.
         onRecordToggle: () => { void window.api.shotRecordToggle() },
+        // RS click → cycle stick axis lock (UI segmented control mirrors it).
+        onCycleAxisLock: () => {
+          setAxisLock((cur) => (cur === 'free' ? 'pan' : cur === 'pan' ? 'tilt' : 'free'))
+        },
         onManualLatched: () => {
           setAiEnabled(false)
           setManualFlash(true)
@@ -275,7 +288,7 @@ function CameraPanelActive(): React.ReactElement {
         },
         onConnection: (label) => setPadLabel(label),
       },
-      { deadzone, expo, maxSpeed: stickMaxSpeed },
+      { deadzone, expo, maxSpeed: stickMaxSpeed, axisLock },
     )
     gamepadRef.current = ctrl
     ctrl.start()
@@ -286,10 +299,10 @@ function CameraPanelActive(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Push live deadzone/expo/max-speed edits into the controller.
+  // Push live deadzone/expo/max-speed/axis-lock edits into the controller.
   useEffect(() => {
-    gamepadRef.current?.updateConfig({ deadzone, expo, maxSpeed: stickMaxSpeed })
-  }, [deadzone, expo, stickMaxSpeed])
+    gamepadRef.current?.updateConfig({ deadzone, expo, maxSpeed: stickMaxSpeed, axisLock })
+  }, [deadzone, expo, stickMaxSpeed, axisLock])
 
   // ── AUTO/MANUAL toggle ──
   // AUTO/MANUAL drives BOTH the live AI tracker AND cameraAutoMode (the routine-
@@ -457,6 +470,22 @@ function CameraPanelActive(): React.ReactElement {
           >Cam 2</button>
         </div>
         <span className="camera-manual-flash" style={{ opacity: 0.6 }}>Xbox: L stick = Cam 1 · R stick = Cam 2</span>
+      </div>
+
+      {/* ── Stick axis lock: kill tilt drift during a pure pan (and vice versa).
+          Applies to both Xbox sticks + this joystick. RS click cycles it too. ── */}
+      <div className="camera-row">
+        <span className="camera-label">Axis</span>
+        <div className="camera-segment">
+          <button className={axisLock === 'free' ? 'active' : ''} onClick={() => setAxisLock('free')}>Free</button>
+          <button className={axisLock === 'pan' ? 'active' : ''} onClick={() => setAxisLock('pan')} title="Pan only — tilt locked">Pan only</button>
+          <button className={axisLock === 'tilt' ? 'active' : ''} onClick={() => setAxisLock('tilt')} title="Tilt only — pan locked">Tilt only</button>
+        </div>
+        {axisLock !== 'free' && (
+          <span className="camera-manual-flash" style={{ opacity: 0.8 }}>
+            {axisLock === 'pan' ? 'tilt locked' : 'pan locked'} (RS click cycles)
+          </span>
+        )}
       </div>
       <div className="camera-row">
         <span className="camera-label">Cam 2 IP</span>
