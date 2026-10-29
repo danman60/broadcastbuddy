@@ -25,7 +25,9 @@ logo = site logo. Staged `D:\Shared\bb-deploy-2026-10-29\sessions\mvtihmlqxn2loa
 `%APPDATA%\broadcast-buddy\sessions\` on the show machine, then Load in BB. Not on site pages: 2025 winners.
 
 **Deploy:** canonical `--dir` build staged `D:\Shared\bb-deploy-2026-10-29` (app.asar 39,387,263 + unpacked +
-voice-helper). DART = SHOW MACHINE (owner 2026-10-29 09:28 ET). DEPLOYED 09:29 ET: asar 39,387,263 + unpacked 338/338 + resources\voice-helper + Elvis session; old build kept as app.asar(.unpacked).bak-0704. DART config cameraHost=192.168.2.91 (old venue IP) — OBSBOT on office LAN is 192.168.0.19 (DART reaches it). Operator must relaunch BB + add OBS dock. On DART: stop BB, swap asar +
+voice-helper). DART = SHOW MACHINE (owner 2026-10-29 09:28 ET). DEPLOYED 09:29 ET: asar 39,387,263 + unpacked 338/338 + resources\voice-helper + Elvis session; old build kept as app.asar(.unpacked).bak-0704. DART config cameraHost=192.168.2.91 (old venue IP) — OBSBOT on office LAN is 192.168.0.19 (DART reaches it). DART config cameraHost now 192.168.0.19 for office test (backup config.json.pre-office-test-20261029 has 192.168.2.91) — set venue IP on site.
+**DART real-path test 2026-10-29 ~09:50 ET (BB + OBS 32.2.1 launched via PsExec):** dock presets moved OBSBOT (1→5.8x, 3→9.4x); BB recorded on DART OBS; OBS-side StopRecord → RECORDING STOPPED alert, ack clears. VOICE E2E: DART speaker → laptop mic → SAPI → BB → camera, "preset 5/3/1" all recalled (conf 0.67/0.75/0.95).
+**SHOW RISK — voice mic:** helper uses only the Windows default input; DART default = Elgato "Personal Mix" (silent unless Wave Link app runs; it wasn't). BB Voice-panel mic picker is a no-op. Restored his defaults (Personal Mix, speakers 12%). BB + OBS left running on DART (BB voice bound to Realtek mic until restart). On DART: stop BB, swap asar +
 app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
 Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
 
@@ -137,3 +139,8 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 - DONE: Tested BB against the real OBS (3/3) and loaded the 26 Elvis lower thirds. Sent 5 mockups. Now tested the real OBSBOT camera: 3/3 pass.
 - IN PROGRESS: nothing.
 - NEEDS YOU: 1. Which machine runs BB this weekend? DART is the backup.
+
+## Arrival brief — 2026-10-29 09:29 ET — broadcast-buddy
+- DONE: Noted DART as the show machine. The new BB build (dock, alerts, voice fix) and the Elvis lower-thirds session are installed on it. The old July 4 build is kept as a backup.
+- IN PROGRESS: nothing.
+- NEEDS YOU: 1. Open BB on DART from the desktop. I can't launch it over SSH. 2. Confirm the camera address at the venue.
