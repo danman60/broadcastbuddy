@@ -41,8 +41,27 @@ export function buildDockHTML(wsPort: number): string {
   .next { color:var(--text); }
   #presets button.moving { border-color:var(--warn); color:var(--warn); }
   .moving-note { color:var(--warn); font-size:12px; margin-top:5px; min-height:16px; }
+  /* Pre-show readiness strip (readinessView === 'dock'): one READY chip when all rows pass,
+     expanded rows otherwise; tap the header to toggle. */
+  #ready { display:none; margin-bottom:6px; }
+  #ready.show { display:block; }
+  #readyHead { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:6px; cursor:pointer;
+               font-weight:700; font-size:12px; letter-spacing:.04em; border:1px solid var(--line); background:var(--panel); }
+  #ready.ok #readyHead { border-color:var(--ok); color:var(--ok); }
+  #ready.bad #readyHead { border-color:var(--warn); color:var(--warn); }
+  #readyHead .tog { margin-left:auto; color:var(--dim); font-weight:400; font-size:11px; }
+  #readyRows { display:none; margin:4px 0 0; padding:0; list-style:none; }
+  #ready.open #readyRows { display:block; }
+  .rrow { display:grid; grid-template-columns:8px 1fr; column-gap:6px; align-items:baseline; padding:3px 4px; font-size:12px; }
+  .rrow .dot { width:8px; height:8px; border-radius:50%; background:var(--dim); align-self:center; }
+  .rrow.ok .dot { background:var(--ok); } .rrow.warn .dot { background:var(--warn); } .rrow.bad .dot { background:var(--bad); }
+  .rrow.off { color:var(--dim); }
+  .rrow .lbl { font-weight:600; } .rrow .det { color:var(--dim); overflow-wrap:anywhere; }
+  .rrow .fix { grid-column:2; color:var(--warn); font-size:11px; line-height:1.35; }
+  .rrow.bad .fix { color:#ff7b7b; }
 </style></head>
 <body>
+  <div id="ready"><div id="readyHead"><span id="readyText"></span><span class="tog" id="readyTog"></span></div><ul id="readyRows"></ul></div>
   <div id="alerts"><ul id="alertList"></ul><button id="ack">ACKNOWLEDGE</button></div>
   <div class="chips" id="chips"></div>
 
@@ -88,6 +107,8 @@ export function buildDockHTML(wsPort: number): string {
   $('cam1').onclick = function () { send('cameraSelect', { id: 1 }); };
   $('cam2').onclick = function () { send('cameraSelect', { id: 2 }); };
   $('ack').onclick = function () { send('ackAlerts'); localAck = true; render(); };
+  var readyOpen = null; // null = auto (open while something needs fixing)
+  $('readyHead').onclick = function () { var r = state && state.readiness; readyOpen = !(readyOpen === null ? !(r && r.ready) : readyOpen); render(); };
 
   var ptt = $('ptt'), held = false;
   function down(e) { e.preventDefault(); if (held) return; held = true; ptt.classList.add('held'); send('voicePttDown'); }
@@ -118,7 +139,24 @@ export function buildDockHTML(wsPort: number): string {
     return (state && state.health && state.health.alerts) || [];
   }
 
+  function renderReady() {
+    var r = connected && state && state.readiness, box = $('ready');
+    box.classList.toggle('show', !!r);
+    if (!r) return;
+    var open = readyOpen === null ? !r.ready : readyOpen;
+    box.className = 'show ' + (r.ready ? 'ok' : 'bad') + (open ? ' open' : '');
+    var todo = r.rows.filter(function (x) { return x.status === 'warn' || x.status === 'bad'; }).length;
+    var off = []; r.rows.forEach(function (x) { var w = x.label.split(' ')[0].toLowerCase() + ' off'; if (x.status === 'off' && off.indexOf(w) < 0) off.push(w); });
+    $('readyText').textContent = (r.ready ? '● READY' : '● ' + todo + ' TO FIX') + (r.ready && off.length ? ' · ' + off.join(', ') : '');
+    $('readyTog').textContent = open ? 'hide' : 'checks';
+    $('readyRows').innerHTML = r.rows.map(function (x) {
+      return '<li class="rrow ' + x.status + '"><span class="dot"></span><span><span class="lbl">' + esc(x.label) + '</span> <span class="det">' + esc(x.detail) + '</span></span>' +
+        (x.fix ? '<span class="fix">' + esc(x.fix) + '</span>' : '') + '</li>';
+    }).join('');
+  }
+
   function render() {
+    renderReady();
     var alerts = currentAlerts();
     var box = $('alerts');
     box.style.display = alerts.length ? 'block' : 'none';

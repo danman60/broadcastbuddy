@@ -1,4 +1,4 @@
-import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset, VoiceStatus, RecordedMove, ShotRecorderState } from '../shared/types'
+import type { Trigger, OverlayStyling, OverlayState, AppSettings, Session, LoopMode, SlowZoomStatus, ChatState, CcRelayState, RecordState, EventLogRecord, EventLogKind, RecoveryStatus, StartupReport, BackupInfo, ClockState, FeatureCardState, StartingSoonState, DayChecklistKind, DayChecklistItemState, DayChecklistView, StreamConfig, Note, MonitorInfo, WifiDisplayState, DirectModeStatus, WifiDirectP2PStatus, BleAdvertiseStatus, BroadcastPackage, CCEvent, CCChecklistItem, ExtractionResult, GalleryConfig, PhotoMatch, RoutineBoundary, StreamState, SystemStats, StreamDeckStatus, UserStylePreset, VoiceStatus, RecordedMove, ShotRecorderState, ReadinessReport } from '../shared/types'
 
 interface ElectronAPI {
   // Overlay
@@ -189,6 +189,7 @@ interface ElectronAPI {
   voiceRefreshGrammar: () => Promise<{ ok: boolean }>
   voiceGetStatus: () => Promise<VoiceStatus>
   onVoiceState: (cb: (status: VoiceStatus) => void) => void
+  readinessGet: () => Promise<ReadinessReport | null>
 
   // Per-camera PTZ (dual-Xbox)
   cameraNudgeXYFor: (args: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }) => Promise<{ ok: boolean }>

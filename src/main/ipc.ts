@@ -48,6 +48,7 @@ import {
   sweepWaypoints,
 } from './services/cameraDirector'
 import * as voiceDirector from './services/voiceDirector'
+import { getReadiness } from './services/readiness'
 import * as shotRecorder from './services/shotRecorder'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1511,6 +1512,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.VOICE_GET_STATUS, () => {
     return voiceDirector.getStatus()
   })
+
+  ipcMain.handle(IPC.READINESS_GET, () => getReadiness())
 
   // ── Per-camera PTZ (dual-Xbox: left stick→cam1, right stick→cam2) ───────────
   ipcMain.handle(IPC.CAMERA_NUDGE_XY_FOR, (_e, a: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }) => {

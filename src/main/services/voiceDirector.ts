@@ -68,6 +68,7 @@ type VoiceMsg = VoiceMsgResult | VoiceMsgReject | VoiceMsgError | { t: 'ready' }
 
 let helper: ChildProcessWithoutNullStreams | null = null
 let helperReady = false
+let micName = '' // last device name the helper reported
 let listening = false
 let stdoutBuf = ''
 let restartTimer: NodeJS.Timeout | null = null
@@ -258,6 +259,11 @@ export function pttUp(): void {
   pushStatus()
 }
 
+/** Device name the helper opened ('' until it reports one). */
+export function getMicName(): string {
+  return micName
+}
+
 export function getStatus(): VoiceStatus {
   return {
     helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
@@ -322,7 +328,8 @@ function handleHelperLine(line: string): void {
       logger.warn(`voice-helper error: ${msg.reason}`)
       break
     case 'mic':
-      logger.info(`voice-helper mic: ${msg.name || 'Windows default'}`)
+      micName = msg.name || 'Windows default'
+      logger.info(`voice-helper mic: ${micName}`)
       break
     case 'pong':
       break

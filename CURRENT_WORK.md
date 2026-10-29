@@ -1,5 +1,9 @@
 # Current Work - BroadcastBuddy
 
+## Branch fable/readiness-panel (2026-10-29, NOT merged, not deployed)
+Ten-and-ten feature 6 built: self-ticking pre-show readiness, `readinessView: off|panel|dock` (default off),
+Settings → General. Spec `tests/zz-readiness.spec.ts` 4/4. Report `docs/wf-fable-readiness-panel-REPORT.md`.
+
 ## Session 2026-10-29 — weekend prep (show Oct 31 / Nov 1)
 Asks: voice-to-preset tested beforehand; alerts when OBS/recording/OBSBOT stops; an OBS dock instead of app-switching.
 

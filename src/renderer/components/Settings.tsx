@@ -13,7 +13,7 @@ import '../styles/settings.css'
 // the section JSX below needs no changes. Add a new group's title prefix here to slot
 // it under a tab (falls back to General if unmatched).
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
-  { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
+  { id: 'general', label: 'General', sections: ['Server', 'Pre-show Readiness', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
   { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
@@ -448,6 +448,24 @@ export function Settings() {
           </div>
           <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             Restart app after changing ports.
+          </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Pre-show Readiness</div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 100 }}>Show checks</label>
+            <select
+              value={settings?.readinessView || 'off'}
+              onChange={(e) => { void window.api.settingsSet('readinessView', e.target.value).then((s) => useStore.getState().setSettings(s)) }}
+            >
+              <option value="off">Off</option>
+              <option value="panel">Card in the app (show rail)</option>
+              <option value="dock">Strip at the top of the OBS dock</option>
+            </select>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Auto-ticks from live state: OBS, recording folder, cameras, voice + mic, session, overlay source, dock.
           </p>
         </div>
 

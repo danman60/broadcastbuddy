@@ -440,6 +440,9 @@ export interface AppSettings {
   // package. Written on package-apply; read at IPC registration startup.
   ccRelayConfig?: CcRelayConfig
   dayChecklistLastShown?: string // YYYY-MM-DD the start-of-day modal last auto-shown
+  // Pre-show readiness view (auto-ticking checks from live state). 'panel' = card in the
+  // show rail; 'dock' = strip at the top of the OBS dock. Default 'off' = nothing rendered.
+  readinessView?: 'off' | 'panel' | 'dock'
   hotkeys?: HotkeyConfig
   // OBSBOT camera host (IP). Empty/unset = camera integration OFF (complete
   // no-op on trigger fire). When set, firing a trigger with a numeric
@@ -1169,6 +1172,7 @@ export const IPC = {
   VOICE_REFRESH_GRAMMAR: 'voice:refresh-grammar',// rebuild + push SAPI grammar (after shot labels change)
   VOICE_GET_STATUS: 'voice:get-status',          // current helper/listening status (never throws)
   VOICE_STATE: 'voice:state',                    // main→renderer push: VoiceStatus (helper state + last result)
+  READINESS_GET: 'readiness:get',                // ReadinessReport | null (null when readinessView is off)
 
   // Per-camera PTZ control (multi-PTZ / dual-Xbox: left stick→cam1, right stick→cam2).
   CAMERA_NUDGE_XY_FOR: 'camera:nudge-xy-for',     // {camera, yaw, pitch, stop?}
@@ -1305,6 +1309,22 @@ export interface WsStateMessage {
   }
   health?: ShowHealth
   voice?: VoiceStatus
+  readiness?: ReadinessReport // only when readinessView === 'dock'
+}
+
+// Pre-show readiness (readiness.ts) — rows auto-ticked from live state.
+export type ReadinessStatus = 'ok' | 'warn' | 'bad' | 'off' // off = feature not configured, doesn't block READY
+export interface ReadinessRow {
+  id: string
+  label: string
+  status: ReadinessStatus
+  detail: string // what we see, e.g. "connected", "412 GB free"
+  fix?: string // plain-English next step, set on warn/bad
+}
+export interface ReadinessReport {
+  ready: boolean // no warn/bad rows
+  rows: ReadinessRow[]
+  at: number
 }
 
 // Show-monitor alert state (showMonitor.ts) — rides the WS state message for the OBS dock.

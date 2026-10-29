@@ -15,6 +15,7 @@ import * as backup from './services/backup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
 import * as showMonitor from './services/showMonitor'
+import * as readiness from './services/readiness'
 import * as voiceDirector from './services/voiceDirector'
 import * as shotRecorder from './services/shotRecorder'
 import { runStartupChecks } from './services/startup'
@@ -247,6 +248,9 @@ app.whenReady().then(() => {
   // 17b. Show monitor — OBS/recording/stream/camera alerts → WS state (OBS dock) + OS notification.
   showMonitor.setOnHealthChanged(() => wsHub.broadcastState())
   showMonitor.startShowMonitor()
+
+  // 17c. Pre-show readiness rows (dormant unless readinessView != 'off') → WS state (dock) / IPC (panel).
+  readiness.startReadiness(wsHub.getClientNames, () => wsHub.broadcastState())
 
   // 18. Voice-driven PTZ director — spawns the bundled voice-helper.exe only when
   //     voiceEnabled + a camera host is set; otherwise a complete no-op.

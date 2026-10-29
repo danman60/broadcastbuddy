@@ -1,0 +1,60 @@
+/* ===== Pre-show readiness card (show rail) =====
+   Same card chrome as the other rail panels (.panel-section); rows use the
+   global status colours (--success / --warning / --danger). */
+
+.readiness-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid currentColor;
+}
+.readiness-badge.ok { color: var(--success); }
+.readiness-badge.bad { color: var(--warning); }
+
+.readiness-empty { font-size: 12px; color: var(--text-dim); }
+
+.readiness-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.readiness-row {
+  display: grid;
+  grid-template-columns: 10px 110px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.readiness-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  align-self: center;
+}
+.readiness-row.ok .readiness-dot { background: var(--success); box-shadow: 0 0 6px rgba(62, 207, 107, 0.5); }
+.readiness-row.warn .readiness-dot { background: var(--warning); }
+.readiness-row.bad .readiness-dot { background: #e5484d; box-shadow: 0 0 6px rgba(229, 72, 77, 0.5); }
+
+.readiness-label { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+.readiness-row.off .readiness-label,
+.readiness-row.off .readiness-detail { color: var(--text-dim); }
+.readiness-detail {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.readiness-fix {
+  grid-column: 2 / -1;
+  font-size: 11px;
+  color: var(--warning);
+  line-height: 1.35;
+}
+.readiness-row.bad .readiness-fix { color: #f08a8e; }

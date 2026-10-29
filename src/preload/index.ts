@@ -281,6 +281,8 @@ contextBridge.exposeInMainWorld('api', {
   onVoiceState: (cb: (status: import('../shared/types').VoiceStatus) => void): void => {
     ipcRenderer.on(IPC.VOICE_STATE, (_e, status) => cb(status))
   },
+  readinessGet: (): Promise<import('../shared/types').ReadinessReport | null> =>
+    ipcRenderer.invoke(IPC.READINESS_GET),
 
   // ── Per-camera PTZ (dual-Xbox) ────────────────────────────────
   cameraNudgeXYFor: (args: { camera: 1 | 2; yaw: number; pitch: number; stop?: boolean }): Promise<{ ok: boolean }> =>

@@ -32,6 +32,7 @@ import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPre
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
 import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged } from './voiceDirector'
 import { getHealth, ackAlerts } from './showMonitor'
+import { getReadiness } from './readiness'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
@@ -75,7 +76,13 @@ function buildStateMessage(): WsStateMessage {
     },
     health: getHealth(),
     voice: getVoiceStatus(),
+    readiness: settings.get('readinessView') === 'dock' ? getReadiness() ?? undefined : undefined,
   }
+}
+
+/** Identified client names (overlay, obs-dock, test, …) — readiness checks who is attached. */
+export function getClientNames(): string[] {
+  return [...clients.values()]
 }
 
 export function broadcastState(): void {

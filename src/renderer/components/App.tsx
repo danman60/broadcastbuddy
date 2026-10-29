@@ -29,6 +29,7 @@ import { Settings } from './Settings'
 import { VisualEditor } from './VisualEditor'
 import { StartingSoonEditor } from './StartingSoonEditor'
 import { DayChecklist } from './DayChecklist'
+import { ReadinessPanel } from './ReadinessPanel'
 import '../styles/app.css'
 
 export function App() {
@@ -39,6 +40,7 @@ export function App() {
   const leftPanelWidth = useStore((s) => s.leftPanelWidth)
   const showVisualEditor = useStore((s) => s.showVisualEditor)
   const showStartingSoonEditor = useStore((s) => s.showStartingSoonEditor)
+  const readinessView = useStore((s) => s.settings?.readinessView)
   const draggingRef = useRef(false)
   // App-level success toast — fires ONLY when the main process VERIFIED (via
   // OBS read-back) that the stream key actually landed in OBS, never on a blind
@@ -142,6 +144,7 @@ export function App() {
           {/* RIGHT — Show Rail: fixed-width vertical card stack with its own
               scroll. Camera · Content (tabbed) · Broadcast (tabbed) · Chat. */}
           <aside className="show-rail">
+            {readinessView === 'panel' && <ReadinessPanel />}
             {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
               <div className={`panel-section${cameraCollapsed ? ' collapsed' : ''}`}>
                 <div className="panel-section-title" onClick={() => setCameraCollapsed(!cameraCollapsed)}>

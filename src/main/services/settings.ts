@@ -42,6 +42,7 @@ const store = new Store<AppSettings>({
     obsTransitionRevert: false,
     chatConfig: { ...DEFAULT_CHAT_CONFIG },
     dayChecklistLastShown: '',
+    readinessView: 'off',
     hotkeys: { ...DEFAULT_HOTKEYS },
     cameraHost: '',
     // OBSBOT camera additive controls — defaults preserve current OFF behaviour.
