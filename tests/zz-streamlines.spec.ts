@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import http from 'http'
 import { WebSocket, WebSocketServer, AddressInfo } from 'ws'
+import { DEFAULT_STYLING } from '../src/shared/types'
 
 const root = path.resolve(__dirname, '..')
 const phase = process.env.BB_PROOF_PHASE || 'after'
@@ -13,8 +14,11 @@ let dock: Page
 let overlay: Page
 let cam: http.Server
 let obs: WebSocketServer
+let profile: string
 const requests: string[] = []
 const errors: string[] = []
+const consoleMessages: string[] = []
+const blockedRequests: string[] = []
 const api = (fn: string, ...args: unknown[]) => win.evaluate(
   ([name, values]) => (window as any).api[name as string](...(values as unknown[])), [fn, args] as const,
 )
@@ -40,7 +44,7 @@ test.beforeAll(async () => {
     })
   })
   await new Promise<void>(resolve => obs.on('listening', resolve))
-  const profile = fs.mkdtempSync(path.join(root, '.wf-streamlines', `visual-${phase}-profile-`))
+  profile = fs.mkdtempSync(path.join(root, '.wf-streamlines', `visual-${phase}-profile-`))
   app = await electron.launch({
     args: [root, `--user-data-dir=${profile}`, '--disable-gpu', '--no-sandbox'],
     env: { ...process.env, NODE_ENV: 'production' },
@@ -61,9 +65,18 @@ test.beforeAll(async () => {
   browser = await chromium.launch()
   const context = await browser.newContext()
   // The comparison uses system fonts and never fetches external font/assets.
-  await context.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1'
-    ? route.continue() : route.abort())
-  context.on('page', page => page.on('pageerror', e => errors.push(e.message)))
+  await context.route('**/*', route => {
+    const url = route.request().url()
+    if (new URL(url).hostname === '127.0.0.1') return route.continue()
+    blockedRequests.push(url)
+    return route.abort()
+  })
+  context.on('page', page => {
+    page.on('pageerror', e => errors.push(e.message))
+    page.on('console', message => {
+      if (['warning', 'error'].includes(message.type())) consoleMessages.push(`${message.type()}: ${message.text()}`)
+    })
+  })
   dock = await context.newPage()
   await dock.goto('http://127.0.0.1:19080/dock')
   await expect(dock.locator('.chip', { hasText: /^OBS$/ })).toHaveClass(/ok/, { timeout: 10000 })
@@ -80,10 +93,13 @@ test.afterAll(async () => {
   obs?.close()
   cam?.close()
   cam?.closeAllConnections()
+  fs.writeFileSync(path.join(root, '.wf-streamlines', `visual-${phase}-console.json`), JSON.stringify({ errors, consoleMessages, blockedRequests }, null, 2))
   expect(errors).toEqual([])
 })
 
 test('empty dock fits desktop and narrow widths; fired lower third is captured', async () => {
+  const settings = await api('settingsGet')
+  await expect(dock.locator('script[src="/dock.js"]')).toHaveAttribute('data-ws-port', String(settings.server.wsPort))
   for (const width of [300, 390, 500, 1440]) {
     await dock.setViewportSize({ width, height: 900 })
     expect(await dock.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -98,8 +114,29 @@ test('empty dock fits desktop and narrow widths; fired lower third is captured',
   await dock.locator('[data-cmd="fireLT"]').click()
   await expect(overlay.locator('#lt')).toHaveClass(/visible/)
   await expect(overlay.locator('#lt-title')).toHaveText('Streamlines fixture one')
+  await dock.locator('#presets button', { hasText: /^3$/ }).click()
+  await expect(dock.locator('#moving')).toContainText('moving to preset 3')
+  for (const width of [300, 500]) {
+    await dock.setViewportSize({ width, height: 900 })
+    expect(await dock.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await dock.screenshot({ path: `tests/screenshots/streamlines-${phase}-dock-fired-${width}.png`, fullPage: true })
+  }
   await overlay.waitForTimeout(1500)
   await overlay.screenshot({ path: `tests/screenshots/streamlines-${phase}-overlay.png` })
+
+  // Match the untouched suite's default-styled fixture in an isolated profile.
+  // The existing state-machine spec inherits styling from preceding files.
+  await api('triggerUpdate', 'streamlines-0', { title: 'Ada Lovelace', subtitle: 'Mathematician' })
+  await api('overlayUpdateStyling', { ...DEFAULT_STYLING, autoHideSeconds: 0 })
+  await overlay.setViewportSize({ width: 1280, height: 720 })
+  await dock.locator('[data-cmd="fireLT"]').click()
+  await expect(overlay.locator('#lt-title')).toHaveText('Ada Lovelace')
+  await overlay.waitForTimeout(1000)
+  await overlay.screenshot({ path: `tests/screenshots/streamlines-${phase}-lower-third-controlled.png` })
+  const visualState = await api('overlayGetState')
+  fs.writeFileSync(path.join(root, '.wf-streamlines', `visual-${phase}-overlay-state.json`), JSON.stringify(visualState.lowerThird, null, 2))
+  await api('triggerUpdate', 'streamlines-0', { title: 'Streamlines fixture one', subtitle: 'Overlay comparison fixture' })
+  await overlay.setViewportSize({ width: 1920, height: 1080 })
   await dock.locator('[data-cmd="hideLT"]').click()
   await expect(overlay.locator('#lt')).not.toHaveClass(/visible/)
 })
@@ -140,11 +177,17 @@ test('dock controls, refresh, navigation, auto-hide and ad-hoc remain usable', a
 })
 
 test('dock shows disconnection and acknowledgment then reconnects', async () => {
-  await dock.context().setOffline(true)
+  await app.close()
   await expect(dock.locator('#alertList')).toContainText('BROADCASTBUDDY NOT RESPONDING', { timeout: 10000 })
   await dock.locator('#ack').click()
   await expect(dock.locator('#alerts')).toHaveClass(/acked/)
-  await dock.context().setOffline(false)
+  app = await electron.launch({
+    args: [root, `--user-data-dir=${profile}`, '--disable-gpu', '--no-sandbox'],
+    env: { ...process.env, NODE_ENV: 'production' },
+  })
+  win = await app.firstWindow()
+  await win.waitForLoadState('domcontentloaded')
+  await api('obsConnect', '127.0.0.1', (obs.address() as AddressInfo).port)
   await expect(dock.locator('.chip', { hasText: /^OBS$/ })).toHaveClass(/ok/, { timeout: 10000 })
 })
 

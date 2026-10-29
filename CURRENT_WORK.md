@@ -1,5 +1,13 @@
 # Current Work - BroadcastBuddy
 
+## Branch wf/streamlines: behavior-preserving cleanup
+
+Work is isolated to `/home/danman60/projects/BroadcastBuddy-wf-clean`; nothing is merged or deployed to main or DART.
+The six requested slices have separate commits. Item 5 already existed at the base commit; its unchanged browser-source boundary is documented.
+Untouched full suite: 424 passed / 22 failed / 6 skipped / 10 not run. Final full suite: 447 passed / 13 failed / 6 skipped / 0 not run, with no new failing title.
+Build and web typecheck pass; node typecheck retains the three allowed pre-existing errors. All four focused UI tests pass, including the final isolated screenshot capture. Overlay and dock screenshots were inspected locally; comparison details are in the report.
+Report: `docs/wf-wf-streamlines-REPORT.md`. Resume details: `HANDOFF.md`.
+
 ## Session 2026-10-29 — weekend prep (show Oct 31 / Nov 1)
 Asks: voice-to-preset tested beforehand; alerts when OBS/recording/OBSBOT stops; an OBS dock instead of app-switching.
 
