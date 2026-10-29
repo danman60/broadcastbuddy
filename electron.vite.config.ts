@@ -1,6 +1,7 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import { readFileSync } from 'node:fs'
 
 export default defineConfig({
   main: {
@@ -8,7 +9,17 @@ export default defineConfig({
     // external node_module. It's a `file:` junction to ../obsbot-control (outside
     // the project root), which electron-builder's asar packager refuses to walk.
     // Bundling inlines it under out/main; osc stays external (optional, lazy).
-    plugins: [externalizeDepsPlugin({ exclude: ['@compsync/camera'] })],
+    plugins: [
+      externalizeDepsPlugin({ exclude: ['@compsync/camera'] }),
+      {
+        name: 'check-dock-script',
+        buildStart() {
+          const script = resolve(__dirname, 'src/main/assets/dock.js')
+          this.addWatchFile(script)
+          this.parse(readFileSync(script, 'utf8'))
+        },
+      },
+    ],
     build: {
       rollupOptions: {
         input: {

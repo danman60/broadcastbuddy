@@ -9,5 +9,6 @@ Branch: `wf/streamlines`. Base: `b0e3004`. No deployment or device access.
 - Item 3: heartbeat liveness uses a typed WeakMap; the 30-second ping/termination cycle is unchanged.
 - Item 4: IPC is split into domain files; 191 handlers and all 210 registration statements match verbatim and in order, except relative imports. Nine helper bodies are unchanged.
 - Item 5: already implemented at the base commit. `overlaySource.ts` is byte-identical; its boundary and only application caller are documented in `docs/overlay-source-boundary.md`.
+- Item 6: dock HTML/JS are packaged assets, Express retains `/dock` and serves `/dock.js`, and each build parses the JS. Added real Electron dock/timer/heartbeat coverage with local fakes.
 - Graph callers reviewed. Final build, typechecks, full suite and image comparison pending.
-- Next: dock assets, then final verification and report.
+- Next: final build, typechecks, full suite, screenshot review/comparison and report.

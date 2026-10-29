@@ -1,5 +1,5 @@
 import express from 'express'
-import { buildDockHTML } from './dockPage'
+import { buildDockHTML, dockScriptPath } from './dockPage'
 import type { Server } from 'http'
 import {
   OverlayState,
@@ -949,6 +949,10 @@ export function startServer(port: number, wsPort = 19081): void {
 
   app.get('/dock', (_req, res) => {
     res.type('html').send(buildDockHTML(configuredWsPort))
+  })
+
+  app.get('/dock.js', (_req, res) => {
+    res.sendFile(dockScriptPath)
   })
 
   app.get('/current', (_req, res) => {
