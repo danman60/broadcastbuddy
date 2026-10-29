@@ -314,9 +314,9 @@ function advanceIndex(forward: boolean): void {
   }
 }
 
-export function nextTrigger(): void {
+function navigateTrigger(forward: boolean): void {
   if (triggers.length === 0) return
-  advanceIndex(true)
+  advanceIndex(forward)
   applyTriggerToOverlay(triggers[selectedIndex])
   applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
   markRoutine(triggers[selectedIndex])
@@ -326,16 +326,12 @@ export function nextTrigger(): void {
   }
 }
 
+export function nextTrigger(): void {
+  navigateTrigger(true)
+}
+
 export function prevTrigger(): void {
-  if (triggers.length === 0) return
-  advanceIndex(false)
-  applyTriggerToOverlay(triggers[selectedIndex])
-  applyRoutineForTrigger(triggers[selectedIndex].dancerCount) // camera follows nav, no fire
-  markRoutine(triggers[selectedIndex])
-  notifyChange()
-  if (autoFireEnabled) {
-    setTimeout(() => fireLowerThird(), 300)
-  }
+  navigateTrigger(false)
 }
 
 // Advance/retreat the CURRENT routine for camera framing + recording markers
