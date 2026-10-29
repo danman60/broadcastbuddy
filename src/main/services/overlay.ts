@@ -72,6 +72,12 @@ let streamConfig: StreamConfig = { ...DEFAULT_STREAM_CONFIG }
 let onChangeCallback: (() => void) | null = null
 let httpServer: Server | null = null
 
+function scheduleAutoHide(timer: NodeJS.Timeout | null, hide: () => void): NodeJS.Timeout | null {
+  if (timer) clearTimeout(timer)
+  const seconds = overlayState.lowerThird.styling.autoHideSeconds
+  return seconds > 0 ? setTimeout(hide, seconds * 1000) : null
+}
+
 const ANIMATIONS: AnimationType[] = ['slide', 'fade', 'zoom', 'rise', 'typewriter', 'bounce', 'split', 'blur', 'sparkle']
 
 function pickAnimation(setting: AnimationType): string {
@@ -531,13 +537,7 @@ export function fireLowerThird(forceLowerThird = false): void {
 
   overlayState.lowerThird.visible = true
 
-  if (autoHideTimer) clearTimeout(autoHideTimer)
-  const seconds = overlayState.lowerThird.styling.autoHideSeconds
-  if (seconds > 0) {
-    autoHideTimer = setTimeout(() => {
-      hideLowerThird()
-    }, seconds * 1000)
-  }
+  autoHideTimer = scheduleAutoHide(autoHideTimer, hideLowerThird)
 
   notifyChange()
   logger.info('Lower third fired')
@@ -590,13 +590,7 @@ export function fireAdhoc(title: string, subtitle = ''): void {
   // Reuse fireLowerThird's visible + auto-hide + notify path without going
   // through it (so we don't depend on/disturb playlist selection state).
   overlayState.lowerThird.visible = true
-  if (autoHideTimer) clearTimeout(autoHideTimer)
-  const seconds = overlayState.lowerThird.styling.autoHideSeconds
-  if (seconds > 0) {
-    autoHideTimer = setTimeout(() => {
-      hideLowerThird()
-    }, seconds * 1000)
-  }
+  autoHideTimer = scheduleAutoHide(autoHideTimer, hideLowerThird)
   notifyChange()
   logger.info(`Ad-hoc lower third fired (adhoc-${adhocCounter}): ${t}`)
   recordEvent('overlay', `Ad-hoc lower third fired: ${t}`)
@@ -759,11 +753,7 @@ export function showFeatureCard(data: Partial<Omit<FeatureCardState, 'visible' |
     firedAt: Date.now(),
   }
   // Auto-hide reuses the lower-third autoHideSeconds setting (0 = manual only).
-  if (featureCardTimer) clearTimeout(featureCardTimer)
-  const seconds = overlayState.lowerThird.styling.autoHideSeconds
-  if (seconds > 0) {
-    featureCardTimer = setTimeout(() => hideFeatureCard(), seconds * 1000)
-  }
+  featureCardTimer = scheduleAutoHide(featureCardTimer, hideFeatureCard)
   notifyChange()
   logger.info(`Feature card fired: ${data.kicker || overlayState.featureCard.kicker}`)
   recordEvent('overlay', `Feature card fired: ${overlayState.featureCard.title || overlayState.featureCard.kicker}`)

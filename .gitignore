@@ -1,4 +1,7 @@
 node_modules/
+/node_modules
+.wf-streamlines/
+tests/screenshots/
 dist/
 dist-electron/
 out/
