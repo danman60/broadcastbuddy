@@ -117,8 +117,15 @@ export function stopSnapshots(): void {
  * snapshot exists, load it into `pendingSnapshot` so the renderer can offer a
  * restore. Always (re)writes a fresh dirty marker for the current run.
  */
+let lastRunUnclean = false
+/** True when the previous run ended without a clean quit (crash / force-kill), snapshot or not. */
+export function wasUnclean(): boolean {
+  return lastRunUnclean
+}
+
 export function checkAndRecover(): RecoveryStatus {
   const dirty = fs.existsSync(getDirtyPath())
+  lastRunUnclean = dirty
   // (Re)arm the marker for this run regardless of what we found.
   markDirty()
 

@@ -24,7 +24,6 @@ import {
   slowZoomPush,
   zoomCameraVelocity,
   goHomeViaCamera,
-  sweepBetweenPresets,
   setCameraAiEnable,
   stopAllCameraMotion,
   abortCameraMoves,
@@ -33,7 +32,7 @@ import {
 import { getMoves, replayMoveByLabel } from './shotRecorder'
 import { setVoiceMicSilent } from './showMonitor'
 import { IPC, VoiceResult, VoiceStatus, VoiceShot } from '../../shared/types'
-import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR } from '../../shared/cameraMoves'
+import { SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR } from '../../shared/cameraMoves'
 import { createLogger } from '../logger'
 
 const logger = createLogger('voiceDirector')
@@ -61,8 +60,6 @@ interface VoiceMsgResult {
   camera?: number | null
   verb: string
   target?: string | null
-  from?: number | null
-  to?: number | null
   confidence: number
 }
 interface VoiceMsgReject { t: 'reject'; reason?: string; confidence?: number }
@@ -270,16 +267,16 @@ export function getStatus(): VoiceStatus {
   }
 }
 
-/**
- * React to a wake-word setting change (word edited or hands-free toggled). Re-push
- * the grammar (which now carries — or drops — the required wake prefix) and tell the
- * helper to start/stop CONTINUOUS recognition. No-op unless the helper is up.
- */
 /** Picker changed → helper reopens its capture device (label; '' = Windows default). */
 export function applyMic(): void {
   if (helper && helperReady) send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
 }
 
+/**
+ * React to a wake-word setting change (word edited or hands-free toggled). Re-push
+ * the grammar (which now carries — or drops — the required wake prefix) and tell the
+ * helper to start/stop CONTINUOUS recognition. No-op unless the helper is up.
+ */
 export function applyWakeMode(): void {
   if (!helper || !helperReady) {
     pushStatus()
@@ -333,9 +330,15 @@ function handleHelperLine(line: string): void {
 }
 
 // ── Command routing ──────────────────────────────────────────────────────────
+const STRICT_VERBS = new Set(['wide', 'track', 'pushIn', 'slowPushIn', 'pullOut', 'zoomIn'])
+const STRICT_VERB_FLOOR = 0.8
+
 function routeResult(msg: VoiceMsgResult): void {
   const s = settings.getAll()
-  const floor = typeof s.voiceConfidenceFloor === 'number' ? s.voiceConfidenceFloor : 0.6
+  const base = typeof s.voiceConfidenceFloor === 'number' ? s.voiceConfidenceFloor : 0.6
+  // Short bare verbs ("wide", "track") are what random talk lands on ("pizza delivery tonight" →
+  // wide @ 0.60 on DART 2026-10-29) → they need a firmer match. recall/stop keep the operator floor.
+  const floor = STRICT_VERBS.has(msg.verb) ? Math.max(base, STRICT_VERB_FLOOR) : base
   if (msg.confidence < floor) {
     emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'low confidence', confidence: msg.confidence, reason: 'below-floor' })
     return
@@ -394,16 +397,6 @@ function routeResult(msg: VoiceMsgResult): void {
       goHomeViaCamera()
       ok(`CAM${camera} ▸ WIDE`)
       break
-    case 'sweep': {
-      // resolveShotSlot handles numeric tokens (slots 1-8 always pass); an unknown
-      // label or out-of-range number → null → reject.
-      const from = resolveShotSlot(camera, (msg.from ?? '').toString())
-      const to = resolveShotSlot(camera, (msg.to ?? '').toString())
-      if (from == null || to == null) return reject('unset-shot', 'sweep shots not set')
-      sweepBetweenPresets(from, to, SWEEP_DEFAULT_MS)
-      ok(`CAM${camera} ▸ SWEEP ${from}→${to}`)
-      break
-    }
     case 'track':
       setCameraAiEnable(true)
       ok(`CAM${camera} ▸ TRACK`)

@@ -115,6 +115,17 @@ test('recording stopped → alert; ack dismisses it', async () => {
   await waitHealth((x) => !ids(x).includes('rec-stopped'))
 })
 
+test('BB stops the recording itself → no RECORDING STOPPED alarm', async () => {
+  obsState.outputActive = true
+  await waitHealth((x) => x.recording)
+  hub.send(JSON.stringify({ type: 'command', action: 'toggleRecord' })) // mock ToggleRecord → outputActive absent = stopped
+  await new Promise((r) => setTimeout(r, 500))
+  obsState.outputActive = false
+  await waitHealth((x) => !x.recording)
+  await new Promise((r) => setTimeout(r, 6500)) // two more polls
+  expect(ids(lastState.health)).not.toContain('rec-stopped')
+})
+
 test('dock renders and its buttons drive the camera', async () => {
   const browser = await chromium.launch()
   for (const width of [300, 500]) {
@@ -134,6 +145,19 @@ test('dock renders and its buttons drive the camera', async () => {
   await page.locator('#presets button', { hasText: '3' }).click()
   await expect.poll(() => camRequests.slice(before).join('\n'), { timeout: 5000 }).toMatch(/preset/i)
   console.log('camera requests after preset 3:', camRequests.slice(before))
+  await expect(page.locator('#moving')).toContainText('moving to preset 3')
+  await expect(page.locator('#presets button', { hasText: '3' })).toHaveClass(/moving/)
+  // next performer line (title · subtitle of the trigger after the selected one)
+  await win.evaluate(async () => {
+    const api = (window as any).api
+    await api.triggerAdd({ id: 'dock-n1', name: 'Dock One', title: 'Dock One', subtitle: 'FROM ONE', category: '', order: 900, logoDataUrl: '' })
+    await api.triggerAdd({ id: 'dock-n2', name: 'Dock Two', title: 'Dock Two', subtitle: 'FROM TWO', category: '', order: 901, logoDataUrl: '' })
+    const list = (await api.triggerList()).triggers
+    await api.triggerSelect(list.findIndex((t: any) => t.id === 'dock-n1'))
+  })
+  await expect(page.locator('#next')).toContainText('NEXT: Dock Two · FROM TWO')
+  await page.screenshot({ path: 'tests/screenshots/dock-moving-next.png', fullPage: true })
+  await win.evaluate(async () => { const api = (window as any).api; await api.triggerDelete('dock-n1'); await api.triggerDelete('dock-n2') })
   await browser.close()
 })
 

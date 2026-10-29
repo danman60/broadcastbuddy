@@ -38,6 +38,9 @@ export function buildDockHTML(wsPort: number): string {
   .heard { margin-top:5px; color:var(--dim); font-size:12px; min-height:16px; overflow-wrap:anywhere; }
   .heard.ok { color:var(--ok); } .heard.bad { color:var(--warn); }
   .lt { color:var(--dim); font-size:12px; margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .next { color:var(--text); }
+  #presets button.moving { border-color:var(--warn); color:var(--warn); }
+  .moving-note { color:var(--warn); font-size:12px; margin-top:5px; min-height:16px; }
 </style></head>
 <body>
   <div id="alerts"><ul id="alertList"></ul><button id="ack">ACKNOWLEDGE</button></div>
@@ -46,6 +49,7 @@ export function buildDockHTML(wsPort: number): string {
   <h2>Camera</h2>
   <div class="row c2" style="margin-bottom:5px"><button id="cam1">CAM 1</button><button id="cam2">CAM 2</button></div>
   <div class="row c4" id="presets"></div>
+  <div class="moving-note" id="moving"></div>
   <div class="row c3" style="margin-top:5px">
     <button data-cmd="cameraWide">WIDE</button><button data-cmd="cameraAuto">AUTO</button>
     <button class="stop" data-cmd="cameraStop">STOP</button>
@@ -57,6 +61,7 @@ export function buildDockHTML(wsPort: number): string {
 
   <h2>Lower third</h2>
   <div class="lt" id="lt">—</div>
+  <div class="lt" id="next"></div>
   <div class="row c4">
     <button data-cmd="prevTrigger">◀</button><button data-cmd="fireLT">FIRE</button>
     <button data-cmd="hideLT">HIDE</button><button data-cmd="nextTrigger">▶</button>
@@ -139,6 +144,11 @@ export function buildDockHTML(wsPort: number): string {
     var cam = state && state.camera ? state.camera.activeCam : 1;
     $('cam1').classList.toggle('on', cam === 1);
     $('cam2').classList.toggle('on', cam === 2);
+    var rc = state && state.camera && state.camera.recalling;
+    $('moving').textContent = rc ? 'CAM' + rc.cam + ' moving to preset ' + rc.slot + '…' : '';
+    document.querySelectorAll('#presets button').forEach(function (b) {
+      b.classList.toggle('moving', !!rc && rc.cam === cam && String(rc.slot) === b.textContent);
+    });
 
     var vs2 = state && state.voice, heard = $('heard');
     if (vs2 && vs2.lastResult) {
@@ -151,6 +161,9 @@ export function buildDockHTML(wsPort: number): string {
     var lt = state && state.overlay && state.overlay.lowerThird, pl = state && state.playlist;
     $('lt').textContent = (pl && pl.total ? pl.current + '/' + pl.total + ' ' : '') +
       (lt ? (lt.visible ? 'ON AIR: ' : '') + (lt.title || lt.name || '') : '—');
+    $('next').innerHTML = pl && pl.upNextTitle
+      ? 'NEXT: <span class="next">' + esc(pl.upNextTitle) + '</span>' + (pl.upNextSubtitle ? ' · ' + esc(pl.upNextSubtitle) : '')
+      : '';
   }
 
   setInterval(function () {

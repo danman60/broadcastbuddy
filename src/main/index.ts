@@ -228,6 +228,7 @@ app.whenReady().then(() => {
   if (recovery.available) {
     sendToAllWindows(IPC.RECOVERY_CHECK, recovery)
   }
+  if (crashRecovery.wasUnclean()) showMonitor.noteUncleanRestart(recovery.lastActive)
 
   // 14. Settings backup — once now + hourly.
   backup.startBackupSchedule()

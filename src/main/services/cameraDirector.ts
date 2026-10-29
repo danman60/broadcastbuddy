@@ -671,8 +671,19 @@ function setSweepRunning(on: boolean): void {
   sweepRunning = on
   notifyActivity()
 }
-export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean; bounceRunning: boolean } {
-  return { activeCam: getActiveCameraId(), sweepRunning, bounceRunning: bounces.size > 0 }
+// Last preset recall, shown as "moving" until the Tail 2 has had time to arrive (no pose read-back:
+// wide↔tight zoom travel measured 12-14 s on DART 2026-10-29).
+const RECALL_SETTLE_MS = 14_000
+let recalling: { cam: 1 | 2; slot: number } | null = null
+let recallTimer: NodeJS.Timeout | null = null
+function noteRecall(cam: 1 | 2, slot: number): void {
+  recalling = { cam, slot }
+  if (recallTimer) clearTimeout(recallTimer)
+  recallTimer = setTimeout(() => { recalling = null; notifyActivity() }, RECALL_SETTLE_MS)
+  notifyActivity()
+}
+export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean; bounceRunning: boolean; recalling: { cam: 1 | 2; slot: number } | null } {
+  return { activeCam: getActiveCameraId(), sweepRunning, bounceRunning: bounces.size > 0, recalling }
 }
 
 // ── BOUNCE program: continuous velocity ping-pong ("auto-pan" / cruise mode) ──
@@ -1044,6 +1055,7 @@ export function slowZoomPushFor(id: 1 | 2, durationMs: number, factor: number): 
 export function recallCameraPresetFor(id: 1 | 2, n: number): void {
   withCamFor(id, 'recall-preset', (cam) => cam.triggerPreset(n))
   notifyCommandSink(id, 'recall', { n })
+  noteRecall(id, n)
 }
 
 /** Per-camera halt-all (cancel slow push + stop zoom + stop gimbal). */

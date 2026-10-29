@@ -16,6 +16,7 @@ const logger = createLogger('showMonitor')
 const POLL_MS = 3000
 const CAM_FAILS_TO_ALERT = 2 // ~6 s of misses before "camera not responding"
 const STALL_POLLS_TO_ALERT = 2 // recording bytes flat for ~6 s
+const INTENTIONAL_STOP_GRACE_MS = 10_000 // a BB-issued stop shows up on the next poll or two
 
 let timer: NodeJS.Timeout | null = null
 let polling = false
@@ -63,11 +64,18 @@ export function setVoiceMicSilent(silent: boolean): void {
   else clear('voice-mic-silent')
 }
 
+/** Previous run died without a clean quit → tell the operator to check OBS kept recording. */
+export function noteUncleanRestart(lastActive: string | null): void {
+  const t = lastActive ? new Date(lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '?'
+  raise('bb-restarted', `BB RESTARTED AFTER A CRASH (last alive ${t}) — check OBS is still recording`)
+}
+
 /** Operator ack: silences every alert; one-shot events (recording stopped) are dismissed. */
 export function ackAlerts(): void {
   alerts.delete('rec-stopped')
   alerts.delete('stream-down')
   alerts.delete('voice-mic-silent')
+  alerts.delete('bb-restarted')
   for (const a of alerts.values()) a.acked = true
   onChange?.()
 }
@@ -100,7 +108,8 @@ async function pollObs(): Promise<void> {
 
   const active = !!rec?.outputActive
   recTimecode = active ? (rec?.outputTimecode || '').replace(/\.\d+$/, '') : ''
-  if (recActive && !active) raise('rec-stopped', 'OBS RECORDING STOPPED')
+  // BB's own stop (button / deck / hotkey / dock) is deliberate → no alarm. Stops from OBS itself still alarm.
+  if (recActive && !active && Date.now() - obs.lastIntentionalStopAt() > INTENTIONAL_STOP_GRACE_MS) raise('rec-stopped', 'OBS RECORDING STOPPED')
   if (active) clear('rec-stopped')
   recActive = active
 

@@ -1288,6 +1288,7 @@ export interface WsStateMessage {
     total: number
     autoFire: boolean
     upNextTitle: string | null
+    upNextSubtitle?: string | null
     playedIds: string[]
     loopMode: LoopMode
   }
@@ -1300,6 +1301,7 @@ export interface WsStateMessage {
     replayingMoveId: number | null
     sweepRunning: boolean
     bounceRunning: boolean
+    recalling?: { cam: 1 | 2; slot: number } | null // last preset recall, until it has had time to arrive
   }
   health?: ShowHealth
   voice?: VoiceStatus

@@ -441,7 +441,14 @@ export async function startRecording(): Promise<void> {
   logger.info('StartRecord')
 }
 
+/** When BB itself last stopped the recording — the show monitor doesn't alarm on those. */
+let intentionalStopAt = 0
+export function lastIntentionalStopAt(): number {
+  return intentionalStopAt
+}
+
 export async function stopRecording(): Promise<string> {
+  intentionalStopAt = Date.now()
   const result = (await sendRequest('StopRecord')) as { outputPath?: string } | null
   logger.info(`StopRecord — path: ${result?.outputPath ?? '(none)'}`)
   return result?.outputPath || ''
@@ -449,6 +456,7 @@ export async function stopRecording(): Promise<string> {
 
 export async function toggleRecording(): Promise<boolean> {
   const result = (await sendRequest('ToggleRecord')) as { outputActive?: boolean } | null
+  if (!result?.outputActive) intentionalStopAt = Date.now()
   return !!result?.outputActive
 }
 
