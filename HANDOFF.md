@@ -7,5 +7,6 @@ Branch: `wf/streamlines`. Base: `b0e3004`. No deployment or device access.
 - Item 1: lower-third, ad-hoc and feature-card scheduling share one helper; timer handles remain separate.
 - Item 2: next/previous use one navigation body; framing, markers and delayed auto-fire keep their order.
 - Item 3: heartbeat liveness uses a typed WeakMap; the 30-second ping/termination cycle is unchanged.
+- Item 4: IPC is split into domain files; 191 handlers and all 210 registration statements match verbatim and in order, except relative imports. Nine helper bodies are unchanged.
 - Graph callers reviewed. Final build, typechecks, full suite and image comparison pending.
-- Next: IPC domains, existing HTML split verification, dock assets.
+- Next: existing HTML split verification, dock assets.
