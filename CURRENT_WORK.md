@@ -25,7 +25,7 @@ logo = site logo. Staged `D:\Shared\bb-deploy-2026-10-29\sessions\mvtihmlqxn2loa
 `%APPDATA%\broadcast-buddy\sessions\` on the show machine, then Load in BB. Not on site pages: 2025 winners.
 
 **Deploy:** canonical `--dir` build staged `D:\Shared\bb-deploy-2026-10-29` (app.asar 39,387,263 + unpacked +
-voice-helper). DART is BACKUP (owner 2026-10-29); primary show machine not yet named. DART OFFLINE on Tailscale since ~2026-10-24. On DART: stop BB, swap asar +
+voice-helper). DART = SHOW MACHINE (owner 2026-10-29 09:28 ET). DEPLOYED 09:29 ET: asar 39,387,263 + unpacked 338/338 + resources\voice-helper + Elvis session; old build kept as app.asar(.unpacked).bak-0704. DART config cameraHost=192.168.2.91 (old venue IP) — OBSBOT on office LAN is 192.168.0.19 (DART reaches it). Operator must relaunch BB + add OBS dock. On DART: stop BB, swap asar +
 app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
 Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
 
@@ -127,3 +127,13 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 - CSController: `app/src/main/java/com/compsync/controller/ui/DisplayScreen.kt`,
   `app/src/main/java/com/compsync/controller/network/WsController.kt`,
   `app/build.gradle.kts` (committed 6f7d3d8, pushed)
+
+## Arrival brief — 2026-10-29 08:23 ET — broadcast-buddy
+- DONE: real-OBS alert test 3/3, Elvis lower-third session (26 names) loaded and staged, 5 mockups sent to Telegram.
+- IN PROGRESS: nothing.
+- NEEDS YOU: which machine runs BB this weekend (DART is backup). The question is in DECISIONS.md.
+
+## Arrival brief — 2026-10-29 08:37 ET — broadcast-buddy
+- DONE: Tested BB against the real OBS (3/3) and loaded the 26 Elvis lower thirds. Sent 5 mockups. Now tested the real OBSBOT camera: 3/3 pass.
+- IN PROGRESS: nothing.
+- NEEDS YOU: 1. Which machine runs BB this weekend? DART is the backup.
