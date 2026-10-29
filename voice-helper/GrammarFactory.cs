@@ -153,7 +153,8 @@ namespace VoiceHelper
             if (byId.ContainsKey("recall") && targetChoices != null)
             {
                 // "shot three" / "go to shot three" / "shot drummer"
-                var lead = new Choices("shot", "go to shot");
+                // Honour the pushed lead phrases ("preset", "go to preset"…); fall back to "shot".
+                var lead = ToChoices(byId["recall"].Phrases) ?? new Choices("shot", "go to shot");
                 var recallPhrase = new GrammarBuilder();
                 recallPhrase.Append(new SemanticResultKey(SemanticKeys.Verb, new SemanticResultValue("recall")));
                 recallPhrase.Append(lead);

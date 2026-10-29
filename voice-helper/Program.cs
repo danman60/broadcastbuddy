@@ -137,6 +137,12 @@ namespace VoiceHelper
                     Emit(Outbound.Pong());
                     break;
 
+                case "file":
+                    // Test hook: recognize a WAV once against the live grammar so the real
+                    // SAPI path can be verified without a mic. Emits result/reject like PTT.
+                    RecognizeFile(msg.Path);
+                    break;
+
                 default:
                     // Unknown message type → ignore silently.
                     break;
@@ -154,7 +160,7 @@ namespace VoiceHelper
             }
             catch (Exception ex)
             {
-                Emit(Outbound.Error("grammar-build-fail: " + ex.GetType().Name));
+                Emit(Outbound.Error("grammar-build-fail: " + ex.GetType().Name + ": " + ex.Message + " @ " + ex.StackTrace));
                 return;
             }
 
@@ -244,6 +250,30 @@ namespace VoiceHelper
             }
 
             Emit(BuildResult(best));
+        }
+
+        private void RecognizeFile(string path)
+        {
+            if (_engine == null) { Emit(Outbound.Reject("no-recognizer", 0f)); return; }
+            lock (_gate)
+            {
+                if (_listening) { Emit(Outbound.Error("file-busy")); return; }
+            }
+            try
+            {
+                _engine.SetInputToWaveFile(path);
+                RecognitionResult r = _engine.Recognize();
+                if (r == null) Emit(Outbound.Reject("no-match", 0f));
+                else Emit(BuildResult(r));
+            }
+            catch (Exception ex)
+            {
+                Emit(Outbound.Error("file-fail: " + ex.GetType().Name));
+            }
+            finally
+            {
+                try { _engine.SetInputToDefaultAudioDevice(); } catch { /* no mic on this box */ }
+            }
         }
 
         // ── hands-free (continuous wake-word) capture model ─────────────────────────

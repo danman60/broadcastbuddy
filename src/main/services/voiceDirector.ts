@@ -42,13 +42,15 @@ const logger = createLogger('voiceDirector')
 // routes on. Synonyms collapse to one id. Kept in sync with the C# helper grammar.
 export const VOICE_VERBS: Array<{ id: string; phrases: string[]; needsTarget?: boolean }> = [
   { id: 'select', phrases: ['camera one', 'camera two'] }, // handled via the camera prefix too
-  { id: 'recall', phrases: ['shot', 'go to shot'], needsTarget: true },
+  { id: 'recall', phrases: ['shot', 'go to shot', 'preset', 'go to preset'], needsTarget: true },
   { id: 'pushIn', phrases: ['push in'] },
   { id: 'slowPushIn', phrases: ['slow push in', 'slow push'] },
   { id: 'pullOut', phrases: ['pull out', 'zoom out'] },
   { id: 'zoomIn', phrases: ['zoom in'] },
   { id: 'wide', phrases: ['wide', 'go wide', 'home'] },
-  { id: 'sweep', phrases: ['sweep'], needsTarget: true },
+  // 'sweep' deliberately NOT pushed: its "<n> to <n>" phrase makes Windows SAPI's grammar
+  // compiler fail ("'' rule reference not defined") and that kills the WHOLE grammar
+  // (verified on FIRMAMENT 2026-10-29). Sweeps stay on deck/panel.
   { id: 'track', phrases: ['track', 'follow'] },
   { id: 'stop', phrases: ['stop'] },
 ]
@@ -117,13 +119,17 @@ function wakeWord(): string {
   return (settings.getAll().voiceWakeWord || '').trim().toLowerCase()
 }
 
+// Camera preset slots that are always speakable ("shot 3" / "preset 3") even with no
+// Voice panel shots configured — the 8 slots the CameraPanel preset grid saves to.
+const ALWAYS_SPOKEN_SLOTS = 8
+
 // ── Grammar (built from settings, pushed on (re)start + label change) ─────────
 function buildGrammar(): { t: 'grammar'; verbs: typeof VOICE_VERBS; shots: Record<string, string[]>; wakeWord: string } {
   const s = settings.getAll()
   const shots: Record<string, string[]> = { '1': [], '2': [] }
   for (const camKey of ['1', '2'] as const) {
     const list = (s.voiceShots?.[Number(camKey) as 1 | 2] ?? []) as VoiceShot[]
-    const tokens: string[] = []
+    const tokens: string[] = Array.from({ length: ALWAYS_SPOKEN_SLOTS }, (_, i) => String(i + 1))
     for (const shot of list) {
       tokens.push(String(shot.id)) // numbered "shot <id>" always available
       if (shot.label && shot.label.trim()) tokens.push(shot.label.trim().toLowerCase())
@@ -373,8 +379,8 @@ function routeResult(msg: VoiceMsgResult): void {
       ok(`CAM${camera} ▸ WIDE`)
       break
     case 'sweep': {
-      // resolveShotSlot already handles numeric tokens; an unset slot → null → reject
-      // (never silently sweep to an unsaved preset).
+      // resolveShotSlot handles numeric tokens (slots 1-8 always pass); an unknown
+      // label or out-of-range number → null → reject.
       const from = resolveShotSlot(camera, (msg.from ?? '').toString())
       const to = resolveShotSlot(camera, (msg.to ?? '').toString())
       if (from == null || to == null) return reject('unset-shot', 'sweep shots not set')
@@ -410,7 +416,7 @@ function resolveShotSlot(camera: 1 | 2, token: string): number | null {
   // numeric "shot 3"
   if (/^\d+$/.test(tok)) {
     const id = Number(tok)
-    return list.some((sh) => sh.id === id) ? id : null
+    return (id >= 1 && id <= ALWAYS_SPOKEN_SLOTS) || list.some((sh) => sh.id === id) ? id : null
   }
   // labeled "drummer"
   const hit = list.find((sh) => (sh.label ?? '').trim().toLowerCase() === tok)

@@ -88,6 +88,9 @@ namespace VoiceHelper
         // mic
         public string DeviceId;
 
+        // file (test hook): WAV path recognized once against the loaded grammar
+        public string Path;
+
         /// <summary>
         /// Build an InboundMessage from a raw JSON map. Tolerant: missing/extra fields and
         /// unexpected runtime types are ignored rather than throwing.
@@ -119,6 +122,9 @@ namespace VoiceHelper
 
             // mic.deviceId : string
             msg.DeviceId = GetString(map, "deviceId");
+
+            // file.path : string
+            msg.Path = GetString(map, "path");
 
             return msg;
         }
