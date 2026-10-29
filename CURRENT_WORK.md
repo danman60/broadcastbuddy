@@ -29,6 +29,23 @@ voice-helper). DART = SHOW MACHINE (owner 2026-10-29 09:28 ET). DEPLOYED 09:29 E
 **DART real-path test 2026-10-29 ~09:50 ET (BB + OBS 32.2.1 launched via PsExec):** dock presets moved OBSBOT (1→5.8x, 3→9.4x); BB recorded on DART OBS; OBS-side StopRecord → RECORDING STOPPED alert, ack clears. VOICE E2E: DART speaker → laptop mic → SAPI → BB → camera, "preset 5/3/1" all recalled (conf 0.67/0.75/0.95).
 **Voice mic FIXED 2026-10-29 ~13:20 ET (2c83354, deployed to DART):** owner: "test on built in mic" + "fix the picker". Picker now opens the chosen device (helper MicStream, winmm → SAPI stream; stores device LABEL). DART: picker = "Microphone Array (Realtek(R) Audio)" AND Windows default = same mic. Tested: helper standalone 14/15 w/ Windows default on silent Elgato mix; full BB e2e 4/4 → camera moved. New alert VOICE MIC SILENT (sample peak < -60 dBFS) raised in dock on a silent mic — verified on DART. OBS inputs all use fixed device ids → Windows default change doesn't affect show audio. Old build kept as resources\*.bak-1029a. BB running on DART with --remote-debugging-port=9229 (localhost) + --disable-gpu.
 **10-and-10 picks DEPLOYED to DART 2026-10-29 ~13:45 ET (bf6a1ea):** see docs/ten-and-ten-2026-10-29.md. Firmer floor for wide/track/zoom (0.8); no rec-stopped alarm on BB's own stop; dock moving note + NEXT performer; BB-restarted-after-crash alert. All verified on DART real OBS/camera/mic. Old builds: resources\*.bak-1029b (2c83354), *.bak-1029a (morning), *.bak-0704. Camera AI tracking set back to "none" after voice "track" test. Test recordings (4 short clips) left in DART's OBS output folder.
+**RUNNING BACKGROUND RUNS (launched 2026-10-29 13:55 ET, after-show backlog; all new behaviour OFF by default behind settings; DART untouched):**
+| window | branch / worktree | builds | report file |
+|---|---|---|---|
+| `astra-bb-ops-wf` (Codex gpt-6-astra) | `wf/operator-features` · ~/projects/BroadcastBuddy-wf-ops | camera UNDO (`cameraUndoEnabled`), dock crash-resume (`dockRecoveryPrompt`), live voice mic meter (`voiceMeterEnabled`; helper C# built on FIRMAMENT in D:\Shared\voice-helper-build-wf) | docs/wf-wf-operator-features-REPORT.md |
+| `astra-bb-clean-wf` (Codex) | `wf/streamlines` · ~/projects/BroadcastBuddy-wf-clean | 6 behaviour-preserving cleanups (auto-hide fold, next/prev fold, isAlive casts, ipc.ts split, overlay HTML split = ALREADY DONE on main as overlaySource.ts, dock HTML as static asset); full suite before/after | docs/wf-wf-streamlines-REPORT.md |
+| `fable-broadcastbuddy` (Claude Fable 5.1) | `fable/readiness-panel` · ~/projects/BroadcastBuddy-fable | self-ticking pre-show readiness view, `readinessView: off/panel/dock` | docs/wf-fable-readiness-panel-REPORT.md |
+Briefs: /tmp/brief-ops.md, /tmp/brief-clean.md, /tmp/brief-fable.md. Logs: /tmp/astra-bb-*-wf-*.log, status /tmp/astra-bb-*-wf.status.
+
+**Review + merge steps when they end (fresh session):**
+1. Done? `tmux list-windows -t claude | grep -E "bb-|broadcastbuddy"` (astra windows close themselves; log ends "RUN ENDED"). Fable: read its pane, then `/exit` it.
+2. Per branch: `git fetch origin && git log --oneline main..origin/<branch>`; read its REPORT.md; `git diff main...origin/<branch> --stat`.
+3. Verify yourself in its worktree: `npx tsc --noEmit -p tsconfig.node.json` (3 pre-existing errors only) + `-p tsconfig.web.json` (0); `npx electron-vite build`; run its specs with `flock /tmp/bb-electron-test.lock xvfb-run -a npx playwright test <spec> --workers=1`. wf/streamlines: full suite, compare failing titles to its baseline list (main 2026-10-29: 438 pass / 17 pre-existing fails). Read its screenshots.
+4. Defaults must be OFF: grep the new keys in src/main/services/settings.ts.
+5. Merge order: streamlines first (biggest moves: ipc split), then rebase operator-features + readiness onto it and re-run their specs. `git merge --no-ff` into main, push main. NO merge/deploy before the show ends (Nov 1) unless owner says so — DART is the show machine.
+6. Voice meter helper exe: only take it if it compiled + smoke-tested; DART deploy after show via FIRMAMENT `--dir` build + asar swap (memory project_dart_asar_swap).
+7. Cleanup: `git worktree remove ../BroadcastBuddy-<wf-ops|wf-clean|fable>` after merge.
+
 **(was) SHOW RISK — voice mic:** helper uses only the Windows default input; DART default = Elgato "Personal Mix" (silent unless Wave Link app runs; it wasn't). BB Voice-panel mic picker is a no-op. Restored his defaults (Personal Mix, speakers 12%). BB + OBS left running on DART (BB voice bound to Realtek mic until restart). On DART: stop BB, swap asar +
 app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
 Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
@@ -150,4 +167,9 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 ## Arrival brief — 2026-10-29 13:19 ET — broadcast-buddy
 - DONE: Picker fixed and installed on DART. Voice works on the built-in mic, and a dead mic now raises an alert in the dock.
 - IN PROGRESS: Collecting the 10-and-10 ideas from the code. Ideas are ready within minutes; then I pick and build.
+- NEEDS YOU: nothing
+
+## Arrival brief — 2026-10-29 13:56 ET — broadcast-buddy
+- DONE: Mic picker, dead-mic alert and 7 show-safety fixes are installed and tested on DART.
+- IN PROGRESS: Three background runs started. Each finishes with a written report; I'll check them as they complete.
 - NEEDS YOU: nothing
