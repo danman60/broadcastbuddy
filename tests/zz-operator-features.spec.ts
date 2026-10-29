@@ -291,7 +291,8 @@ test('dock recovery gate, dismiss and main-window restore all stay synchronized'
   await settings(); await win.getByLabel('Offer crash recovery in the dock').click()
   await expect(dock.locator('#recovery')).toBeVisible()
   await dock.locator('#dismissRecovery').click()
-  await expect(win.getByRole('button', { name: 'Restore', exact: true })).toBeHidden()
+  // Settings also has a backup Restore button; assert the recovery banner itself.
+  await expect(win.getByText('Restore previous session', { exact: false })).toBeHidden()
   expect((await api('recoveryCheck')).available).toBe(false)
   await dock.reload(); await expect(dock.locator('#recovery')).toBeHidden()
 })

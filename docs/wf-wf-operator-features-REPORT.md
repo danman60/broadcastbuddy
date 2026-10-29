@@ -17,9 +17,16 @@ endpoint, or changing the setting clears the history. No voice grammar change.
 WS command: `cameraUndo`. Disabled settings also gate the command server-side.
 History tracks commanded slots, not physical camera position or confirmed arrival.
 
-Validation: pending Electron run of `tests/zz-operator-features.spec.ts`.
-Screenshots planned: `tests/screenshots/operator-undo-{300,390,500,1440}.png`.
-Not verified: actual PTZ travel, camera firmware rejection, OBS CEF rendering.
+Validation: PASS, `tests/zz-operator-features.spec.ts` tests
+“defaults are off; settings enable dock controls and meter without restarting” and
+“undo returns to the prior slot once, includes wide, isolates cameras and ignores
+bad input”. Actual HTTP recalls reached the two local camera fixtures. Duplicate
+undo, repeated preset, Wide, camera isolation, reload, bad input, and disabling/
+reenabling the feature were exercised.
+Screenshots: `tests/screenshots/operator-undo-{300,390,500,1440}.png` and
+`operator-settings-{300,390,500,1440}.png`; 300/500 px PNGs visually reviewed.
+Not verified: actual PTZ travel, camera firmware rejection, OBS CEF rendering,
+or a separate UI exercise of the endpoint-change history reset.
 
 ## Feature 10: crash resume from the dock
 
@@ -34,10 +41,18 @@ The displayed position is the prepared restore position. Resuming does not fire 
 lower third. The snapshot writer preserves a pending recovery until a decision.
 
 WS commands: `recoveryRestore`, `recoveryDismiss`, both server-side gated.
-Validation: pending Electron saved-session, fallback, legacy, dismiss, duplicate,
-main-window synchronization, and pending-snapshot durability scenarios.
-Screenshots planned: `tests/screenshots/operator-recovery-{300,390,500,1440}.png`
+Validation: PASS, the three “dock recovery {saved|fallback|legacy} restores the
+displayed performer and clears the main banner” cases, “dock recovery gate,
+dismiss and main-window restore all stay synchronized”, “main-window restore
+clears the dock prompt through the shared action”, and “pending snapshot survives
+the periodic writer while the operator decides” in the operator spec. The latter
+waited across two real 30-second snapshot intervals: pending data stayed intact,
+then the resumed position/played IDs/current session were written correctly.
+All four `tests/recovery-restore-fallback.spec.ts` regressions also passed,
+including persistence after a styling edit and preservation of the other session.
+Screenshots: `tests/screenshots/operator-recovery-{300,390,500,1440}.png`
 and `operator-recovery-main-{before,after}.png`.
+300/500 px dock and both 1440 px main-window PNGs visually reviewed.
 Not verified: recovery from an operating-system crash during an actual live show.
 
 ## Feature 8: live voice mic level
@@ -64,11 +79,22 @@ unchanged. The project file now includes MicStream.cs for normal builds too.
 HyperX QuadCast S. Each run: ping/pong, no unsolicited levels, seven bounded levels
 in 1.6 seconds, no levels after meter-off, malformed input tolerated, ping still
 responsive. Default device observed 1-2%; named mic observed 0% (quiet).
-Linux Electron protocol/UI validation: pending.
-Screenshots planned: `tests/screenshots/operator-meter-{300,390,500,1440}.png` and
+Linux Electron protocol/UI validation: PASS, “voice levels reach panel and dock;
+invalid, stale and old helper data stay unavailable” and the defaults/settings
+case. The real child-process stdio fixture covered 0%, 100%, invalid/stale data,
+meter on/off, unchanged grammar, stopped helper, and recognition through an
+old-helper protocol fixture. Adjacent shot save/rename/verify/recall/delete,
+glide, confidence, camera tabs, and advanced disclosure controls were exercised.
+“dock controls remain usable and become disabled for new actions when BB
+disconnects” also passed, including the unavailable meter after disconnect.
+Screenshots: `tests/screenshots/operator-meter-{300,390,500,1440}.png` and
 `operator-voice-{live,unavailable}-{300,390,500,1440}.png`.
+300/500 px live and unavailable panels and dock meters visually reviewed; the
+390 px dock and 1440 px panel were also reviewed. No clipping or horizontal
+overflow in the changed controls. Native meters retain numeric/unavailable text.
 Not verified: spoken SAPI command recognition with meter enabled, a new Windows
-installer, real OBS CEF, and extended-duration microphone capture.
+installer, an actual old Windows helper executable in Electron, real OBS CEF,
+and extended-duration microphone capture.
 
 ## Validation and scope
 
@@ -80,7 +106,8 @@ and UI state changes. Existing public signatures remain compatible.
 All Electron scenarios use isolated temporary profiles and a staged copy of the
 actual build. Camera/OBS endpoints and the helper protocol are local test fixtures.
 The Windows exe is tested separately on FIRMAMENT. Screenshots and profiles are
-held locally and will not be committed or uploaded.
+held locally and are not committed or uploaded. The isolated Electron processes,
+browser instances, fixture servers, and the held heavy slot were all closed.
 
 `heavy -- npx tsc --noEmit -p tsconfig.web.json`: PASS, zero errors.
 `heavy -- npx tsc --noEmit -p tsconfig.node.json`: the three known baseline errors
@@ -88,34 +115,57 @@ only (`ccRelay.ts:220`, `ccRelay.ts:282`, `chatBridge.ts:180`); no new errors.
 `heavy -- npx electron-vite build`: PASS. Existing warning: audioTranscription is
 both statically and dynamically imported. No linter script is configured.
 
-The first locked Electron run passed all four existing
-`tests/recovery-restore-fallback.spec.ts` regressions and seven operator scenarios.
-Three operator scenarios stopped at a test selector: the automatic daily checklist
-and Settings share a CSS class. The harness now dismisses the checklist with its
-real Done button and identifies Settings by its accessible dialog name. A corrected
-operator run and the remaining UI review are waiting for a shared `heavy` slot.
-Initial output: local `graphify-out/operator-validation.log`.
+Electron command, after each build and inside `heavy`:
+
+```sh
+flock /tmp/bb-electron-test.lock xvfb-run -a npx playwright test tests/zz-operator-features.spec.ts --workers=1 --reporter=line
+```
+
+Final result: all 10 operator scenarios verified, plus all four existing recovery
+regressions. The corrected full operator run passed nine cases in 1.5 minutes;
+one assertion matched Settings' unrelated backup Restore button. After scoping
+that assertion to the recovery banner text, its targeted rerun passed in 2.3
+seconds. No product changes followed the passing build/typechecks. The earlier
+checklist/Settings selector collision was also corrected through real UI actions.
+
+Held evidence:
+
+- `graphify-out/operator-validation.log`: first build, four recovery regressions,
+  and initial operator run.
+- `graphify-out/operator-validation-recheck.log`: final full operator run.
+- `graphify-out/operator-validation-recovery-final.log`: passing targeted recovery
+  gate/dismiss rerun (`--grep 'dock recovery gate'`).
+- Final application/console logs and synthetic profiles:
+  `/tmp/bb-operator-a7TWLi`, `/tmp/bb-operator-s9a8oq`, `/tmp/bb-operator-PS6e2R`.
+- All screenshot filenames above are under `tests/screenshots/` and ignored.
+
+Application logs contain the expected synthetic crash alerts and no application
+errors. Console review found no page errors. Existing environment notices remain:
+unpackaged Electron CSP, Chromium audio autoplay, Node color-environment conflict,
+and unavailable Linux desktop notifications under Xvfb. These are not treated as
+proof of packaged Windows behavior. No production deployment was attempted.
 
 ## Done checklist
 
-Reviewed `/home/danman60/projects/docs/DONE-CHECKLIST.md` item by item.
-Final UI-dependent entries await the corrected locked Electron run.
+Reviewed `/home/danman60/projects/docs/DONE-CHECKLIST.md` item by item after the
+final targeted run. The browser review also checked that the additions retain
+the existing operator layout, use factual labels, and fit narrow dock widths.
 
 | # | Status | Evidence |
 | --- | --- | --- |
-| 1 | Pending | Actual Electron main window and Chromium dock at 1440 px; final captures to review. |
-| 2 | Pending | Capture helpers cover 300, 390, and 500 px. No phone-side flow or physical phone requirement. |
-| 3 | Pending | New toggles, undo, restore/dismiss, plus adjacent camera, PTT, lower-third, shot, and glide controls are covered by the operator spec. |
+| 1 | PASS | Actual Electron main window and Chromium dock at 1440 px; main recovery before/after, dock recovery, and voice-panel PNGs visually reviewed. |
+| 2 | PASS | Real browser captures and overflow assertions at 300, 390, and 500 px. Every changed dock/panel area reviewed at 300 and 500; 390 px dock reviewed too. No phone-side flow. |
+| 3 | PASS for this scope | Clicked all new toggles and undo/restore/dismiss controls, plus adjacent camera presets/tabs, Wide/Auto/Stop, PTT, lower-third controls, and voice shot/glide controls. This is not an exhaustive regression of unrelated legacy Settings sections. |
 | 4 | N/A | Local desktop/dock has no account roles or login flow. |
-| 5 | Pending | Defaults, unknown undo history, empty shots, absent recovery, and unavailable mic levels are in the spec. |
-| 6 | Pending | Invalid preset/level messages, duplicate undo/restore, reload, old helper, and disconnect scenarios are in the spec. |
-| 7 | Pending | First-run application logs contain expected synthetic crash alerts; final-run logs still to review. |
-| 8 | Pending | First-run console has existing unpackaged Electron CSP and Chromium audio autoplay notices; no page errors. |
+| 5 | PASS | Defaults, unknown undo history, empty shots, absent recovery, and unavailable mic levels passed real UI assertions. |
+| 6 | PASS | Invalid preset/level messages, duplicate undo/restore, reload, stale/old helper, and disconnect scenarios passed. |
+| 7 | PASS | Read final application/stdout/console logs in the three held profile directories above; only expected fixture alerts/environment notices. |
+| 8 | PASS relative to baseline | No page errors or new product warnings. Existing unpackaged Electron CSP and Chromium audio autoplay notices are recorded above. |
 | 9 | PASS relative to baseline | Build and web typecheck pass. Node typecheck has exactly the three pre-existing errors above. Lint N/A: no configured script. |
 | 10 | PASS | Synthetic performers, sessions, endpoints, and helper are confined to tests and isolated temporary profiles. |
 | 11 | PASS | No product debug prints added. The test reports its held artifact directory intentionally. |
 | 12 | PASS | No live database or customer records accessed. |
-| 13 | Pending | Work is isolated on `wf/operator-features`; branch-only push remains. No merge or deployment. |
+| 13 | PASS | Only `wf/operator-features` is pushed with `DEPLOY_OK=1`; checkpoint `0c560b6` confirmed on origin. Final report/test-selector follow-up uses the same branch. No main push, merge, or deployment. |
 | 14 | PASS | Dedicated worktree/branch retains base `b0e3004`; no history rewrite, destructive source operation, or database change. |
 | 15 | PASS | No secrets added. Screenshots are ignored and held locally. Test profiles contain synthetic data only. |
 | 16 | N/A | The run explicitly requires screenshots to remain local, overriding the checklist's send/approve workflow. Local visual review replaces sending. |

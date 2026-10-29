@@ -11,7 +11,10 @@ mic smoke tests passed ping/pong, about five level messages/second, and meter-of
 The compiled exe is in this branch's resources folder. Voice grammar unchanged.
 
 Build and web typecheck pass; node typecheck has only the three known baseline
-errors. Four existing recovery regressions and seven operator cases passed. Three
-operator cases hit a checklist/Settings selector collision, now corrected in the
-harness. The corrected run is queued behind `heavy`; final UI review is pending.
-See `docs/wf-wf-operator-features-REPORT.md`. No DART access or deployment.
+errors. All 10 operator cases and four existing recovery regressions are verified
+(nine operator cases in the final full run, one passing targeted selector rerun).
+300/500 px dock/panel PNGs reviewed and held locally; no new clipping/overflow.
+All test processes and the heavy slot are closed. See
+`docs/wf-wf-operator-features-REPORT.md` for evidence, settings, and limits.
+No DART access or deployment. Physical PTZ, spoken SAPI with meter enabled,
+OBS CEF, and a new Windows installer remain unverified.
