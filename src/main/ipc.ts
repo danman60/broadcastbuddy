@@ -535,6 +535,7 @@ export function registerIpcHandlers(): void {
     // SAPI grammar when shot labels change.
     if (key === 'voiceEnabled' || key === 'cameraHost' || key === 'cameraHost2') voiceDirector.applyVoiceEnabled()
     if (key === 'voiceShots') voiceDirector.refreshGrammar()
+    if (key === 'voiceMicDeviceId') voiceDirector.applyMic()
     // Wake-word mode: re-push grammar (with/without the required prefix) + start/stop
     // the helper's continuous recognition.
     if (key === 'voiceWakeEnabled' || key === 'voiceWakeWord') voiceDirector.applyWakeMode()

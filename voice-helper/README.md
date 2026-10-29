@@ -17,7 +17,7 @@ NDJSON, one object per line. `stdin` = BB→helper, `stdout` = helper→BB (flus
 - `{"t":"grammar","verbs":[{"id":"pushIn","phrases":["push in"]},...],"shots":{"1":["3","drummer"],"2":["1","wide"]}}`
 - `{"t":"listen","on":true}`  — PTT key down, start recognizing
 - `{"t":"listen","on":false}` — PTT key up, emit best match captured during the hold
-- `{"t":"mic","deviceId":"..."}` — accepted + logged; **v1 always uses the Windows default input device** (System.Speech limitation), does not fail
+- `{"t":"mic","deviceId":"<device label>"}` — capture that device (`MicStream.cs`, winmm waveIn → SetInputToAudioStream); `""` = Windows default. Replies `{"t":"mic","name":"<opened waveIn name or ''>"}`; unknown label → `{t:error,"mic-not-found: …"}` + Windows default
 - `{"t":"ping"}`
 
 **helper → BB**

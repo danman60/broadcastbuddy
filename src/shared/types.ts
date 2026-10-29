@@ -474,7 +474,7 @@ export interface AppSettings {
   // (Windows System.Speech) does the recognition; BB builds the grammar from voiceShots.
   // See src/main/services/voiceDirector.ts + docs/superpowers/specs/2026-06-23-voice-ptz-director-design.md.
   voiceEnabled?: boolean // master opt-in for the voice director. Default false.
-  voiceMicDeviceId?: string // capture device for the helper (empty = system default).
+  voiceMicDeviceId?: string // capture device LABEL for the helper (empty = Windows default); name kept for stored settings
   voiceConfidenceFloor?: number // 0–1; matches below this are rejected. Default 0.6.
   voiceZoomSpeed?: number // OBSBOT zoom-velocity speed for "zoom in/out" nudges. Default 3.
   voiceZoomNudgeMs?: number // duration of a bounded "zoom in/out" nudge before auto-stop. Default 600.

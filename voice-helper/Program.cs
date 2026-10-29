@@ -29,6 +29,8 @@ namespace VoiceHelper
         private RecognitionResult _best;                 // highest-confidence result during a hold
         private bool _listening;
         private bool _continuous;                        // hands-free wake mode: emit per recognition, no key-up
+        private MicStream _mic;                          // picker-chosen device; null = Windows default
+        private int _peakLevel = -1;                     // max SAPI audio level (0-100) during a hold; -1 = no level event (fires on the default device only)
 
         private static int Main()
         {
@@ -92,6 +94,8 @@ namespace VoiceHelper
 
                 engine.SpeechRecognized += OnRecognized;
                 engine.SpeechRecognitionRejected += OnRejected;
+                engine.RecognizeCompleted += (s, e) => { if (e.Error != null) Emit(Outbound.Error("recognize-fail: " + e.Error.GetType().Name + ": " + e.Error.Message)); };
+                engine.AudioLevelUpdated += (s, e) => { if (e.AudioLevel > _peakLevel) _peakLevel = e.AudioLevel; };
 
                 _engine = engine;
             }
@@ -128,9 +132,7 @@ namespace VoiceHelper
                     break;
 
                 case "mic":
-                    // v1: System.Speech only supports the Windows default device. Accept + log,
-                    // do NOT fail. Device selection is a BB-side preference for a future version.
-                    Emit(Outbound.Error("mic-default-only: deviceId noted, using Windows default"));
+                    SelectMic(msg.DeviceId);
                     break;
 
                 case "ping":
@@ -147,6 +149,41 @@ namespace VoiceHelper
                     // Unknown message type → ignore silently.
                     break;
             }
+        }
+
+        // deviceId = the picker's device label ("" = Windows default). Unknown label → default + error.
+        private void SelectMic(string label)
+        {
+            if (_engine == null) return;
+            bool resumeContinuous;
+            lock (_gate)
+            {
+                resumeContinuous = _continuous;
+                if (_listening) { try { _engine.RecognizeAsyncCancel(); } catch { } _listening = false; _best = null; }
+            }
+            MicStream next = null;
+            string err = null;
+            if (!string.IsNullOrEmpty(label))
+            {
+                try { next = MicStream.Open(label); if (next == null) err = "mic-not-found: " + label + " (have: " + string.Join(" | ", MicStream.DeviceNames()) + ")"; }
+                catch (Exception ex) { err = "mic-open-fail: " + ex.Message; }
+            }
+            MicStream old = _mic;
+            _mic = next;
+            SetEngineInput();
+            if (old != null) old.Dispose();
+            if (err != null) Emit(Outbound.Error(err));
+            Emit(new Dictionary<string, object> { { "t", "mic" }, { "name", next != null ? next.Name : "" } });
+            if (resumeContinuous) StartContinuous();
+        }
+
+        private void SetEngineInput()
+        {
+            if (_mic != null)
+                _engine.SetInputToAudioStream(_mic, new System.Speech.AudioFormat.SpeechAudioFormatInfo(
+                    MicStream.Rate, System.Speech.AudioFormat.AudioBitsPerSample.Sixteen, System.Speech.AudioFormat.AudioChannel.Mono));
+            else
+                _engine.SetInputToDefaultAudioDevice();
         }
 
         private void LoadGrammar(InboundMessage msg)
@@ -202,7 +239,9 @@ namespace VoiceHelper
                 if (_listening) return;        // already capturing this hold
                 _best = null;                  // fresh hold
                 _listening = true;
+                _peakLevel = -1;
             }
+            if (_mic != null) _mic.Discard();
             try
             {
                 // Multiple = keep recognizing repeatedly until we cancel on key-up.
@@ -245,7 +284,10 @@ namespace VoiceHelper
 
             if (best == null)
             {
-                Emit(Outbound.Reject("no-match", 0f));
+                // Nothing above the floor all hold → the mic delivered silence (dead/muted/virtual device).
+                // Picked device: own sample peak (< -60 dBFS). Default device: SAPI level events, if any fired.
+                bool silent = _mic != null ? _mic.Peak < 33 : (_peakLevel >= 0 && _peakLevel < 2);
+                Emit(Outbound.Reject(silent ? "mic-silent" : "no-match", 0f));
                 return;
             }
 
@@ -272,7 +314,7 @@ namespace VoiceHelper
             }
             finally
             {
-                try { _engine.SetInputToDefaultAudioDevice(); } catch { /* no mic on this box */ }
+                try { SetEngineInput(); } catch { /* no mic on this box */ }
             }
         }
 
@@ -411,6 +453,7 @@ namespace VoiceHelper
                     _engine.Dispose();
                     _engine = null;
                 }
+                if (_mic != null) { _mic.Dispose(); _mic = null; }
             }
             catch { /* best-effort */ }
         }

@@ -31,6 +31,7 @@ import {
   getActiveCameraId,
 } from './cameraDirector'
 import { getMoves, replayMoveByLabel } from './shotRecorder'
+import { setVoiceMicSilent } from './showMonitor'
 import { IPC, VoiceResult, VoiceStatus, VoiceShot } from '../../shared/types'
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR } from '../../shared/cameraMoves'
 import { createLogger } from '../logger'
@@ -66,7 +67,7 @@ interface VoiceMsgResult {
 }
 interface VoiceMsgReject { t: 'reject'; reason?: string; confidence?: number }
 interface VoiceMsgError { t: 'error'; reason?: string }
-type VoiceMsg = VoiceMsgResult | VoiceMsgReject | VoiceMsgError | { t: 'ready' } | { t: 'pong' }
+type VoiceMsg = VoiceMsgResult | VoiceMsgReject | VoiceMsgError | { t: 'ready' } | { t: 'pong' } | { t: 'mic'; name?: string }
 
 let helper: ChildProcessWithoutNullStreams | null = null
 let helperReady = false
@@ -274,6 +275,11 @@ export function getStatus(): VoiceStatus {
  * the grammar (which now carries — or drops — the required wake prefix) and tell the
  * helper to start/stop CONTINUOUS recognition. No-op unless the helper is up.
  */
+/** Picker changed → helper reopens its capture device (label; '' = Windows default). */
+export function applyMic(): void {
+  if (helper && helperReady) send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
+}
+
 export function applyWakeMode(): void {
   if (!helper || !helperReady) {
     pushStatus()
@@ -313,10 +319,13 @@ function handleHelperLine(line: string): void {
       routeResult(msg)
       break
     case 'reject':
-      emitResult({ ok: false, camera: getActiveCameraId(), verb: 'reject', text: 'rejected', confidence: msg.confidence ?? 0, reason: msg.reason || 'low-confidence' })
+      emitResult({ ok: false, camera: getActiveCameraId(), verb: 'reject', text: msg.reason === 'mic-silent' ? 'MIC SILENT — check the voice mic' : 'rejected', confidence: msg.confidence ?? 0, reason: msg.reason || 'low-confidence' })
       break
     case 'error':
       logger.warn(`voice-helper error: ${msg.reason}`)
+      break
+    case 'mic':
+      logger.info(`voice-helper mic: ${msg.name || 'Windows default'}`)
       break
     case 'pong':
       break
@@ -436,6 +445,7 @@ function numOr(v: unknown, dflt: number): number {
 
 function emitResult(r: VoiceResult): void {
   lastResult = r
+  setVoiceMicSilent(r.reason === 'mic-silent')
   logger.info(`voice ${r.ok ? 'OK' : 'REJECT'}: ${r.text} (conf ${r.confidence.toFixed(2)})`)
   pushStatus({ lastResult: r })
 }

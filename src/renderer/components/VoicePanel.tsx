@@ -106,7 +106,8 @@ export function VoicePanel(): React.ReactElement {
   const enumerateMics = useCallback(async () => {
     try {
       const list = await navigator.mediaDevices.enumerateDevices()
-      setMics(list.filter((d) => d.kind === 'audioinput'))
+      // Chromium's 'default'/'communications' aliases duplicate real devices; "System default" covers them.
+      setMics(list.filter((d) => d.kind === 'audioinput' && d.label && d.deviceId !== 'default' && d.deviceId !== 'communications'))
     } catch { /* permission not yet granted */ }
   }, [])
   useEffect(() => { void enumerateMics() }, [enumerateMics])
@@ -296,9 +297,10 @@ export function VoicePanel(): React.ReactElement {
             disabled={!enabled}
           >
             <option value="">System default</option>
+            {micDeviceId && !mics.some((m) => m.label === micDeviceId) && <option value={micDeviceId}>{micDeviceId}</option>}
             {mics.map((m) => (
-              <option key={m.deviceId} value={m.deviceId}>
-                {m.label || `Mic ${m.deviceId.slice(0, 6)}`}
+              <option key={m.deviceId} value={m.label}>
+                {m.label}
               </option>
             ))}
           </select>

@@ -57,10 +57,17 @@ function clear(id: string): void {
   onChange?.()
 }
 
+/** Voice helper heard pure silence on a hold → dead/muted/wrong mic. Cleared by the next hold that hears audio. */
+export function setVoiceMicSilent(silent: boolean): void {
+  if (silent) raise('voice-mic-silent', 'VOICE MIC SILENT — check the mic in Voice settings')
+  else clear('voice-mic-silent')
+}
+
 /** Operator ack: silences every alert; one-shot events (recording stopped) are dismissed. */
 export function ackAlerts(): void {
   alerts.delete('rec-stopped')
   alerts.delete('stream-down')
+  alerts.delete('voice-mic-silent')
   for (const a of alerts.values()) a.acked = true
   onChange?.()
 }
