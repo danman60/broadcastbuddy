@@ -28,7 +28,7 @@ logo = site logo. Staged `D:\Shared\bb-deploy-2026-10-29\sessions\mvtihmlqxn2loa
 voice-helper). DART = SHOW MACHINE (owner 2026-10-29 09:28 ET). DEPLOYED 09:29 ET: asar 39,387,263 + unpacked 338/338 + resources\voice-helper + Elvis session; old build kept as app.asar(.unpacked).bak-0704. DART config cameraHost=192.168.2.91 (old venue IP) — OBSBOT on office LAN is 192.168.0.19 (DART reaches it). DART config cameraHost now 192.168.0.19 for office test (backup config.json.pre-office-test-20261029 has 192.168.2.91) — set venue IP on site.
 **DART real-path test 2026-10-29 ~09:50 ET (BB + OBS 32.2.1 launched via PsExec):** dock presets moved OBSBOT (1→5.8x, 3→9.4x); BB recorded on DART OBS; OBS-side StopRecord → RECORDING STOPPED alert, ack clears. VOICE E2E: DART speaker → laptop mic → SAPI → BB → camera, "preset 5/3/1" all recalled (conf 0.67/0.75/0.95).
 **Voice mic FIXED 2026-10-29 ~13:20 ET (2c83354, deployed to DART):** owner: "test on built in mic" + "fix the picker". Picker now opens the chosen device (helper MicStream, winmm → SAPI stream; stores device LABEL). DART: picker = "Microphone Array (Realtek(R) Audio)" AND Windows default = same mic. Tested: helper standalone 14/15 w/ Windows default on silent Elgato mix; full BB e2e 4/4 → camera moved. New alert VOICE MIC SILENT (sample peak < -60 dBFS) raised in dock on a silent mic — verified on DART. OBS inputs all use fixed device ids → Windows default change doesn't affect show audio. Old build kept as resources\*.bak-1029a. BB running on DART with --remote-debugging-port=9229 (localhost) + --disable-gpu.
-**Known:** "pizza delivery tonight" matched "wide" at 0.60 (= floor 0.6) once → false fire risk.
+**10-and-10 picks DEPLOYED to DART 2026-10-29 ~13:45 ET (bf6a1ea):** see docs/ten-and-ten-2026-10-29.md. Firmer floor for wide/track/zoom (0.8); no rec-stopped alarm on BB's own stop; dock moving note + NEXT performer; BB-restarted-after-crash alert. All verified on DART real OBS/camera/mic. Old builds: resources\*.bak-1029b (2c83354), *.bak-1029a (morning), *.bak-0704. Camera AI tracking set back to "none" after voice "track" test. Test recordings (4 short clips) left in DART's OBS output folder.
 **(was) SHOW RISK — voice mic:** helper uses only the Windows default input; DART default = Elgato "Personal Mix" (silent unless Wave Link app runs; it wasn't). BB Voice-panel mic picker is a no-op. Restored his defaults (Personal Mix, speakers 12%). BB + OBS left running on DART (BB voice bound to Realtek mic until restart). On DART: stop BB, swap asar +
 app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
 Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
@@ -146,3 +146,8 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 - DONE: Noted DART as the show machine. The new BB build (dock, alerts, voice fix) and the Elvis lower-thirds session are installed on it. The old July 4 build is kept as a backup.
 - IN PROGRESS: nothing.
 - NEEDS YOU: 1. Open BB on DART from the desktop. I can't launch it over SSH. 2. Confirm the camera address at the venue.
+
+## Arrival brief — 2026-10-29 13:19 ET — broadcast-buddy
+- DONE: Picker fixed and installed on DART. Voice works on the built-in mic, and a dead mic now raises an alert in the dock.
+- IN PROGRESS: Collecting the 10-and-10 ideas from the code. Ideas are ready within minutes; then I pick and build.
+- NEEDS YOU: nothing
