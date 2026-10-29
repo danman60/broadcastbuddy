@@ -1,5 +1,30 @@
 # Current Work - BroadcastBuddy
 
+## Session 2026-10-29 — weekend prep (show Oct 31 / Nov 1)
+Asks: voice-to-preset tested beforehand; alerts when OBS/recording/OBSBOT stops; an OBS dock instead of app-switching.
+
+**Branch:** back on `main`. `shared-ptz` (5a49408, unpushed) is UNBUILDABLE: its @compsync/camera Oct source
+(/mnt/data/projects-relocated/obsbot-control) is gone; only the Jun 21 package survives (restored from the
+2026-09-01 repo-backup bundle into that path). Don't deploy shared-ptz.
+
+**Shipped (pushed):**
+- `423ba5f` voice: grammar NEVER compiled on real SAPI once any shot existed (sweep phrase → "'' rule reference
+  not defined") — sweep dropped from voice; slots 1-8 always speakable; "preset N" works. Real-SAPI test
+  `voice-helper/test/voicetest.ps1` on FIRMAMENT: 12/12, conf ≥ 0.98, junk rejected.
+- `712e0a0` showMonitor alerts (OBS not responding, rec stopped/stalled, stream dropped, cam 1/2 not responding;
+  OS notification) + OBS dock `http://127.0.0.1:19080/dock`. Spec `tests/zz-show-monitor-dock.spec.ts` 5/5.
+
+**Deploy:** canonical `--dir` build staged `D:\Shared\bb-deploy-2026-10-29` (app.asar 39,387,263 + unpacked +
+voice-helper). DART OFFLINE on Tailscale since ~2026-10-24 → swap pending. On DART: stop BB, swap asar +
+app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
+Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
+
+**Full suite 2026-10-29 07:22:** 438 pass / 17 fail — all 17 fail identically on pre-change 4e85ea5 (pre-existing: app header/Tools menu, cc-relay, overlay counter/feature, ui-screens, resilience-ui, chat state).
+
+**Not tested:** real mic + real Tail 2 on DART; dock inside OBS's CEF (beep needs one click in dock to unlock audio).
+
+---
+
 ## Last Session Summary (2026-07-04)
 Big PTZ session: merged ui-redesign → main (branch deleted), slowed Xbox sticks,
 added joystick calibration UI + configurable slow-move deck action, then built the
