@@ -6,5 +6,6 @@ Branch: `wf/streamlines`. Base: `b0e3004`. No deployment or device access.
 - Baseline titles/log/results and fired-overlay PNG held in `.wf-streamlines/`.
 - Item 1: lower-third, ad-hoc and feature-card scheduling share one helper; timer handles remain separate.
 - Item 2: next/previous use one navigation body; framing, markers and delayed auto-fire keep their order.
+- Item 3: heartbeat liveness uses a typed WeakMap; the 30-second ping/termination cycle is unchanged.
 - Graph callers reviewed. Final build, typechecks, full suite and image comparison pending.
-- Next: WS heartbeat typing, IPC domains, existing HTML split verification, dock assets.
+- Next: IPC domains, existing HTML split verification, dock assets.

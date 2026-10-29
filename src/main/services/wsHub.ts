@@ -47,6 +47,7 @@ const CYCLE_ANIMATIONS: AnimationType[] = [
 
 let wss: WebSocketServer | null = null
 const clients = new Map<WebSocket, string>()
+const heartbeatAlive = new WeakMap<WebSocket, boolean>()
 let heartbeatInterval: NodeJS.Timeout | null = null
 
 function buildStateMessage(): WsStateMessage {
@@ -399,13 +400,13 @@ export function start(port: number): void {
   })
 
   wss.on('connection', (ws, req) => {
-    (ws as unknown as { isAlive: boolean }).isAlive = true
+    heartbeatAlive.set(ws, true)
 
     const remoteIp = req.socket.remoteAddress || 'unknown'
     recordEvent('net', 'Client connected', { ip: remoteIp })
 
     ws.on('pong', () => {
-      (ws as unknown as { isAlive: boolean }).isAlive = true
+      heartbeatAlive.set(ws, true)
     })
 
     ws.on('message', (raw) => {
@@ -458,9 +459,8 @@ export function start(port: number): void {
   heartbeatInterval = setInterval(() => {
     if (!wss) return
     wss.clients.forEach((ws) => {
-      const extWs = ws as unknown as { isAlive: boolean }
-      if (!extWs.isAlive) return ws.terminate()
-      extWs.isAlive = false
+      if (!heartbeatAlive.get(ws)) return ws.terminate()
+      heartbeatAlive.set(ws, false)
       ws.ping()
     })
   }, 30000)
