@@ -50,6 +50,16 @@ namespace VoiceHelper
         public string Name { get; private set; }
         private long BytesRead;                         // reported as Position (SAPI probes it)
         public volatile int Peak;                       // max |sample| since Discard (0-32767)
+        private int _meterPeak;                         // separate window; never resets the PTT silence detector
+
+        public int TakeMeterPeak() { return Interlocked.Exchange(ref _meterPeak, 0); }
+
+        public static MicStream OpenDefault()
+        {
+            var s = new MicStream { Name = "Windows default" };
+            s.Start(-1); // WAVE_MAPPER uses the current Windows default input
+            return s;
+        }
 
         /// <summary>All waveIn device names (Windows truncates them to 31 chars).</summary>
         public static List<string> DeviceNames()
@@ -82,7 +92,10 @@ namespace VoiceHelper
         private void Start(int id)
         {
             var fmt = new WAVEFORMATEX { wFormatTag = 1, nChannels = 1, nSamplesPerSec = Rate, wBitsPerSample = 16, nBlockAlign = 2, nAvgBytesPerSec = Rate * 2 };
-            int rc = waveInOpen(out _h, (IntPtr)id, ref fmt, _evt.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, CALLBACK_EVENT | WAVE_MAPPED);
+            // WAVE_MAPPED requires a concrete device id; the default mapper (-1)
+            // rejects that flag with MMSYSERR_INVALFLAG (10).
+            int flags = CALLBACK_EVENT | (id == -1 ? 0 : WAVE_MAPPED);
+            int rc = waveInOpen(out _h, (IntPtr)id, ref fmt, _evt.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, flags);
             if (rc != 0) throw new IOException("waveInOpen " + rc);
             for (int i = 0; i < Buffers; i++)
             {
@@ -113,9 +126,12 @@ namespace VoiceHelper
                     {
                         var chunk = new byte[n];
                         Marshal.Copy(Marshal.ReadIntPtr(hdr), chunk, 0, n);
-                        int pk = Peak;
+                        int pk = 0;
                         for (int k = 0; k + 1 < n; k += 2) { int v = Math.Abs((int)BitConverter.ToInt16(chunk, k)); if (v > pk) pk = v; }
-                        Peak = pk;
+                        if (pk > Peak) Peak = pk;
+                        int prior;
+                        do { prior = _meterPeak; if (pk <= prior) break; }
+                        while (Interlocked.CompareExchange(ref _meterPeak, pk, prior) != prior);
                         lock (_q)
                         {
                             _q.Enqueue(chunk); _queued += n;

@@ -15,12 +15,12 @@ export function RecoveryBanner() {
 
   useEffect(() => {
     window.api.recoveryCheck().then((s) => {
-      if (s?.available) setStatus(s as RecoveryStatus)
+      setStatus(s?.available ? s as RecoveryStatus : null)
     }).catch(() => { /* ignore */ })
 
     const onPush = (s: unknown) => {
       const rs = s as RecoveryStatus
-      if (rs?.available) setStatus(rs)
+      setStatus(rs?.available ? rs : null)
     }
     window.api.on(IPC.RECOVERY_CHECK, onPush)
     return () => window.api.removeAllListeners(IPC.RECOVERY_CHECK)

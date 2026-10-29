@@ -14,7 +14,7 @@
 import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
-import type { Trigger, OverlayState } from '../../shared/types'
+import type { Trigger, OverlayState, LoopMode } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
 import { writeFileAtomic } from './fsAtomic'
@@ -29,6 +29,9 @@ interface RecoverySnapshot {
   currentSessionName: string | null
   triggers: Trigger[]
   overlayState: OverlayState
+  selectedIndex?: number // optional for snapshots written by older builds
+  playedIds?: string[]
+  loopMode?: LoopMode
 }
 
 export interface RecoveryStatus {
@@ -80,7 +83,7 @@ export function clearDirty(): void {
 }
 
 function writeSnapshot(): void {
-  if (!snapshotProvider) return
+  if (!snapshotProvider || pendingSnapshot) return // keep the pending recovery durable until decided
   let snap: RecoverySnapshot | null = null
   try {
     snap = snapshotProvider()

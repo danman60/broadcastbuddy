@@ -11,6 +11,7 @@ import * as ccRelay from './services/ccRelay'
 import * as session from './services/session'
 import * as events from './services/events'
 import * as crashRecovery from './services/crashRecovery'
+import { setOnRecoveryChanged } from './services/recoveryActions'
 import * as backup from './services/backup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
@@ -213,6 +214,7 @@ app.whenReady().then(() => {
   }
 
   // 13. Crash recovery — snapshot provider + dirty-marker check + periodic snapshots.
+  setOnRecoveryChanged(() => { pushState(); wsHub.broadcastState() })
   crashRecovery.setSnapshotProvider(() => {
     const cur = session.getCurrentSession()
     return {
@@ -221,6 +223,9 @@ app.whenReady().then(() => {
       currentSessionName: cur?.name ?? null,
       triggers: overlay.getTriggers(),
       overlayState: overlay.getOverlayState(),
+      selectedIndex: overlay.getSelectedIndex(),
+      playedIds: overlay.getPlayedSet(),
+      loopMode: overlay.getLoopMode(),
     }
   })
   const recovery = crashRecovery.checkAndRecover() // (re)arms the dirty marker for this run

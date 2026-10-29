@@ -3,12 +3,16 @@
    so it drops into a .settings-group without visual drift. */
 
 .voice-panel {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
   color: var(--text-primary, #e5e7eb);
   font-size: 12px;
 }
+.voice-meter { display:flex; align-items:center; flex-wrap:wrap; gap:8px; color:var(--text-primary, #e5e7eb); }
+.voice-meter meter { flex:1; min-width:60px; height:10px; accent-color:#22c55e; }
+.voice-meter output { font-variant-numeric:tabular-nums; }
 .voice-panel.disabled {
   opacity: 0.45;
   pointer-events: none;

@@ -10,6 +10,8 @@ release/
 Thumbs.db
 sessions/
 test-results/
+# Operator-feature visual evidence stays local by owner instruction.
+tests/screenshots/operator-*.png
 graphify-out/
 .claude-crash-transcript.md
 

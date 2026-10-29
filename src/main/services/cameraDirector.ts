@@ -398,6 +398,8 @@ export function goHomeViaCamera(): void {
   try {
     const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
+    const active = getActiveCameraId()
+    const id = resolveCameraHostFor(active) === host ? active : 1
 
     void (async () => {
       try {
@@ -410,6 +412,8 @@ export function goHomeViaCamera(): void {
         const cadence = getCadence(host)
         if (cadence) cadence.goIdleWide()
         else director.goHome()
+        rememberPreset(id, 1)
+        if (settings.getAll().cameraUndoEnabled) noteRecall(id, 1)
         logger.info('Camera went to Home (safety wide, AI off, cadence IDLE_WIDE)')
       } catch (err) {
         logger.error('Camera goHome failed:', err)
@@ -682,8 +686,52 @@ function noteRecall(cam: 1 | 2, slot: number): void {
   recallTimer = setTimeout(() => { recalling = null; notifyActivity() }, RECALL_SETTLE_MS)
   notifyActivity()
 }
-export function getCameraActivity(): { activeCam: 1 | 2; sweepRunning: boolean; bounceRunning: boolean; recalling: { cam: 1 | 2; slot: number } | null } {
-  return { activeCam: getActiveCameraId(), sweepRunning, bounceRunning: bounces.size > 0, recalling }
+export function getCameraActivity() {
+  const activeCam = getActiveCameraId()
+  const undoEnabled = settings.getAll().cameraUndoEnabled === true
+  return { activeCam, sweepRunning, bounceRunning: bounces.size > 0, recalling,
+    undoEnabled, undoSlot: undoEnabled ? presetHistory(activeCam)?.previous ?? null : null }
+}
+
+// History is deliberately volatile: a restart or endpoint change cannot know where a camera was.
+const presetHistories = new Map<1 | 2, { endpoint: string; current: number; previous: number | null }>()
+function cameraEndpoint(id: 1 | 2): string | null {
+  const host = resolveCameraHostFor(id)
+  return host ? `${host}:${resolvePortForHost(host)}` : null
+}
+function presetHistory(id: 1 | 2) {
+  const history = presetHistories.get(id)
+  return history?.endpoint === cameraEndpoint(id) ? history : undefined
+}
+function rememberPreset(id: 1 | 2, slot: number): void {
+  if (settings.getAll().cameraUndoEnabled !== true) return
+  const endpoint = cameraEndpoint(id)
+  if (!endpoint) return
+  const old = presetHistory(id)
+  // Repeating a preset doesn't throw away the last distinct view.
+  if (old?.current === slot) return
+  presetHistories.set(id, { endpoint, current: slot, previous: old?.current ?? null })
+}
+export function resetCameraUndo(): void {
+  presetHistories.clear()
+  notifyActivity()
+}
+export function undoCameraPreset(): void {
+  if (settings.getAll().cameraUndoEnabled !== true) return
+  const id = getActiveCameraId()
+  if (presetHistory(id)?.previous == null) return
+  withCamFor(id, 'undo-preset', (cam) => {
+    if (settings.getAll().cameraUndoEnabled !== true) return
+    const history = presetHistory(id)
+    if (!history || history.previous == null) return
+    const slot = history.previous
+    abortCameraMoves()
+    cam.triggerPreset(slot)
+    history.current = slot
+    history.previous = null
+    notifyCommandSink(id, 'recall', { n: slot })
+    noteRecall(id, slot)
+  })
 }
 
 // ── BOUNCE program: continuous velocity ping-pong ("auto-pan" / cruise mode) ──
@@ -1053,7 +1101,12 @@ export function slowZoomPushFor(id: 1 | 2, durationMs: number, factor: number): 
 
 /** Per-camera recall of a stored preset slot. */
 export function recallCameraPresetFor(id: 1 | 2, n: number): void {
-  withCamFor(id, 'recall-preset', (cam) => cam.triggerPreset(n))
+  if (!Number.isInteger(n) || n < 1 || n > 254) return
+  withCamFor(id, 'recall-preset', (cam) => {
+    cam.triggerPreset(n)
+    rememberPreset(id, n)
+    if (settings.getAll().cameraUndoEnabled === true) notifyActivity()
+  })
   notifyCommandSink(id, 'recall', { n })
   noteRecall(id, n)
 }

@@ -75,7 +75,8 @@ export function saveSession(
   return currentSession
 }
 
-export function loadSession(id: string): Session | null {
+/** Read without adopting it as the active session (recovery preview). */
+export function readSession(id: string): Session | null {
   const filePath = path.join(getSessionsDir(), `${id}.json`)
   if (!fs.existsSync(filePath)) {
     logger.error(`Session file not found: ${filePath}`)
@@ -84,14 +85,20 @@ export function loadSession(id: string): Session | null {
 
   try {
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-    currentSession = data as Session
-    logger.info(`Session loaded: ${currentSession.name}`)
-    recordEvent('session', `Session loaded: ${currentSession.name}`, { sessionId: currentSession.id, triggers: currentSession.triggers?.length || 0 })
-    return currentSession
+    return data as Session
   } catch (err) {
     logger.error('Failed to load session:', err)
     return null
   }
+}
+
+export function loadSession(id: string): Session | null {
+  const data = readSession(id)
+  if (!data) return null
+  currentSession = data
+  logger.info(`Session loaded: ${currentSession.name}`)
+  recordEvent('session', `Session loaded: ${currentSession.name}`, { sessionId: currentSession.id, triggers: currentSession.triggers?.length || 0 })
+  return currentSession
 }
 
 export function listSessions(): Array<{ id: string; name: string; updatedAt: string }> {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Speech.Recognition;
+using System.Threading;
 
 namespace VoiceHelper
 {
@@ -31,6 +32,9 @@ namespace VoiceHelper
         private bool _continuous;                        // hands-free wake mode: emit per recognition, no key-up
         private MicStream _mic;                          // picker-chosen device; null = Windows default
         private int _peakLevel = -1;                     // max SAPI audio level (0-100) during a hold; -1 = no level event (fires on the default device only)
+        private Timer _meterTimer;
+        private MicStream _meterMic;                     // default input capture, opened ONLY for metering
+        private bool _meterEnabled;
 
         private static int Main()
         {
@@ -139,6 +143,10 @@ namespace VoiceHelper
                     Emit(Outbound.Pong());
                     break;
 
+                case "meter":
+                    SetMeter(msg.On == true);
+                    break;
+
                 case "file":
                     // Test hook: recognize a WAV once against the live grammar so the real
                     // SAPI path can be verified without a mic. Emits result/reject like PTT.
@@ -155,6 +163,8 @@ namespace VoiceHelper
         private void SelectMic(string label)
         {
             if (_engine == null) return;
+            bool resumeMeter = _meterEnabled;
+            SetMeter(false);
             bool resumeContinuous;
             lock (_gate)
             {
@@ -175,6 +185,37 @@ namespace VoiceHelper
             if (err != null) Emit(Outbound.Error(err));
             Emit(new Dictionary<string, object> { { "t", "mic" }, { "name", next != null ? next.Name : "" } });
             if (resumeContinuous) StartContinuous();
+            if (resumeMeter) SetMeter(true);
+        }
+
+        // Independent 200 ms sample window. Reading it never consumes audio or changes
+        // grammar/listening state, and never resets MicStream.Peak (PTT silent-mic check).
+        private void SetMeter(bool on)
+        {
+            lock (_gate)
+            {
+                _meterEnabled = false;
+                if (_meterTimer != null) { _meterTimer.Dispose(); _meterTimer = null; }
+                if (_meterMic != null) { _meterMic.Dispose(); _meterMic = null; }
+                if (!on) return;
+                try
+                {
+                    if (_mic == null) _meterMic = MicStream.OpenDefault();
+                    (_mic ?? _meterMic).TakeMeterPeak();
+                    _meterEnabled = true;
+                    _meterTimer = new Timer(_ =>
+                    {
+                        lock (_gate)
+                        {
+                            if (!_meterEnabled) return;
+                            int peak = (_mic ?? _meterMic).TakeMeterPeak();
+                            int percent = Math.Min(100, Math.Max(0, (int)Math.Round(peak * 100.0 / 32768.0)));
+                            Emit(new Dictionary<string, object> { { "t", "level" }, { "peak", percent } });
+                        }
+                    }, null, 200, 200);
+                }
+                catch (Exception ex) { Emit(Outbound.Error("meter-unavailable: " + ex.Message)); }
+            }
         }
 
         private void SetEngineInput()
@@ -433,10 +474,10 @@ namespace VoiceHelper
 
         private void Emit(Dictionary<string, object> msg)
         {
-            string json = Json.Serialize(msg);
             // One object per line. Flush so BB sees it immediately.
             lock (_gate)
             {
+                string json = Json.Serialize(msg);
                 Console.Out.Write(json);
                 Console.Out.Write('\n');
                 Console.Out.Flush();
@@ -445,6 +486,7 @@ namespace VoiceHelper
 
         private void Shutdown()
         {
+            SetMeter(false);
             try
             {
                 if (_engine != null)

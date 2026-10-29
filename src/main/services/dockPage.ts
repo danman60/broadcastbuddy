@@ -17,6 +17,15 @@ export function buildDockHTML(wsPort: number): string {
   button { font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--line);
            border-radius:6px; padding:9px 4px; cursor:pointer; min-width:0; }
   button:active { filter:brightness(1.4); }
+  button:disabled { opacity:.45; cursor:default; }
+  [hidden] { display:none !important; }
+  #undo { width:100%; margin-top:5px; }
+  #recovery { margin-top:8px; padding:10px; border:1px solid var(--warn); border-radius:6px; }
+  #recovery p { margin:0 0 8px; overflow-wrap:anywhere; }
+  #recovery button { padding:9px; }
+  .meter { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:8px; font-size:11px; color:var(--dim); }
+  .meter meter { flex:1; min-width:60px; height:10px; accent-color:var(--ok); }
+  .meter output { font-variant-numeric:tabular-nums; }
   button.on { background:var(--accent); border-color:var(--accent); }
   button.stop { background:#7a1d1d; border-color:#a33; font-weight:700; }
   .row { display:grid; gap:5px; }
@@ -45,6 +54,11 @@ export function buildDockHTML(wsPort: number): string {
 <body>
   <div id="alerts"><ul id="alertList"></ul><button id="ack">ACKNOWLEDGE</button></div>
   <div class="chips" id="chips"></div>
+  <div id="recovery" hidden>
+    <p id="recoveryName"></p>
+    <div class="row"><button id="resume" data-cmd="recoveryRestore"></button>
+    <button id="dismissRecovery" data-cmd="recoveryDismiss">Dismiss</button></div>
+  </div>
 
   <h2>Camera</h2>
   <div class="row c2" style="margin-bottom:5px"><button id="cam1">CAM 1</button><button id="cam2">CAM 2</button></div>
@@ -55,8 +69,13 @@ export function buildDockHTML(wsPort: number): string {
     <button class="stop" data-cmd="cameraStop">STOP</button>
   </div>
 
+  <button id="undo" data-cmd="cameraUndo" hidden disabled>UNDO</button>
   <h2>Voice</h2>
   <button id="ptt">HOLD TO TALK</button>
+  <div id="voiceMeter" class="meter" hidden>
+    <span>Mic level</span><meter id="micLevel" aria-label="Voice microphone level" min="0" max="100" value="0"></meter>
+    <output id="micLevelText">Level unavailable</output>
+  </div>
   <div class="heard" id="heard"></div>
 
   <h2>Lower third</h2>
@@ -144,6 +163,16 @@ export function buildDockHTML(wsPort: number): string {
     var cam = state && state.camera ? state.camera.activeCam : 1;
     $('cam1').classList.toggle('on', cam === 1);
     $('cam2').classList.toggle('on', cam === 2);
+    var undoSlot = state && state.camera && state.camera.undoSlot;
+    $('undo').hidden = !(state && state.camera && state.camera.undoEnabled);
+    $('undo').disabled = !connected || undoSlot == null;
+    $('undo').textContent = undoSlot == null ? 'UNDO' : 'UNDO: CAM' + cam + ' to preset ' + undoSlot;
+    var recovery = state && state.recovery;
+    $('recovery').hidden = !(recovery && recovery.available);
+    $('recoveryName').textContent = recovery && recovery.sessionName ? recovery.sessionName : 'Previous session';
+    $('resume').textContent = recovery && recovery.triggerCount ? 'Resume at performer ' + recovery.performer + '/' + recovery.triggerCount : 'Resume session';
+    $('resume').disabled = !connected;
+    $('dismissRecovery').disabled = !connected;
     var rc = state && state.camera && state.camera.recalling;
     $('moving').textContent = rc ? 'CAM' + rc.cam + ' moving to preset ' + rc.slot + '…' : '';
     document.querySelectorAll('#presets button').forEach(function (b) {
@@ -151,6 +180,11 @@ export function buildDockHTML(wsPort: number): string {
     });
 
     var vs2 = state && state.voice, heard = $('heard');
+    $('voiceMeter').hidden = !(vs2 && vs2.meterEnabled);
+    var peak = connected && vs2 && typeof vs2.peak === 'number' ? vs2.peak : null;
+    $('micLevel').value = peak == null ? 0 : peak;
+    $('micLevel').setAttribute('aria-valuetext', peak == null ? 'Level unavailable' : peak + '%');
+    $('micLevelText').textContent = peak == null ? 'Level unavailable' : peak + '%';
     if (vs2 && vs2.lastResult) {
       var r = vs2.lastResult;
       heard.textContent = (r.ok ? '✓ ' : '✗ ') + r.text + ' (' + Math.round(r.confidence * 100) + '%)';

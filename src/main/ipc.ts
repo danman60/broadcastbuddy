@@ -42,6 +42,7 @@ import {
   zoomCameraVelocityFor,
   slowZoomPushFor,
   recallCameraPresetFor,
+  resetCameraUndo,
   stopAllCameraMotionFor,
   setCameraAiEnableFor,
   getCameraPresetIds,
@@ -53,7 +54,7 @@ import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
 import { applyOverlayConfigToStyling } from './services/overlayConfigApply'
 import * as events from './services/events'
-import * as crashRecovery from './services/crashRecovery'
+import { getRecoveryStatus, restoreRecovery, dismissRecovery } from './services/recoveryActions'
 import * as backup from './services/backup'
 import * as dayChecklist from './services/dayChecklist'
 import { getItemsForKind } from './services/dayChecklistItems'
@@ -536,6 +537,9 @@ export function registerIpcHandlers(): void {
     if (key === 'voiceEnabled' || key === 'cameraHost' || key === 'cameraHost2') voiceDirector.applyVoiceEnabled()
     if (key === 'voiceShots') voiceDirector.refreshGrammar()
     if (key === 'voiceMicDeviceId') voiceDirector.applyMic()
+    if (key === 'voiceMeterEnabled') voiceDirector.applyVoiceMeter()
+    if (['cameraUndoEnabled', 'cameraHost', 'cameraHost2', 'cameraPort', 'cameraPort2'].includes(key)) resetCameraUndo()
+    if (key === 'cameraUndoEnabled' || key === 'dockRecoveryPrompt' || key === 'voiceMeterEnabled') broadcastState()
     // Wake-word mode: re-push grammar (with/without the required prefix) + start/stop
     // the helper's continuous recognition.
     if (key === 'voiceWakeEnabled' || key === 'voiceWakeWord') voiceDirector.applyWakeMode()
@@ -1960,62 +1964,9 @@ export function registerIpcHandlers(): void {
 
   // ── Crash recovery ────────────────────────────────────────────
 
-  ipcMain.handle(IPC.RECOVERY_CHECK, () => {
-    // Re-derive status from the pending snapshot (checkAndRecover already ran
-    // at startup; this just exposes it on demand without re-arming the marker).
-    const snap = crashRecovery.getPendingSnapshot()
-    if (!snap) return { available: false, triggerCount: 0, sessionName: null, lastActive: null }
-    return {
-      available: true,
-      triggerCount: snap.triggers?.length || 0,
-      sessionName: snap.currentSessionName,
-      lastActive: snap.savedAt,
-    }
-  })
-
-  ipcMain.handle(IPC.RECOVERY_RESTORE, () => {
-    const snap = crashRecovery.getPendingSnapshot()
-    if (!snap) return { restored: false }
-    // Prefer reloading the saved session file (authoritative) if it still
-    // exists; fall back to the in-snapshot triggers/state otherwise.
-    let restored = false
-    if (snap.currentSessionId) {
-      const s = session.loadSession(snap.currentSessionId)
-      if (s) {
-        overlay.loadSessionState(
-          s.triggers, s.styling, s.companyLogoDataUrl, s.clientLogoDataUrl,
-          s.selectedIndex, s.playedIds, s.loopMode, s.notes, s.streamConfig,
-        )
-        restored = true
-      }
-    }
-    if (!restored && snap.triggers?.length) {
-      const st = snap.overlayState.lowerThird.styling
-      // The saved session file is gone — adopt a FRESH session to hold the
-      // recovered triggers BEFORE loading them, so the debounced auto-save
-      // persists them into their own file. Without this, currentSession would
-      // still point at the session auto-loaded on boot (index.ts step 12b) and
-      // the next edit would overwrite that unrelated session with recovered data.
-      session.newSession(snap.currentSessionName ? `${snap.currentSessionName} (recovered)` : 'Recovered session')
-      overlay.loadSessionState(
-        snap.triggers, st,
-        snap.overlayState.companyLogo.dataUrl, snap.overlayState.clientLogo.dataUrl,
-      )
-      restored = true
-    }
-    if (restored) {
-      events.recordEvent('system', 'Previous session restored after unclean shutdown')
-      pushState()
-      broadcastState()
-    }
-    crashRecovery.discardSnapshot()
-    return { restored }
-  })
-
-  ipcMain.handle(IPC.RECOVERY_DISMISS, () => {
-    crashRecovery.discardSnapshot()
-    return { ok: true }
-  })
+  ipcMain.handle(IPC.RECOVERY_CHECK, getRecoveryStatus)
+  ipcMain.handle(IPC.RECOVERY_RESTORE, restoreRecovery)
+  ipcMain.handle(IPC.RECOVERY_DISMISS, dismissRecovery)
 
   // ── Startup checks ────────────────────────────────────────────
 

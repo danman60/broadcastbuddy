@@ -46,6 +46,8 @@ const store = new Store<AppSettings>({
     cameraHost: '',
     // OBSBOT camera additive controls — defaults preserve current OFF behaviour.
     cameraAutoMode: false,
+    cameraUndoEnabled: false,
+    dockRecoveryPrompt: false,
     cameraFramingMode: 'recital',
     cameraPort: 80,
     // Multi-camera (2nd PTZ). Camera 2 off unless cameraHost2 set; activeCameraId
@@ -55,6 +57,7 @@ const store = new Store<AppSettings>({
     activeCameraId: 1,
     // Voice-driven PTZ director — dormant until voiceEnabled + a camera host is set.
     voiceEnabled: false,
+    voiceMeterEnabled: false,
     voiceMicDeviceId: '',
     voiceConfidenceFloor: 0.6,
     voiceZoomSpeed: 3,

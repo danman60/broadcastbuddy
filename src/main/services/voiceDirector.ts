@@ -6,9 +6,9 @@
 //
 // Wire protocol with the helper = newline-delimited JSON over stdio (see
 // docs/superpowers/specs/2026-06-23-voice-ptz-director-design.md):
-//   BB → helper : {t:'grammar',verbs,shots} | {t:'listen',on} | {t:'mic',deviceId} | {t:'ping'}
+//   BB → helper : {t:'grammar',verbs,shots} | {t:'listen',on} | {t:'mic',deviceId} | {t:'ping'} | {t:'meter',on}
 //   helper → BB : {t:'ready'} | {t:'result',camera,verb,target,confidence} |
-//                 {t:'reject',reason,confidence} | {t:'error',reason} | {t:'pong'}
+//                 {t:'reject',reason,confidence} | {t:'error',reason} | {t:'pong'} | {t:'level',peak:0..100}
 //
 // BB owns the confidence floor (so it's tunable without rebuilding the exe) and the
 // command→primitive routing. The helper only recognizes speech against the grammar.
@@ -64,7 +64,7 @@ interface VoiceMsgResult {
 }
 interface VoiceMsgReject { t: 'reject'; reason?: string; confidence?: number }
 interface VoiceMsgError { t: 'error'; reason?: string }
-type VoiceMsg = VoiceMsgResult | VoiceMsgReject | VoiceMsgError | { t: 'ready' } | { t: 'pong' } | { t: 'mic'; name?: string }
+type VoiceMsg = VoiceMsgResult | VoiceMsgReject | VoiceMsgError | { t: 'ready' } | { t: 'pong' } | { t: 'mic'; name?: string } | { t: 'level'; peak: number }
 
 let helper: ChildProcessWithoutNullStreams | null = null
 let helperReady = false
@@ -73,6 +73,21 @@ let stdoutBuf = ''
 let restartTimer: NodeJS.Timeout | null = null
 let lastResult: VoiceResult | undefined
 let onVoiceChanged: (() => void) | null = null
+let micPeak: number | null = null
+let levelExpiry: NodeJS.Timeout | null = null
+
+function clearLevel(): void {
+  micPeak = null
+  if (levelExpiry) clearTimeout(levelExpiry)
+  levelExpiry = null
+}
+
+/** Optional protocol extension; old helpers silently ignore this command. */
+export function applyVoiceMeter(): void {
+  clearLevel()
+  if (helperReady) send({ t: 'meter', on: enabled() && settings.getAll().voiceMeterEnabled === true })
+  pushStatus()
+}
 
 /** WS hub hook so the OBS dock sees helper state + last heard command live. */
 export function setOnVoiceChanged(cb: (() => void) | null): void {
@@ -100,6 +115,8 @@ function enabled(): boolean {
 
 function pushStatus(extra?: Partial<VoiceStatus>): void {
   const status: VoiceStatus = {
+    meterEnabled: settings.getAll().voiceMeterEnabled === true,
+    peak: micPeak,
     helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
     listening,
     wake: wakeActive(),
@@ -184,11 +201,14 @@ export function startVoiceDirector(): void {
     return
   }
   helperReady = false
+  clearLevel()
   stdoutBuf = ''
+  const child = helper
   logger.info(`voice-helper started (${exe})`)
   pushStatus()
 
   helper.stdout.on('data', (chunk: Buffer) => {
+    if (helper !== child) return
     stdoutBuf += chunk.toString('utf8')
     let nl: number
     while ((nl = stdoutBuf.indexOf('\n')) >= 0) {
@@ -200,11 +220,13 @@ export function startVoiceDirector(): void {
   helper.stderr.on('data', (chunk: Buffer) => {
     logger.warn(`voice-helper stderr: ${chunk.toString('utf8').trim()}`)
   })
-  helper.on('exit', (code) => {
-    logger.warn(`voice-helper exited (code ${code})`)
+  const ended = (reason: string): void => {
+    if (helper !== child) return // a stopped helper must not clear or restart its replacement
+    logger.warn(`voice-helper ${reason}`)
     helper = null
     helperReady = false
     listening = false
+    clearLevel()
     pushStatus()
     // Auto-relaunch while still enabled (additive — manual controls unaffected).
     if (enabled() && !restartTimer) {
@@ -213,11 +235,14 @@ export function startVoiceDirector(): void {
         startVoiceDirector()
       }, 2000)
     }
-  })
+  }
+  child.on('exit', (code) => ended(`exited (code ${code})`))
+  child.on('error', (err) => ended(`failed: ${err.message}`))
 }
 
 /** Stop the helper (voice disabled or app shutdown). */
 export function stopVoiceDirector(): void {
+  clearLevel()
   if (restartTimer) {
     clearTimeout(restartTimer)
     restartTimer = null
@@ -260,6 +285,8 @@ export function pttUp(): void {
 
 export function getStatus(): VoiceStatus {
   return {
+    meterEnabled: settings.getAll().voiceMeterEnabled === true,
+    peak: micPeak,
     helper: helper ? (helperReady ? 'ready' : 'starting') : 'down',
     listening,
     wake: wakeActive(),
@@ -269,6 +296,8 @@ export function getStatus(): VoiceStatus {
 
 /** Picker changed → helper reopens its capture device (label; '' = Windows default). */
 export function applyMic(): void {
+  clearLevel()
+  pushStatus()
   if (helper && helperReady) send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
 }
 
@@ -299,17 +328,27 @@ function handleHelperLine(line: string): void {
     logger.warn(`voice-helper: bad JSON line: ${line.slice(0, 120)}`)
     return
   }
+  if (!msg || typeof msg !== 'object') return
   switch (msg.t) {
     case 'ready':
       helperReady = true
       send(buildGrammar())
       send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
+      if (settings.getAll().voiceMeterEnabled === true) send({ t: 'meter', on: true })
       // Hands-free: kick the helper into continuous recognition immediately.
       if (wakeActive()) {
         send({ t: 'wake', on: true })
         listening = true
       }
       logger.info(`voice-helper ready, grammar pushed${wakeActive() ? ` (wake "${wakeWord()}")` : ''}`)
+      pushStatus()
+      break
+    case 'level':
+      if (!enabled() || !helperReady || settings.getAll().voiceMeterEnabled !== true) break
+      if (typeof msg.peak !== 'number' || !Number.isFinite(msg.peak) || msg.peak < 0 || msg.peak > 100) break
+      micPeak = Math.round(msg.peak)
+      if (levelExpiry) clearTimeout(levelExpiry)
+      levelExpiry = setTimeout(() => { clearLevel(); pushStatus() }, 1200)
       pushStatus()
       break
     case 'result':

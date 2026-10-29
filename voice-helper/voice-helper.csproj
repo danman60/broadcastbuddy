@@ -60,6 +60,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Protocol.cs" />
     <Compile Include="GrammarFactory.cs" />
+    <Compile Include="MicStream.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

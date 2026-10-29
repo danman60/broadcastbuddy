@@ -242,6 +242,20 @@ export function VoicePanel(): React.ReactElement {
         Hold the deck PTT key and speak a command. Off-air safe: nothing is heard unless held.
       </p>
 
+      <div className="voice-row">
+        <input id="voice-meter-enabled" type="checkbox" checked={settings?.voiceMeterEnabled === true}
+          onChange={(e) => void persist('voiceMeterEnabled', e.target.checked)} />
+        <label htmlFor="voice-meter-enabled">Show live mic level in panel and dock</label>
+      </div>
+      {settings?.voiceMeterEnabled && (
+        <div className="voice-meter">
+          <span>Mic level</span>
+          <meter aria-label="Voice microphone level" min={0} max={100} value={status.peak ?? 0}
+            aria-valuetext={status.peak == null ? 'Level unavailable' : `${status.peak}%`} />
+          <output>{status.peak == null ? 'Level unavailable' : `${status.peak}%`}</output>
+        </div>
+      )}
+
       {/* Everything below dims + goes inert when the master toggle is off. */}
       <div className={'voice-panel' + (enabled ? '' : ' disabled')} aria-disabled={!enabled}>
         {/* ── Status pill + listening indicator ── */}

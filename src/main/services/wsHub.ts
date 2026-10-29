@@ -28,9 +28,10 @@ import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
 import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
-import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged, startBounce, stopBounce, isBounceRunning, getActiveCameraId, startSweepLoop } from './cameraDirector'
+import { undoCameraPreset, goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged, startBounce, stopBounce, isBounceRunning, getActiveCameraId, startSweepLoop } from './cameraDirector'
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
 import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged } from './voiceDirector'
+import { getRecoveryStatus, restoreRecovery, dismissRecovery } from './recoveryActions'
 import { getHealth, ackAlerts } from './showMonitor'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
@@ -72,9 +73,12 @@ function buildStateMessage(): WsStateMessage {
       sweepRunning: activity.sweepRunning,
       bounceRunning: activity.bounceRunning,
       recalling: activity.recalling,
+      undoEnabled: activity.undoEnabled,
+      undoSlot: activity.undoSlot,
     },
     health: getHealth(),
     voice: getVoiceStatus(),
+    recovery: settings.getAll().dockRecoveryPrompt === true ? getRecoveryStatus() : undefined,
   }
 }
 
@@ -174,6 +178,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     // no parallel logic. cameraWide == the "Go Wide / Panic" hotkey (goHomeViaCamera).
     // cameraAuto/cameraManual == the dashboard AUTO/MANUAL toggle (AI enable + persist
     // cameraAutoMode + apply-current / go-wide). All no-op unless a camera host is set.
+    case 'cameraUndo':
+      undoCameraPreset()
+      break
+    case 'recoveryRestore':
+      if (settings.getAll().dockRecoveryPrompt === true) restoreRecovery()
+      break
+    case 'recoveryDismiss':
+      if (settings.getAll().dockRecoveryPrompt === true) dismissRecovery()
+      break
     case 'cameraWide':
       goHomeViaCamera()
       break

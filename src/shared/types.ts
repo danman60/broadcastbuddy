@@ -458,6 +458,8 @@ export interface AppSettings {
   // in cameraDirector.ts). When active but cameraHost is blank, the OBSBOT
   // USB/RNDIS default 192.168.88.10 is used so the operator never types an IP.
   cameraAutoMode?: boolean // master opt-in: auto-frame on trigger fire. Default false.
+  cameraUndoEnabled?: boolean // single-use return to the previous preset, per camera. Default false.
+  dockRecoveryPrompt?: boolean // offer pending crash recovery in the OBS dock. Default false.
   cameraFramingMode?: 'recital' | 'competition' // Director framing floor. Default 'recital'.
   cameraPort?: number // camera HTTP port. Default 80.
   // ── PTZ control panel tuning (all optional; defaults applied in the renderer
@@ -474,6 +476,7 @@ export interface AppSettings {
   // (Windows System.Speech) does the recognition; BB builds the grammar from voiceShots.
   // See src/main/services/voiceDirector.ts + docs/superpowers/specs/2026-06-23-voice-ptz-director-design.md.
   voiceEnabled?: boolean // master opt-in for the voice director. Default false.
+  voiceMeterEnabled?: boolean // opt-in helper mic levels in the panel and dock. Default false.
   voiceMicDeviceId?: string // capture device LABEL for the helper (empty = Windows default); name kept for stored settings
   voiceConfidenceFloor?: number // 0–1; matches below this are rejected. Default 0.6.
   voiceZoomSpeed?: number // OBSBOT zoom-velocity speed for "zoom in/out" nudges. Default 3.
@@ -516,6 +519,8 @@ export interface VoiceResult {
 
 /** Helper process / engine status pushed to the renderer. */
 export interface VoiceStatus {
+  meterEnabled?: boolean
+  peak?: number | null // 0-100; null means unavailable, including older helpers
   helper: 'starting' | 'ready' | 'down' // child-process state
   listening: boolean // true while the PTT key is held (or continuously, in wake mode)
   wake?: boolean // true when hands-free wake-word mode is active
@@ -919,6 +924,7 @@ export interface EventLogRecord {
 }
 
 export interface RecoveryStatus {
+  performer?: number // one-based position that restore will select; 0 for an empty session
   available: boolean
   triggerCount: number
   sessionName: string | null
@@ -1302,9 +1308,12 @@ export interface WsStateMessage {
     sweepRunning: boolean
     bounceRunning: boolean
     recalling?: { cam: 1 | 2; slot: number } | null // last preset recall, until it has had time to arrive
+    undoEnabled?: boolean
+    undoSlot?: number | null // previous slot for the active camera
   }
   health?: ShowHealth
   voice?: VoiceStatus
+  recovery?: RecoveryStatus // pending recovery summary, only when dockRecoveryPrompt is enabled
 }
 
 // Show-monitor alert state (showMonitor.ts) — rides the WS state message for the OBS dock.

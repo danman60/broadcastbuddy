@@ -13,7 +13,7 @@ import '../styles/settings.css'
 // the section JSX below needs no changes. Add a new group's title prefix here to slot
 // it under a tab (falls back to General if unmatched).
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
-  { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
+  { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups', 'OBS Dock'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
   { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
@@ -500,6 +500,20 @@ export function Settings() {
             Enable OBS WebSocket in OBS: Tools &gt; WebSocket Server Settings.
             Notes will include recording timecodes when connected.
           </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">OBS Dock</div>
+          {([
+            ['cameraUndoEnabled', 'Show camera Undo in the dock'],
+            ['dockRecoveryPrompt', 'Offer crash recovery in the dock'],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="voice-row">
+              <input type="checkbox" checked={settings?.[key] === true}
+                onChange={async (e) => setSettings(await window.api.settingsSet(key, e.target.checked))} />
+              {label}
+            </label>
+          ))}
         </div>
 
         <div className="settings-group">
