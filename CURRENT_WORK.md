@@ -14,8 +14,18 @@ Asks: voice-to-preset tested beforehand; alerts when OBS/recording/OBSBOT stops;
 - `712e0a0` showMonitor alerts (OBS not responding, rec stopped/stalled, stream dropped, cam 1/2 not responding;
   OS notification) + OBS dock `http://127.0.0.1:19080/dock`. Spec `tests/zz-show-monitor-dock.spec.ts` 5/5.
 
+- `098c828` real-OBS spec `tests/zz-show-monitor-real-obs.spec.ts` (opt-in, throwaway OBS only): 3/3 vs OBS 30.0.2
+  ws 5.3.4. Freezing OBS 6 s → "OBS NOT RESPONDING" in 6 s; the freeze also tripped OBS's 5 s NVENC encoder timeout
+  ("An encoder error occurred while recording") → recording dies; BB flagged it (STALLED / STOPPED).
+
+**Elvis & Co 2026 lower thirds:** session `mvtihmlqxn2loa` "Elvis & Co 2026 — Lower Thirds", 26 triggers (12
+Competitor, 14 Performer), title = name, subtitle = each elvisandco.ca artist page's "From" field verbatim (uppercased);
+Sound of Sting / The Tonettes / The Casino Brothers have no "From" → blank subtitle. Animation sparkle 0.8 s, client
+logo = site logo. Staged `D:\Shared\bb-deploy-2026-10-29\sessions\mvtihmlqxn2loa.json` → copy into
+`%APPDATA%\broadcast-buddy\sessions\` on the show machine, then Load in BB. Not on site pages: 2025 winners.
+
 **Deploy:** canonical `--dir` build staged `D:\Shared\bb-deploy-2026-10-29` (app.asar 39,387,263 + unpacked +
-voice-helper). DART OFFLINE on Tailscale since ~2026-10-24 → swap pending. On DART: stop BB, swap asar +
+voice-helper). DART is BACKUP (owner 2026-10-29); primary show machine not yet named. DART OFFLINE on Tailscale since ~2026-10-24. On DART: stop BB, swap asar +
 app.asar.unpacked, replace `resources\voice-helper`, operator relaunch. Then OBS → View → Docks → Custom Browser
 Docks → `http://127.0.0.1:19080/dock`. Enable Voice in Settings (voiceEnabled default false).
 
