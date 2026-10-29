@@ -14,6 +14,7 @@ import * as crashRecovery from './services/crashRecovery'
 import * as backup from './services/backup'
 import * as hotkeys from './services/hotkeys'
 import * as systemMonitor from './services/systemMonitor'
+import * as showMonitor from './services/showMonitor'
 import * as voiceDirector from './services/voiceDirector'
 import * as shotRecorder from './services/shotRecorder'
 import { runStartupChecks } from './services/startup'
@@ -242,6 +243,10 @@ app.whenReady().then(() => {
   // 17. System monitor — CPU/RAM/disk stats + low-disk alerts to the renderer.
   systemMonitor.startMonitoring()
 
+  // 17b. Show monitor — OBS/recording/stream/camera alerts → WS state (OBS dock) + OS notification.
+  showMonitor.setOnHealthChanged(() => wsHub.broadcastState())
+  showMonitor.startShowMonitor()
+
   // 18. Voice-driven PTZ director — spawns the bundled voice-helper.exe only when
   //     voiceEnabled + a camera host is set; otherwise a complete no-op.
   voiceDirector.startVoiceDirector()
@@ -267,6 +272,7 @@ app.on('before-quit', () => {
   backup.stopBackupSchedule()
   hotkeys.unregister()
   systemMonitor.stopMonitoring()
+  showMonitor.stopShowMonitor()
   voiceDirector.stopVoiceDirector()
   // Final settings backup, then mark a clean shutdown so next launch doesn't
   // offer recovery.

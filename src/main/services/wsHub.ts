@@ -30,7 +30,8 @@ import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
 import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged, startBounce, stopBounce, isBounceRunning, getActiveCameraId, startSweepLoop } from './cameraDirector'
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
-import { pttDown as voicePttDown, pttUp as voicePttUp } from './voiceDirector'
+import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged } from './voiceDirector'
+import { getHealth, ackAlerts } from './showMonitor'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
@@ -70,6 +71,8 @@ function buildStateMessage(): WsStateMessage {
       sweepRunning: activity.sweepRunning,
       bounceRunning: activity.bounceRunning,
     },
+    health: getHealth(),
+    voice: getVoiceStatus(),
   }
 }
 
@@ -364,6 +367,9 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     case 'cycleTransition':
       doCycleTransition()
       break
+    case 'ackAlerts':
+      ackAlerts()
+      break
     case 'getStatus':
       // No-op — state is broadcast automatically
       break
@@ -384,6 +390,7 @@ export function start(port: number): void {
   // so deck faces + the tablet popup show live camera status.
   setOnShotStateChanged(broadcastState)
   setOnCameraActivityChanged(broadcastState)
+  setOnVoiceChanged(broadcastState)
 
   wss.on('listening', () => {
     recordEvent('net', 'WS hub listening', { host: '0.0.0.0', port })

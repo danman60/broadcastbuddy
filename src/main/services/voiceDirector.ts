@@ -74,6 +74,12 @@ let listening = false
 let stdoutBuf = ''
 let restartTimer: NodeJS.Timeout | null = null
 let lastResult: VoiceResult | undefined
+let onVoiceChanged: (() => void) | null = null
+
+/** WS hub hook so the OBS dock sees helper state + last heard command live. */
+export function setOnVoiceChanged(cb: (() => void) | null): void {
+  onVoiceChanged = cb
+}
 
 // ── Helper executable location ───────────────────────────────────────────────
 // Bundled next to the app resources on Windows; a dev override path is checked too.
@@ -105,6 +111,7 @@ function pushStatus(extra?: Partial<VoiceStatus>): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(IPC.VOICE_STATE, status)
   }
+  onVoiceChanged?.()
 }
 
 /** Hands-free wake mode active = enabled + a non-empty wake word configured. */

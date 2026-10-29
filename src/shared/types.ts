@@ -1301,6 +1301,24 @@ export interface WsStateMessage {
     sweepRunning: boolean
     bounceRunning: boolean
   }
+  health?: ShowHealth
+  voice?: VoiceStatus
+}
+
+// Show-monitor alert state (showMonitor.ts) — rides the WS state message for the OBS dock.
+export interface ShowAlert {
+  id: string
+  text: string
+  since: number
+  acked: boolean
+}
+export interface ShowHealth {
+  obs: boolean
+  recording: boolean
+  recTimecode: string
+  streaming: boolean
+  cams: { 1: boolean | null; 2: boolean | null }
+  alerts: ShowAlert[]
 }
 
 export interface WsCommandMessage {

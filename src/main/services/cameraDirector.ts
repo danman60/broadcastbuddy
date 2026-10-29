@@ -529,6 +529,13 @@ export async function discoverCamera(): Promise<CameraDiscoverResult> {
 }
 
 /** Drop the cached Director (after a host change) so the next call reconnects. */
+/** Health ping for the show monitor: true/false = camera answered/not; null = camera not configured. */
+export async function pingCamera(id: 1 | 2): Promise<boolean | null> {
+  const host = resolveCameraHostFor(id)
+  if (!host) return null
+  return (await probeObsbot(host, resolvePortForHost(host), 2000)) !== null
+}
+
 export function resetCameraConnection(): void {
   invalidateDirector()
 }

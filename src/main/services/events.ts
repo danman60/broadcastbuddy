@@ -35,6 +35,7 @@ export type EventKind =
   | 'net'
   | 'system'
   | 'error'
+  | 'alert' // showMonitor: OBS/recording/stream/camera alerts
   | 'marker' // routine-change marker w/ OBS recording timecode → DaVinci Resolve markers
 
 export interface EventRecord {
