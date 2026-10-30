@@ -46,6 +46,7 @@ let buffer: RecordedMoveEvent[] = []
 let autoStopTimer: NodeJS.Timeout | null = null
 const replayTimers = new Set<NodeJS.Timeout>()
 let replayingId: number | null = null
+let cycling = false // "Cycle shots": play every saved move in order, looping, until toggled off
 let replayGen = 0 // bumped on every replay/cancel so a pending start-pose wait can't start a stale move
 // Cameras the CURRENT replay has already sent commands to — cancelReplay must
 // stop these, or a cleared end-timer strands a gimbal panning at velocity.
@@ -159,13 +160,14 @@ export function toggleRecording(): void {
 }
 
 // ── Replay ───────────────────────────────────────────────────────────────────
-export function replayMove(moveId: number): void {
+export function replayMove(moveId: number, fromCycle = false): void {
   const move = getMoves().find((m) => m.id === moveId)
   if (!move) {
     logger.warn(`replayMove: move ${moveId} not found`)
     return
   }
-  cancelReplay() // only one replay at a time
+  if (!fromCycle) cycling = false // playing a single shot ends a cycle
+  stopReplay() // only one replay at a time
   replayingId = moveId
   setCommandSinkSuppressed(true) // don't re-record our own replay
   const usedCameras = new Set<1 | 2>()
@@ -190,6 +192,7 @@ export function replayMove(moveId: number): void {
       replayingId = null
       replayTimers.clear()
       pushState()
+      if (cycling) playNextInCycle(moveId)
     }, move.durationMs + 250)
     replayTimers.add(end)
   }
@@ -215,7 +218,33 @@ export function replayMoveByLabel(label: string): boolean {
   return true
 }
 
+/** Toggle "Cycle shots" (assignable Xbox button): every saved move in order, looping. */
+export function toggleCycle(): void {
+  if (cycling) {
+    cancelReplay()
+    logger.info('cycle shots: off')
+    return
+  }
+  if (getMoves().length === 0) return
+  cycling = true
+  logger.info('cycle shots: on')
+  playNextInCycle(null)
+}
+
+function playNextInCycle(afterId: number | null): void {
+  const moves = getMoves()
+  if (moves.length === 0) { cycling = false; return }
+  const i = afterId == null ? -1 : moves.findIndex((m) => m.id === afterId)
+  replayMove(moves[(i + 1) % moves.length].id, true)
+}
+
+/** Stop any replay AND any running cycle (stop button, deck, single-shot replacement). */
 export function cancelReplay(): void {
+  cycling = false
+  stopReplay()
+}
+
+function stopReplay(): void {
   replayGen++
   for (const t of replayTimers) clearTimeout(t)
   replayTimers.clear()

@@ -209,6 +209,7 @@ interface ElectronAPI {
   // Shot recorder
   shotRecordToggle: (label?: string) => Promise<{ ok: boolean; move: RecordedMove | null }>
   shotReplay: (id: number) => Promise<{ ok: boolean }>
+  shotCycleToggle: () => Promise<{ ok: boolean }>
   shotDelete: (id: number) => Promise<{ ok: boolean }>
   shotRename: (id: number, label: string) => Promise<{ ok: boolean }>
   shotGet: () => Promise<{ state: ShotRecorderState; moves: RecordedMove[] }>

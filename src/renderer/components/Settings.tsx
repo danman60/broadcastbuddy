@@ -628,6 +628,7 @@ export function Settings() {
                 {(settings?.recordedMoves ?? []).map((m) => (
                   <option key={m.id} value={`move:${m.id}`}>Shot: {m.label || `Move ${m.id}`}</option>
                 ))}
+                <option value="cycleMoves">Cycle all shots (start/stop)</option>
                 <option value="home">Home (wide)</option>
                 <option value="ai">Auto / Manual toggle</option>
                 <option value="record">Record shot start/stop</option>

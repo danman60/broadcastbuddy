@@ -1555,6 +1555,10 @@ export function registerIpcHandlers(): void {
     shotRecorder.startRecording()
     return { ok: true, move: null }
   })
+  ipcMain.handle(IPC.SHOT_CYCLE_TOGGLE, () => {
+    shotRecorder.toggleCycle()
+    return { ok: true }
+  })
   ipcMain.handle(IPC.SHOT_REPLAY, (_e, a: { id: number }) => {
     shotRecorder.replayMove(a.id)
     return { ok: true }

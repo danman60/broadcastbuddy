@@ -286,6 +286,7 @@ function CameraPanelActive(): React.ReactElement {
         // Back → start/stop recording a manual move.
         onRecordToggle: () => { void window.api.shotRecordToggle() },
         onReplayMove: (id) => { void window.api.shotReplay(id) },
+        onCycleMoves: () => { void window.api.shotCycleToggle() },
         // RS click → cycle stick axis lock (UI segmented control mirrors it).
         onCycleAxisLock: () => {
           setAxisLock((cur) => (cur === 'free' ? 'pan' : cur === 'pan' ? 'tilt' : 'free'))

@@ -1189,6 +1189,7 @@ export const IPC = {
   // Shot recorder (motion record/replay → recallable by voice/hotkey/deck).
   SHOT_RECORD_TOGGLE: 'shot:record-toggle',       // start/stop recording (label? on stop)
   SHOT_REPLAY: 'shot:replay',                     // {id} replay a recorded move
+  SHOT_CYCLE_TOGGLE: 'shot:cycle-toggle',         // start/stop playing every saved move in a loop
   SHOT_DELETE: 'shot:delete',                     // {id}
   SHOT_RENAME: 'shot:rename',                     // {id, label}
   SHOT_GET: 'shot:get',                           // list moves + state

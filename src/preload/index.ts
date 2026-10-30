@@ -312,6 +312,7 @@ contextBridge.exposeInMainWorld('api', {
   shotRecordToggle: (label?: string): Promise<{ ok: boolean; move: import('../shared/types').RecordedMove | null }> =>
     ipcRenderer.invoke(IPC.SHOT_RECORD_TOGGLE, { label }),
   shotReplay: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_REPLAY, { id }),
+  shotCycleToggle: (): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_CYCLE_TOGGLE),
   shotDelete: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_DELETE, { id }),
   shotRename: (id: number, label: string): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_RENAME, { id, label }),
   shotGet: (): Promise<{ state: import('../shared/types').ShotRecorderState; moves: import('../shared/types').RecordedMove[] }> =>
