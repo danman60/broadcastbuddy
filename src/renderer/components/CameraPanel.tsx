@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import * as control from '../lib/cameraControl'
 import { GamepadController, AxisLock } from '../lib/gamepad'
 import '../styles/camera.css'
+import '../styles/voice.css'
 
 /**
  * CameraPanel — OBSBOT PTZ control surface for Overlay Mode.
@@ -116,6 +117,12 @@ function CameraPanelActive(): React.ReactElement {
   const [probing, setProbing] = useState(false)
   const [aiEnabled, setAiEnabled] = useState<boolean>(settings?.cameraAutoMode === true)
   const [manualFlash, setManualFlash] = useState(false)
+  const [pttHeld, setPttHeld] = useState(false)
+  const pttRelease = (): void => {
+    if (!pttHeld) return
+    setPttHeld(false)
+    void window.api.voicePtt(false)
+  }
   const [panSpeed, setPanSpeed] = useState(0.7) // joystick magnitude multiplier 0–1
   // Stick axis lock (both Xbox sticks + on-screen joystick): 'pan' = pan only
   // (kills the up/down drift while panning), 'tilt' = tilt only.
@@ -509,6 +516,20 @@ function CameraPanelActive(): React.ReactElement {
         </div>
         {manualFlash && <span className="camera-manual-flash">⚠ manual</span>}
       </div>
+
+      {/* ── Voice push-to-talk (same IPC as Settings → Voice "Hold to Talk") ── */}
+      {settings?.voiceEnabled && (
+        <button
+          type="button"
+          className={'voice-ptt-btn' + (pttHeld ? ' held' : '')}
+          onPointerDown={() => { if (pttHeld) return; setPttHeld(true); void window.api.voicePtt(true) }}
+          onPointerUp={pttRelease}
+          onPointerLeave={pttRelease}
+          onPointerCancel={pttRelease}
+        >
+          {pttHeld ? '● Listening — release to send' : 'Hold to Talk'}
+        </button>
+      )}
 
       {/* ── Joystick + speed/zoom controls ── */}
       <div className="camera-joystick-block">

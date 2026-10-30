@@ -97,3 +97,24 @@ test('voice enable toggle persists voiceEnabled setting', async () => {
   await api(w, 'settingsSet', 'voiceEnabled', before.voiceEnabled)
   await nativeClick(w, '.settings-overlay button', 'Close')
 })
+
+test('camera card shows Hold to Talk when voice is enabled', async () => {
+  const w = h.window
+  const before = await api<Record<string, unknown>>(w, 'settingsGet')
+  await api(w, 'settingsSet', 'voiceEnabled', true)
+  await w.reload() // renderer store reads settings on load
+  await w.waitForLoadState('domcontentloaded')
+  const title = w.locator('.panel-section-title', { hasText: 'Camera (OBSBOT)' })
+  if ((await title.textContent())?.includes('▸')) await title.click()
+  const btn = w.locator('.camera-joystick-block').locator('xpath=preceding-sibling::button[contains(@class,"voice-ptt-btn")]')
+  await expect(btn).toBeVisible({ timeout: 5000 })
+  await expect(btn).toHaveText('Hold to Talk')
+  await w.screenshot({ path: 'tests/screenshots/13-camera-ptt.png' })
+  await api(w, 'settingsSet', 'voiceEnabled', false)
+  await w.reload()
+  await w.waitForLoadState('domcontentloaded')
+  if ((await title.textContent())?.includes('▸')) await title.click()
+  await expect(w.locator('.camera-joystick-block')).toBeVisible({ timeout: 5000 })
+  await expect(w.locator('button.voice-ptt-btn')).toHaveCount(0)
+  await api(w, 'settingsSet', 'voiceEnabled', before.voiceEnabled)
+})
