@@ -173,3 +173,19 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 - DONE: Mic picker, dead-mic alert and 7 show-safety fixes are installed and tested on DART.
 - IN PROGRESS: Three background runs started. Each finishes with a written report; I'll check them as they complete.
 - NEEDS YOU: nothing
+
+## Arrival brief — 2026-10-29 14:41 ET
+- DONE: Recorded the three running jobs and the steps to review and merge them when they finish. Everything of mine is committed and pushed.
+- IN PROGRESS: Three after-show builds are running. The readiness view has a first version pushed; the other two have nothing committed yet. Each ends with a written report.
+- NEEDS YOU: 1. Merge the three after-show branches before or after the Nov 1 show? It's in DECISIONS.md.
+
+## Arrival brief — 2026-10-30 13:36 ET — broadcastbuddy-tablet
+- DONE: Nothing has been fixed since your last message. I found where the Tail Air connection breaks in BB's code.
+- IN PROGRESS: Nothing is running.
+- NEEDS YOU: 1. The Tail Air's IP address. 2. Whether the tablet picture came back after you switched it to AVC.
+
+## 2026-10-30 field fix (DART on phone hotspot "StreamStage", 10.130.53.x) — tap + picture WORKING 14:34 ET
+- Tail 2 now 10.130.53.164 in BB (Find Camera). Tablet 10.130.53.63, AVC. DART 10.130.53.211.
+- DART firewall: hotspot = Public profile (firewall on) → added inbound allow rules "BroadcastBuddy Wifi Display" + "BroadcastBuddy App".
+- PROVEN tablet bug: CSController AVC decoder has no SPS/IDR gate → black on any mid-stream join. Workaround = hold video + restart cast on tablet connect. Fix (APK) awaiting owner go.
+- 219478f (pushed, NOT on DART): relaunch shows main window (second-instance focused a hidden panel window).
