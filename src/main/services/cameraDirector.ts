@@ -1086,6 +1086,46 @@ export function saveCameraPresetFor(id: 1 | 2, n: number, name?: string): void {
   withCamFor(id, 'save-preset', (cam) => cam.setPreset(n, name))
 }
 
+// Scratch preset slot used to read the live pose: the Tail 2 has no live pan/tilt GET, but saving
+// the current pose to a preset and reading the preset list back works mid-move without disturbing it
+// (measured on DART 2026-10-30: recall 202→201 read back every ~230 ms, landed exactly on 201).
+const POSE_SCRATCH_SLOT = 199
+
+/**
+ * Resolve once camera `id` has arrived at stored preset `slot` (pan/tilt within 0.3°, zoom within
+ * 0.05×, two reads in a row), or after `timeoutMs`. Returns the ms waited. Never throws.
+ */
+export async function waitForPresetPose(id: 1 | 2, slot: number, timeoutMs = 10000): Promise<number> {
+  const t0 = Date.now()
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  try {
+    const host = resolveCameraHostFor(id)
+    const director = host ? await getDirector(host) : null
+    if (!director) return 0
+    const cam = director.cam
+    type Pose = { id: number; yaw: number; pitch: number; ratio: number }
+    const list = async (): Promise<Pose[]> => {
+      const r = (await cam.getGimbalPos()) as { presetList?: Pose[]; presetlist?: Pose[] } | undefined
+      return r?.presetList ?? r?.presetlist ?? []
+    }
+    const target = (await list()).find((p) => p.id === slot)
+    if (!target) { await sleep(1500); return Date.now() - t0 } // can't read it — old fixed wait
+    let hits = 0
+    while (Date.now() - t0 < timeoutMs) {
+      cam.setPreset(POSE_SCRATCH_SLOT, '')
+      await sleep(150)
+      const p = (await list()).find((q) => q.id === POSE_SCRATCH_SLOT)
+      const there = !!p && Math.abs(p.yaw - target.yaw) <= 0.3 && Math.abs(p.pitch - target.pitch) <= 0.3 && Math.abs(p.ratio - target.ratio) <= 0.05
+      hits = there ? hits + 1 : 0
+      if (hits >= 2) return Date.now() - t0
+    }
+    logger.warn(`waitForPresetPose: camera ${id} not at preset ${slot} after ${timeoutMs} ms — starting anyway`)
+  } catch (err) {
+    logger.error('waitForPresetPose failed:', err)
+  }
+  return Date.now() - t0
+}
+
 /** Delete stored preset id. */
 export function deleteCameraPreset(id: number): void {
   withCam('delete-preset', (cam) => cam.deletePreset(id))
