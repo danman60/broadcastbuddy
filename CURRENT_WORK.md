@@ -189,3 +189,19 @@ PASSING — app tsc + electron-vite + deck rollup all green at 9ca5b85.
 - DART firewall: hotspot = Public profile (firewall on) → added inbound allow rules "BroadcastBuddy Wifi Display" + "BroadcastBuddy App".
 - PROVEN tablet bug: CSController AVC decoder has no SPS/IDR gate → black on any mid-stream join. Workaround = hold video + restart cast on tablet connect. Fix (APK) awaiting owner go.
 - 219478f (pushed, NOT on DART): relaunch shows main window (second-instance focused a hidden panel window).
+
+## Arrival brief — 2026-10-30 15:14 ET — broadcastbuddy-tablet
+- DONE: Swapped the new build onto DART; it matches the staged build byte for byte. It adds hold-J to talk, Hold to Talk on the camera card, the relaunch fix, the joystick fix and OBS auto-retry. The old version is backed up.
+- IN PROGRESS: nothing.
+- NEEDS YOU: 1. Launch BB. 2. Tell me what "faster updater, like CompSync" means (see below).
+
+## Arrival brief — 2026-10-30 16:25 ET — broadcastbuddy-tablet
+- DONE: Fixed voice push-to-talk and the confidence filter. The helper part is live on DART. The filter fix is pushed but not on DART.
+- IN PROGRESS: nothing.
+- NEEDS YOU: 1. Say "deploy" between shows and I'll swap it in. That means closing BB. 2. Should the next step be the updater (yes/no)?
+
+## 2026-10-30 afternoon — voice + updater
+- Voice PTT: helper cancelled recognition on key-up before SAPI fired (proven: "result landed after key-up" 15:37). Fixed in voice-helper (wait ≤2 s), live on DART 15:23.
+- Strict 0.8 floor for short verbs now hands-free only (PTT "push in" @0.62 was rejected).
+- In-app updater: Settings > General > App Updates. Publish: build on FIRMAMENT, scp app.asar here, `node scripts/publish-update.mjs <asar> <full commit>` with R2 env from ~/.env.keys. asar-only (unpacked/native/exes still need installer).
+- KH-23 Bluetooth mic gives low-confidence matches; wired/USB mic recommended.
