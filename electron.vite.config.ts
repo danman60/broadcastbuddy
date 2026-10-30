@@ -1,6 +1,10 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import { execSync } from 'child_process'
+
+// Baked into main for the in-app updater (services/updater.ts).
+const gitCommit = (() => { try { return execSync('git rev-parse HEAD').toString().trim() } catch { return '' } })()
 
 export default defineConfig({
   main: {
@@ -9,6 +13,10 @@ export default defineConfig({
     // the project root), which electron-builder's asar packager refuses to walk.
     // Bundling inlines it under out/main; osc stays external (optional, lazy).
     plugins: [externalizeDepsPlugin({ exclude: ['@compsync/camera'] })],
+    define: {
+      __BB_COMMIT__: JSON.stringify(gitCommit),
+      __BB_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+    },
     build: {
       rollupOptions: {
         input: {

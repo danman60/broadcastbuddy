@@ -13,7 +13,7 @@ import '../styles/settings.css'
 // the section JSX below needs no changes. Add a new group's title prefix here to slot
 // it under a tab (falls back to General if unmatched).
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
-  { id: 'general', label: 'General', sections: ['Server', 'Global Hotkeys', 'Settings Backups'] },
+  { id: 'general', label: 'General', sections: ['App Updates', 'Server', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
   { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
@@ -112,6 +112,14 @@ export function Settings() {
   // Settings backups
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backupMsg, setBackupMsg] = useState('')
+  const [update, setUpdate] = useState<Awaited<ReturnType<typeof window.api.updateCheck>> | null>(null)
+  const [updateBusy, setUpdateBusy] = useState(false)
+  useEffect(() => { void window.api.updateCheck().then(setUpdate).catch(() => {}) }, [])
+  async function handleInstallUpdate() {
+    if (!window.confirm('Install the update now? BroadcastBuddy closes, swaps in the new version and reopens (about 10 s). The tablet picture and overlays drop while it restarts.')) return
+    setUpdateBusy(true)
+    try { setUpdate(await window.api.updateInstall()) } finally { setUpdateBusy(false) }
+  }
 
   // Global hotkeys
   const [hotkeys, setHotkeys] = useState<HotkeyConfig>(DEFAULT_HOTKEYS)
@@ -1009,6 +1017,25 @@ export function Settings() {
         </div>
 
         <StreamDeckPluginSection />
+
+        <div className="settings-group">
+          <div className="settings-group-title">App Updates</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Running {update?.current.commit || 'dev build'}
+            {update?.latest ? ` · latest ${update.latest.commit} (${new Date(update.latest.builtAt).toLocaleString()})` : ''}
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <button className="btn btn-ghost btn-sm" disabled={updateBusy} onClick={() => { setUpdateBusy(true); void window.api.updateCheck().then(setUpdate).finally(() => setUpdateBusy(false)) }}>Check for update</button>
+            {update?.available && (
+              <button className="btn btn-primary btn-sm" disabled={updateBusy} onClick={handleInstallUpdate}>
+                {updateBusy ? 'Downloading…' : 'Install update'}
+              </button>
+            )}
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              {update?.message || (update ? (update.available ? 'New version available' : 'Up to date') : 'Checking…')}
+            </span>
+          </div>
+        </div>
 
         <div className="settings-group">
           <div className="settings-group-title">Settings Backups</div>

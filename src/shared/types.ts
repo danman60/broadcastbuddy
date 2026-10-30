@@ -1165,6 +1165,9 @@ export const IPC = {
 
   // Voice-driven PTZ director (push-to-talk → offline SAPI grammar). Guarded; no-op
   // unless voiceEnabled. See voiceDirector.ts.
+  UPDATE_CHECK: 'update:check',                  // read R2 latest.json → UpdateStatus
+  UPDATE_INSTALL: 'update:install',              // download+verify app.asar, quit, swap, relaunch
+
   VOICE_PTT: 'voice:ptt',                        // push-to-talk down/up (renderer test button; deck uses WS)
   VOICE_REFRESH_GRAMMAR: 'voice:refresh-grammar',// rebuild + push SAPI grammar (after shot labels change)
   VOICE_GET_STATUS: 'voice:get-status',          // current helper/listening status (never throws)
@@ -1486,4 +1489,12 @@ export const DEFAULT_STREAM_CONFIG: StreamConfig = {
   viewingLink: '',
   embedCode: '',
   chatLink: '',
+}
+
+/** In-app updater status (main/services/updater.ts → Settings → App Updates). */
+export interface UpdateStatus {
+  current: { commit: string; builtAt: string }
+  latest: { commit: string; builtAt: string; bytes: number } | null
+  available: boolean
+  message: string
 }

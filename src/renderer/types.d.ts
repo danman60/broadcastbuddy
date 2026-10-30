@@ -184,6 +184,10 @@ interface ElectronAPI {
     error?: string
   }>
 
+  // In-app updater (main/services/updater.ts)
+  updateCheck: () => Promise<import('../shared/types').UpdateStatus>
+  updateInstall: () => Promise<import('../shared/types').UpdateStatus>
+
   // Voice-driven PTZ director
   voicePtt: (down: boolean) => Promise<{ ok: boolean }>
   voiceRefreshGrammar: () => Promise<{ ok: boolean }>

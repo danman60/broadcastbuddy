@@ -271,6 +271,9 @@ contextBridge.exposeInMainWorld('api', {
     error?: string
   }> => ipcRenderer.invoke(IPC.CAMERA_GET_STATE),
 
+  updateCheck: (): Promise<import('../shared/types').UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
+  updateInstall: (): Promise<import('../shared/types').UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
+
   // ── Voice-driven PTZ director ─────────────────────────────────
   voicePtt: (down: boolean): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke(IPC.VOICE_PTT, { down }),

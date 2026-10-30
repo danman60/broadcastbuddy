@@ -48,6 +48,7 @@ import {
   sweepWaypoints,
 } from './services/cameraDirector'
 import * as voiceDirector from './services/voiceDirector'
+import * as updater from './services/updater'
 import * as shotRecorder from './services/shotRecorder'
 import * as chatBridge from './services/chatBridge'
 import * as ccRelay from './services/ccRelay'
@@ -1495,6 +1496,9 @@ export function registerIpcHandlers(): void {
     const active = setActiveCamera(args?.id)
     return { ok: true, active }
   })
+
+  ipcMain.handle(IPC.UPDATE_CHECK, () => updater.checkForUpdate())
+  ipcMain.handle(IPC.UPDATE_INSTALL, () => updater.installUpdate())
 
   // ── Voice-driven PTZ director (guarded; no-op unless voiceEnabled) ──────────
   ipcMain.handle(IPC.VOICE_PTT, (_e, args: { down: boolean }) => {
