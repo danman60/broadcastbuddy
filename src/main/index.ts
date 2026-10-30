@@ -87,11 +87,14 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
   app.quit()
 } else if (app.isPackaged) {
   app.on('second-instance', () => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.focus()
-    }
+    // Bring back the MAIN window: it can be hidden (panel mode) or closed while
+    // floating panels keep the app alive — focusing getAllWindows()[0] left the
+    // operator with an invisible app that refused every relaunch (DART 2026-10-30).
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+    const win = mainWindow!
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
   })
 }
 
