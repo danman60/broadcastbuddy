@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Speech.Recognition;
+using System.Threading;
 
 namespace VoiceHelper
 {
@@ -29,6 +30,7 @@ namespace VoiceHelper
         private RecognitionResult _best;                 // highest-confidence result during a hold
         private bool _listening;
         private bool _continuous;                        // hands-free wake mode: emit per recognition, no key-up
+        private readonly ManualResetEvent _recDone = new ManualResetEvent(true); // set when the async recognizer goes idle
         private MicStream _mic;                          // picker-chosen device; null = Windows default
         private int _peakLevel = -1;                     // max SAPI audio level (0-100) during a hold; -1 = no level event (fires on the default device only)
 
@@ -94,7 +96,7 @@ namespace VoiceHelper
 
                 engine.SpeechRecognized += OnRecognized;
                 engine.SpeechRecognitionRejected += OnRejected;
-                engine.RecognizeCompleted += (s, e) => { if (e.Error != null) Emit(Outbound.Error("recognize-fail: " + e.Error.GetType().Name + ": " + e.Error.Message)); };
+                engine.RecognizeCompleted += (s, e) => { _recDone.Set(); if (e.Error != null) Emit(Outbound.Error("recognize-fail: " + e.Error.GetType().Name + ": " + e.Error.Message)); };
                 engine.AudioLevelUpdated += (s, e) => { if (e.AudioLevel > _peakLevel) _peakLevel = e.AudioLevel; };
 
                 _engine = engine;
@@ -245,6 +247,7 @@ namespace VoiceHelper
             try
             {
                 // Multiple = keep recognizing repeatedly until we cancel on key-up.
+                _recDone.Reset();
                 _engine.RecognizeAsync(RecognizeMode.Multiple);
             }
             catch (Exception ex)
@@ -263,7 +266,6 @@ namespace VoiceHelper
                 return;
             }
 
-            RecognitionResult best;
             lock (_gate)
             {
                 if (!_listening)
@@ -272,15 +274,25 @@ namespace VoiceHelper
                     Emit(Outbound.Reject("not-listening", 0f));
                     return;
                 }
+            }
+
+            // SAPI only fires Recognized after the trailing silence of an utterance, which lands
+            // AFTER a natural key-up. Cancel here dropped every command (DART 2026-10-30: 100%
+            // no-match on two mics). Stop lets the in-flight utterance finish; cap the wait.
+            bool hadBest; lock (_gate) hadBest = _best != null;
+            try { _engine.RecognizeAsyncStop(); }
+            catch { /* engine may already be idle */ }
+            bool finished = _recDone.WaitOne(2000);
+            if (!finished) { try { _engine.RecognizeAsyncCancel(); } catch { } }
+
+            RecognitionResult best;
+            lock (_gate)
+            {
                 _listening = false;
                 best = _best;
                 _best = null;
             }
-
-            // Stop the async recognizer (cancel discards buffered audio that hasn't fired yet,
-            // which is what we want on key-up — we only act on what was already recognized).
-            try { _engine.RecognizeAsyncCancel(); }
-            catch { /* engine may already be idle */ }
+            if (best != null && !hadBest) Console.Error.WriteLine("voice: result landed after key-up (conf " + best.Confidence.ToString("0.00") + ")");
 
             if (best == null)
             {
@@ -332,6 +344,7 @@ namespace VoiceHelper
             }
             try
             {
+                _recDone.Reset();
                 _engine.RecognizeAsync(RecognizeMode.Multiple);
             }
             catch (Exception ex)
