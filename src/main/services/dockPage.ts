@@ -96,6 +96,10 @@ export function buildDockHTML(wsPort: number): string {
   ptt.addEventListener('pointerup', up);
   ptt.addEventListener('pointerleave', up);
   ptt.addEventListener('pointercancel', up);
+  // Hold J (dock focused) = push-to-talk, same as BB's window.
+  document.addEventListener('keydown', function (e) { if (e.code === 'KeyJ' && !e.repeat) down(e); });
+  document.addEventListener('keyup', function (e) { if (e.code === 'KeyJ') up(); });
+  window.addEventListener('blur', up);
 
   // Alarm beep while any un-acked alert (or BB itself unreachable) stands.
   var audio = null, localAck = false;

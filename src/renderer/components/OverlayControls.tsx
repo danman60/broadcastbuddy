@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import type { LoopMode } from '../../shared/types'
 import '../styles/controls.css'
@@ -106,11 +106,16 @@ export function OverlayControls() {
   }
 
   // Keyboard shortcuts
+  const pttKeyHeld = useRef(false)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't fire shortcuts when typing in inputs
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
 
     switch (e.code) {
+      case 'KeyJ': // hold J = voice push-to-talk (released in the keyup handler below)
+        e.preventDefault()
+        if (!e.repeat && !pttKeyHeld.current) { pttKeyHeld.current = true; void window.api.voicePtt(true) }
+        break
       case 'Space':
         e.preventDefault()
         if (isVisible) window.api.overlayHideLT()
@@ -142,6 +147,22 @@ export function OverlayControls() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
+
+  // Release push-to-talk on J up, or if the window loses focus while J is held.
+  useEffect(() => {
+    const release = (): void => {
+      if (!pttKeyHeld.current) return
+      pttKeyHeld.current = false
+      void window.api.voicePtt(false)
+    }
+    const onUp = (e: KeyboardEvent): void => { if (e.code === 'KeyJ') release() }
+    window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', release)
+    }
+  }, [])
 
   const current = selectedIndex + 1
   const total = triggers.length
@@ -274,7 +295,7 @@ export function OverlayControls() {
           </div>
 
           <div className="controls-shortcuts-hint">
-            Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide
+            Space: fire/hide | Arrows: prev/next | Shift+Right: next+fire | Esc: hide | hold J: talk
           </div>
         </div>
       )}
