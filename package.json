@@ -85,6 +85,13 @@
         ]
       },
       {
+        "from": "resources/pad-helper",
+        "to": "pad-helper",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "resources/voice-helper",
         "to": "voice-helper",
         "filter": [

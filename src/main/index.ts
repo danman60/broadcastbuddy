@@ -17,6 +17,7 @@ import * as systemMonitor from './services/systemMonitor'
 import * as showMonitor from './services/showMonitor'
 import * as voiceDirector from './services/voiceDirector'
 import * as shotRecorder from './services/shotRecorder'
+import * as padHelper from './services/padHelper'
 import { runStartupChecks } from './services/startup'
 import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogServer'
 import { registerIpcHandlers, pushState } from './ipc'
@@ -53,6 +54,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // Keep timers at full rate while OBS is in front: the Xbox loop must not drop to 1 Hz.
+      backgroundThrottling: false,
     },
   })
 
@@ -263,6 +266,12 @@ app.whenReady().then(() => {
   //      avoids a shotRecorder↔voiceDirector import cycle).
   shotRecorder.setOnMovesChanged(() => voiceDirector.refreshGrammar())
 
+  // 18c. Xbox controller via XInput — works while OBS (not BB) has focus.
+  padHelper.startPadHelper(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) return [mainWindow]
+    return BrowserWindow.getAllWindows().filter((w) => w !== mainWindow).slice(0, 1)
+  })
+
   logger.info('All services started')
 })
 
@@ -281,6 +290,7 @@ app.on('before-quit', () => {
   systemMonitor.stopMonitoring()
   showMonitor.stopShowMonitor()
   voiceDirector.stopVoiceDirector()
+  padHelper.stopPadHelper()
   // Final settings backup, then mark a clean shutdown so next launch doesn't
   // offer recovery.
   backup.backupSettings()

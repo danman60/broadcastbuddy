@@ -1165,6 +1165,7 @@ export const IPC = {
 
   // Voice-driven PTZ director (push-to-talk → offline SAPI grammar). Guarded; no-op
   // unless voiceEnabled. See voiceDirector.ts.
+  GAMEPAD_XINPUT: 'gamepad:xinput',              // main→renderer: XInput pad state (works unfocused)
   UPDATE_CHECK: 'update:check',                  // read R2 latest.json → UpdateStatus
   UPDATE_INSTALL: 'update:install',              // download+verify app.asar, quit, swap, relaunch
 

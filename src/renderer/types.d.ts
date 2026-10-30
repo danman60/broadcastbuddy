@@ -184,6 +184,8 @@ interface ElectronAPI {
     error?: string
   }>
 
+  onGamepadXinput: (cb: (s: { c: boolean; b?: number[]; a?: number[] }) => void) => () => void
+
   // In-app updater (main/services/updater.ts)
   updateCheck: () => Promise<import('../shared/types').UpdateStatus>
   updateInstall: () => Promise<import('../shared/types').UpdateStatus>

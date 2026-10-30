@@ -271,6 +271,11 @@ contextBridge.exposeInMainWorld('api', {
     error?: string
   }> => ipcRenderer.invoke(IPC.CAMERA_GET_STATE),
 
+  onGamepadXinput: (cb: (s: { c: boolean; b?: number[]; a?: number[] }) => void): (() => void) => {
+    const h = (_e: unknown, s: { c: boolean; b?: number[]; a?: number[] }): void => cb(s)
+    ipcRenderer.on(IPC.GAMEPAD_XINPUT, h)
+    return () => { ipcRenderer.removeListener(IPC.GAMEPAD_XINPUT, h) }
+  },
   updateCheck: (): Promise<import('../shared/types').UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_CHECK),
   updateInstall: (): Promise<import('../shared/types').UpdateStatus> => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
 

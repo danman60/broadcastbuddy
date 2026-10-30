@@ -141,8 +141,16 @@ function applyDeadzoneExpo(
   return { x: ux * curved, y: uy * curved }
 }
 
+// XInput state relayed from main (pad-helper.exe). Unlike navigator.getGamepads() it keeps
+// flowing while OBS has focus, so it wins whenever it is fresh.
+interface XinputState { c: boolean; b?: number[]; a?: number[] }
+const XINPUT_FRESH_MS = 2500
+
 export class GamepadController {
-  private raf = 0
+  private raf: ReturnType<typeof setTimeout> | undefined
+  private xinput: XinputState | null = null
+  private xinputAt = 0
+  private offXinput: (() => void) | null = null
   private running = false
   private edges: ButtonEdges = { pressed: [] }
   private connectedLabel: string | null = null
@@ -165,14 +173,17 @@ export class GamepadController {
     window.addEventListener('gamepaddisconnected', this.onDisconnected)
     // Pick up an already-connected pad (after the activation gesture).
     this.detectExisting()
-    this.raf = requestAnimationFrame(this.loop)
+    this.offXinput = window.api?.onGamepadXinput?.((st) => { this.xinput = st; this.xinputAt = Date.now() }) ?? null
+    this.loop()
   }
 
   /** Stop polling + flush a stop so the camera doesn't drift. */
   stop(): void {
     if (!this.running) return
     this.running = false
-    cancelAnimationFrame(this.raf)
+    clearTimeout(this.raf)
+    this.offXinput?.()
+    this.offXinput = null
     window.removeEventListener('gamepadconnected', this.onConnected)
     window.removeEventListener('gamepaddisconnected', this.onDisconnected)
     control.stopAllNow()
@@ -214,6 +225,14 @@ export class GamepadController {
 
   /** Find the first live pad. Re-read every frame (Chrome snapshots are stale). */
   private firstPad(): Gamepad | null {
+    const x = this.xinput
+    if (x?.c && x.b && x.a && Date.now() - this.xinputAt < XINPUT_FRESH_MS) {
+      return {
+        id: 'Xbox controller (XInput)',
+        axes: x.a,
+        buttons: x.b.map((v) => ({ pressed: v > 0.5, touched: v > 0, value: v })),
+      } as unknown as Gamepad
+    }
     const pads = navigator.getGamepads ? navigator.getGamepads() : []
     for (const p of pads) if (p) return p
     return null
@@ -235,7 +254,8 @@ export class GamepadController {
       }
       this.processPad(pad)
     }
-    this.raf = requestAnimationFrame(this.loop)
+    // setTimeout, not requestAnimationFrame: rAF stops when the BB window is hidden behind OBS.
+    this.raf = setTimeout(this.loop, 16)
   }
 
   private processPad(pad: Gamepad): void {
