@@ -212,17 +212,19 @@ function CameraPanelActive(): React.ReactElement {
     // nipplejs (static) caches the zone's SCREEN rect at create time. The right-panel
     // scrolls, so after a scroll the dial's grab area drifts away from where it's
     // drawn ("can't grab the dial"). Recreate once scroll/resize settles to re-align.
-    const scroller = zoneRef.current?.closest('.right-panel') as HTMLElement | null
+    // Capture-phase scroll on window catches ANY scrolling ancestor (.show-rail,
+    // panel-body): the old '.right-panel' hook stopped firing once the layout moved
+    // the camera into the show rail, so every grab read as full-up (DART 2026-10-30).
     const schedule = (): void => {
       if (recreateTimer) clearTimeout(recreateTimer)
       recreateTimer = setTimeout(create, 150)
     }
-    scroller?.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('scroll', schedule, { capture: true, passive: true })
     window.addEventListener('resize', schedule)
 
     return () => {
       if (recreateTimer) clearTimeout(recreateTimer)
-      scroller?.removeEventListener('scroll', schedule)
+      window.removeEventListener('scroll', schedule, { capture: true })
       window.removeEventListener('resize', schedule)
       if (manager) manager.destroy()
       nippleRef.current = null
