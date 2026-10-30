@@ -142,15 +142,18 @@ export function App() {
           {/* RIGHT — Show Rail: fixed-width vertical card stack with its own
               scroll. Camera · Content (tabbed) · Broadcast (tabbed) · Chat. */}
           <aside className="show-rail">
-            {!(showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor) && (
-              <div className={`panel-section${cameraCollapsed ? ' collapsed' : ''}`}>
-                <div className="panel-section-title" onClick={() => setCameraCollapsed(!cameraCollapsed)}>
-                  Camera (OBSBOT)
-                  <span className="chevron">{cameraCollapsed ? '▸' : '▾'}</span>
-                </div>
-                {!cameraCollapsed && <CameraPanel />}
+            {/* Hidden, never unmounted: CameraPanel owns the Xbox controller loop, so unmounting it on
+                collapse / Settings silently killed the gamepad (DART 2026-10-30). */}
+            <div
+              className={`panel-section${cameraCollapsed ? ' collapsed' : ''}`}
+              style={showSettings || showBrandKit || showImport || showVisualEditor || showStartingSoonEditor ? { display: 'none' } : undefined}
+            >
+              <div className="panel-section-title" onClick={() => setCameraCollapsed(!cameraCollapsed)}>
+                Camera (OBSBOT)
+                <span className="chevron">{cameraCollapsed ? '▸' : '▾'}</span>
               </div>
-            )}
+              <div style={cameraCollapsed ? { display: 'none' } : undefined}><CameraPanel /></div>
+            </div>
             <TabbedCard
               title="Content"
               tabs={[

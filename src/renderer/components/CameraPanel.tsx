@@ -228,8 +228,13 @@ function CameraPanelActive(): React.ReactElement {
     }
     window.addEventListener('scroll', schedule, { capture: true, passive: true })
     window.addEventListener('resize', schedule)
+    // The panel stays mounted while its card is collapsed (keeps the Xbox loop alive), so the
+    // zone can be created at 0×0; re-align when it gets a real size on expand.
+    const ro = new ResizeObserver(schedule)
+    if (zoneRef.current) ro.observe(zoneRef.current)
 
     return () => {
+      ro.disconnect()
       if (recreateTimer) clearTimeout(recreateTimer)
       window.removeEventListener('scroll', schedule, { capture: true })
       window.removeEventListener('resize', schedule)
