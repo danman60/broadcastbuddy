@@ -178,7 +178,10 @@ app.whenReady().then(() => {
   if (obsCfg?.host) {
     obsConnection.connect(obsCfg.host, obsCfg.port, obsCfg.password)
       .then(() => logger.info(`OBS auto-connected: ${obsCfg.host}:${obsCfg.port}`))
-      .catch((err) => logger.warn(`OBS auto-connect failed (will connect on demand): ${err instanceof Error ? err.message : err}`))
+      .catch((err) => {
+        logger.warn(`OBS auto-connect failed (retrying every 3s): ${err instanceof Error ? err.message : err}`)
+        obsConnection.retryUntilConnected(obsCfg.host, obsCfg.port, obsCfg.password)
+      })
   }
 
   // 12. Operator event log → renderer live fanout.

@@ -31,6 +31,14 @@ function scheduleReconnect(): void {
   }, RECONNECT_DELAY_MS)
 }
 
+/** Keep retrying a connect that failed at startup (OBS not up yet / its server
+ * off). Without this, reconnect only arms after a first successful Identify, so
+ * BB stayed disconnected all session (DART 2026-10-30). */
+export function retryUntilConnected(host: string, port: number, password?: string): void {
+  lastConnect = { host, port, password }
+  scheduleReconnect()
+}
+
 // ── Event subscribers (main-process consumers) ──────────────────────────
 type ConnectedCallback = () => void
 type DisconnectedCallback = () => void
