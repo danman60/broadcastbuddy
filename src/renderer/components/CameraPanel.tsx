@@ -329,9 +329,8 @@ function CameraPanelActive(): React.ReactElement {
     await window.api.cameraSetAiEnable({ on: next })
     const updated = await window.api.settingsSet('cameraAutoMode', next)
     setSettings(updated)
-    // Enabling AUTO: configure the AI tracker for the CURRENT routine (workmode,
-    // tracking speed, framing) — bare AI-enable leaves it on stale config.
-    if (next) await window.api.cameraApplyCurrent()
+    // AUTO tracks whoever is framed right now — no routine re-apply, which snapped to the
+    // wide Home preset and pushed back in (owner 2026-10-30: "hitting auto causes the whole camera to jerk").
   }, [setSettings])
 
   const setAi = useCallback(async (on: boolean) => {
@@ -340,7 +339,6 @@ function CameraPanelActive(): React.ReactElement {
     await window.api.cameraSetAiEnable({ on })
     const updated = await window.api.settingsSet('cameraAutoMode', on)
     setSettings(updated)
-    if (on) await window.api.cameraApplyCurrent()
   }, [setSettings])
 
   // ── Zoom rocker (hold-to-zoom) ──

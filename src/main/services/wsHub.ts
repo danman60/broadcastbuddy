@@ -22,7 +22,6 @@ import {
   fireFeatureThatWas,
   getStyling,
   updateStyling,
-  applyCurrentRoutineFraming,
 } from './overlay'
 import * as slowZoom from './slowZoom'
 import * as obs from './obsConnection'
@@ -179,8 +178,7 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       break
     case 'cameraAuto':
       setCameraAiEnable(true)
-      settings.set('cameraAutoMode', true)
-      applyCurrentRoutineFraming()
+      settings.set('cameraAutoMode', true) // track in place; no snap-wide re-apply (see CameraPanel toggleAi)
       break
     case 'cameraManual':
       setCameraAiEnable(false)
