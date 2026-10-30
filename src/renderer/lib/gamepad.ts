@@ -306,11 +306,17 @@ export class GamepadController {
   }
 
   private lastTick = 0
+  private lastAlive = 0
   private loop = (): void => {
     if (!this.running) return
     const t = Date.now()
     if (this.lastTick && t - this.lastTick > 500) console.warn(`[pad] controller loop stalled ${t - this.lastTick} ms (window hidden=${document.hidden})`)
     this.lastTick = t
+    // Diagnostic: controller stops working with OBS in front after a while (DART 2026-10-30) — no cause in the log yet.
+    if (t - this.lastAlive > 10000 && !document.hasFocus()) {
+      this.lastAlive = t
+      console.warn(`[pad] alive (unfocused) hidden=${document.hidden} xinput=${this.xinput ? (this.xinput.c ? 'connected' : 'none') : 'never'} age=${this.xinputAt ? t - this.xinputAt : -1}ms`)
+    }
     const pad = this.firstPad()
     if (pad) {
       if (this.connectedLabel !== pad.id) {
