@@ -285,6 +285,7 @@ function CameraPanelActive(): React.ReactElement {
         onCycleTrackingSpeed: (mode) => { void window.api.cameraSetTrackingSpeed({ mode }) },
         // Back → start/stop recording a manual move.
         onRecordToggle: () => { void window.api.shotRecordToggle() },
+        onReplayMove: (id) => { void window.api.shotReplay(id) },
         // RS click → cycle stick axis lock (UI segmented control mirrors it).
         onCycleAxisLock: () => {
           setAxisLock((cur) => (cur === 'free' ? 'pan' : cur === 'pan' ? 'tilt' : 'free'))
@@ -305,6 +306,7 @@ function CameraPanelActive(): React.ReactElement {
       { deadzone, expo, maxSpeed: stickMaxSpeed, axisLock },
     )
     gamepadRef.current = ctrl
+    ctrl.setButtonMap(useStore.getState().settings?.xboxButtonMap)
     ctrl.start()
     return () => {
       ctrl.stop()
@@ -317,6 +319,11 @@ function CameraPanelActive(): React.ReactElement {
   useEffect(() => {
     gamepadRef.current?.updateConfig({ deadzone, expo, maxSpeed: stickMaxSpeed, axisLock })
   }, [deadzone, expo, stickMaxSpeed, axisLock])
+
+  const xboxButtonMap = settings?.xboxButtonMap
+  useEffect(() => {
+    gamepadRef.current?.setButtonMap(xboxButtonMap)
+  }, [xboxButtonMap])
 
   // ── AUTO/MANUAL toggle ──
   // AUTO/MANUAL drives BOTH the live AI tracker AND cameraAutoMode (the routine-

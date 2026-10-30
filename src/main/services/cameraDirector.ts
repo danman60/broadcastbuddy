@@ -327,7 +327,13 @@ export function deriveDancerCount(name: string | undefined): number | undefined 
  * No-op unless Auto Mode is ON and a host resolves. With Auto Mode off this is
  * byte-identical to the pre-feature fire path. Never throws — failures logged only.
  */
+// Which code path asked — unexplained returns to Home on DART (2026-10-30) had no source in the log.
+function callerOf(): string {
+  return (new Error().stack ?? '').split('\n').slice(3, 5).map((l) => l.trim().replace(/^at /, '').replace(/\s*\(.*\)$/, '')).join(' < ')
+}
+
 export function applyRoutineForTrigger(dancerCount?: number | undefined): void {
+  const caller = callerOf()
   try {
     const s = settings.getAll()
     // Auto-Mode guard: trigger-driven framing ONLY when the operator opted in.
@@ -345,7 +351,7 @@ export function applyRoutineForTrigger(dancerCount?: number | undefined): void {
         if (!director || !cadence) return
         // Every routine runs the SAME cadence — no count-derived framing.
         cadence.onRoutineStart()
-        logger.info(`Camera cadence: onRoutineStart (dancerCount hint=${dancerCount ?? 'n/a'}, ignored for framing)`)
+        logger.info(`Camera cadence: onRoutineStart (dancerCount hint=${dancerCount ?? 'n/a'}, ignored for framing) via ${caller}`)
       } catch (err) {
         logger.error('Camera applyRoutine failed:', err)
       }
@@ -395,6 +401,7 @@ export const setWideHomeViaCamera = saveHomeViaCamera
  * feature is active. Detached + try/catch — never throws into the UI.
  */
 export function goHomeViaCamera(): void {
+  const caller = callerOf()
   try {
     const host = resolveCameraHost()
     if (!host) return // feature OFF — complete no-op
@@ -410,7 +417,7 @@ export function goHomeViaCamera(): void {
         const cadence = getCadence(host)
         if (cadence) cadence.goIdleWide()
         else director.goHome()
-        logger.info('Camera went to Home (safety wide, AI off, cadence IDLE_WIDE)')
+        logger.info(`Camera went to Home (safety wide, AI off, cadence IDLE_WIDE) via ${caller}`)
       } catch (err) {
         logger.error('Camera goHome failed:', err)
       }
@@ -1072,6 +1079,11 @@ export function stopAllCameraMotionFor(id: 1 | 2): void {
 /** Store the current pose as preset id (with optional name). */
 export function saveCameraPreset(id: number, name?: string): void {
   withCam('save-preset', (cam) => cam.setPreset(id, name))
+}
+
+/** Per-camera store of the current pose as preset id. */
+export function saveCameraPresetFor(id: 1 | 2, n: number, name?: string): void {
+  withCamFor(id, 'save-preset', (cam) => cam.setPreset(n, name))
 }
 
 /** Delete stored preset id. */

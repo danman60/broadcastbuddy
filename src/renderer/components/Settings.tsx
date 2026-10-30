@@ -7,6 +7,7 @@ import { StreamDeckPluginSection } from './StreamDeckPluginSection'
 import { VoicePanel } from './VoicePanel'
 import { ShotRecorderPanel } from './ShotRecorderPanel'
 import '../styles/settings.css'
+import { XBOX_BUTTONS } from '../lib/gamepad'
 
 // Tabbed Settings (pattern from CompSyncElectronApp): each existing .settings-group
 // is mapped to a tab by its title; an effect show/hides groups by the active tab, so
@@ -66,6 +67,7 @@ export function Settings() {
   const [stickMaxSpeed, setStickMaxSpeed] = useState(30)
   const [stickDeadzone, setStickDeadzone] = useState(0.12)
   const [stickExpo, setStickExpo] = useState(0.6)
+  const [xboxMap, setXboxMap] = useState<Record<string, string>>({})
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -158,6 +160,7 @@ export function Settings() {
       setStickMaxSpeed(typeof settings.cameraStickMaxSpeed === 'number' ? settings.cameraStickMaxSpeed : 30)
       setStickDeadzone(typeof settings.cameraJoystickDeadzone === 'number' ? settings.cameraJoystickDeadzone : 0.12)
       setStickExpo(typeof settings.cameraExpo === 'number' ? settings.cameraExpo : 0.6)
+      setXboxMap(settings.xboxButtonMap ?? {})
     }
     checkObsStatus()
     refreshMonitors()
@@ -402,6 +405,7 @@ export function Settings() {
     await window.api.settingsSet('cameraStickMaxSpeed', Math.max(1, Math.min(178, stickMaxSpeed)))
     await window.api.settingsSet('cameraJoystickDeadzone', Math.max(0, Math.min(0.5, stickDeadzone)))
     await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
+    await window.api.settingsSet('xboxButtonMap', xboxMap)
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -610,6 +614,32 @@ export function Settings() {
             gimbal velocity at full deflection — 30 is a slow cinematic crawl, 178 is
             near the gimbal&apos;s hardware limit. Higher Expo makes small deflections even
             gentler without losing the top end. Changes apply live once saved.
+          </p>
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 10 }}>Button assignments</div>
+          {XBOX_BUTTONS.map((b) => (
+            <div className="settings-field-inline" key={b.index}>
+              <label style={{ minWidth: 130 }}>{b.name}</label>
+              <select
+                value={xboxMap[b.index] ?? b.def}
+                onChange={(e) => setXboxMap({ ...xboxMap, [b.index]: e.target.value })}
+                style={{ flex: 1 }}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={`preset:${n}`}>Preset {n}</option>)}
+                {(settings?.recordedMoves ?? []).map((m) => (
+                  <option key={m.id} value={`move:${m.id}`}>Shot: {m.label || `Move ${m.id}`}</option>
+                ))}
+                <option value="home">Home (wide)</option>
+                <option value="ai">Auto / Manual toggle</option>
+                <option value="record">Record shot start/stop</option>
+                <option value="trackSpeed">Cycle tracking speed</option>
+                <option value="axisLock">Cycle stick axis lock</option>
+                <option value="none">Nothing</option>
+              </select>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            LB/RB/LT/RT stay zoom and the sticks stay pan/tilt. Saved recorded shots are listed as
+            &quot;Shot:&quot; choices. Changes apply once saved.
           </p>
         </div>
 

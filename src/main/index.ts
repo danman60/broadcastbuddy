@@ -26,6 +26,14 @@ import { IPC } from '../shared/types'
 
 const logger = createLogger('main')
 
+// Xbox loop must keep running with OBS in front. backgroundThrottling:false alone didn't hold:
+// the controller died after a few minutes behind OBS (DART 2026-10-30) — Chromium's occlusion
+// tracking and intensive wake-up throttling still slow timers in covered windows.
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,IntensiveWakeUpThrottling')
+
 let mainWindow: BrowserWindow | null = null
 
 /**
@@ -57,6 +65,11 @@ function createWindow(): void {
       // Keep timers at full rate while OBS is in front: the Xbox loop must not drop to 1 Hz.
       backgroundThrottling: false,
     },
+  })
+
+  // Gamepad loop stalls are logged by the renderer as "[pad] ..." — keep them in main.log.
+  mainWindow.webContents.on('console-message', (_e, _level, message) => {
+    if (message.startsWith('[pad]')) logger.warn(message)
   })
 
   // Remove the native File/Edit/View menu bar entirely.

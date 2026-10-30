@@ -80,9 +80,30 @@ export interface GamepadCallbacks {
   onManualLatched: () => void
   /** Per-camera interlock latch: that stick's first deflection forced that camera's AI off. */
   onManualLatchedFor: (cam: 1 | 2) => void
+  /** Replay a recorded shot (assignable buttons). */
+  onReplayMove: (id: number) => void
   /** Connection state changed — pass the pad label or null. */
   onConnection: (label: string | null) => void
 }
+
+/** Assignable buttons (W3C standard index → name) and their factory actions. Sticks' zoom
+ *  buttons (LB/RB/LT/RT) stay fixed. Actions: preset:N, home, ai, trackSpeed, record,
+ *  axisLock, move:ID, none. */
+export const XBOX_BUTTONS: { index: number; name: string; def: string }[] = [
+  { index: 0, name: 'A', def: 'preset:1' },
+  { index: 1, name: 'B', def: 'preset:2' },
+  { index: 2, name: 'X', def: 'preset:3' },
+  { index: 3, name: 'Y', def: 'preset:4' },
+  { index: 12, name: 'D-pad Up', def: 'preset:5' },
+  { index: 13, name: 'D-pad Down', def: 'preset:6' },
+  { index: 14, name: 'D-pad Left', def: 'preset:7' },
+  { index: 15, name: 'D-pad Right', def: 'preset:8' },
+  { index: 16, name: 'Xbox (Guide)', def: 'home' },
+  { index: 8, name: 'View (Back)', def: 'record' },
+  { index: 9, name: 'Menu (Start)', def: 'ai' },
+  { index: 10, name: 'Left stick click', def: 'trackSpeed' },
+  { index: 11, name: 'Right stick click', def: 'axisLock' },
+]
 
 export type AxisLock = 'free' | 'pan' | 'tilt'
 
@@ -156,6 +177,7 @@ export class GamepadController {
   private connectedLabel: string | null = null
   private trackingMode = 2 // default 'slow'
   private aiEnabled = true
+  private buttonMap: Record<string, string> = {}
   // Per-stick AI interlock latches (edge-triggered; reset when the stick centers).
   private latched1 = false // LEFT stick has disabled Cam 1 AI since last centered
   private latched2 = false // RIGHT stick has disabled Cam 2 AI since last centered
@@ -179,6 +201,7 @@ export class GamepadController {
 
   /** Stop polling + flush a stop so the camera doesn't drift. */
   stop(): void {
+    this.lastTick = 0
     if (!this.running) return
     this.running = false
     clearTimeout(this.raf)
@@ -187,6 +210,44 @@ export class GamepadController {
     window.removeEventListener('gamepadconnected', this.onConnected)
     window.removeEventListener('gamepaddisconnected', this.onDisconnected)
     control.stopAllNow()
+  }
+
+  /** Operator's button assignments (settings.xboxButtonMap); missing entries use the default. */
+  setButtonMap(map: Record<string, string> | undefined): void {
+    this.buttonMap = map ?? {}
+  }
+
+  private runAction(action: string, pad: Gamepad): void {
+    const [kind, arg] = action.split(':')
+    switch (kind) {
+      case 'preset':
+        rumble(pad, 60, 0.3, 0.5) // felt confirm: preset recall accepted
+        this.cb.onRecallPreset(Number(arg))
+        break
+      case 'move':
+        rumble(pad, 60, 0.3, 0.5)
+        this.cb.onReplayMove(Number(arg))
+        break
+      case 'home':
+        this.cb.onGoHome()
+        break
+      case 'record':
+        rumbleDouble(pad) // double pulse: unmistakable
+        this.cb.onRecordToggle()
+        break
+      case 'ai':
+        this.aiEnabled = !this.aiEnabled
+        this.cb.onToggleAi()
+        break
+      case 'trackSpeed':
+        this.trackingMode = (this.trackingMode + 1) % TRACKING_SPEED_MODES
+        this.cb.onCycleTrackingSpeed(this.trackingMode)
+        break
+      case 'axisLock':
+        rumble(pad, 100, 0.6, 0.6)
+        this.cb.onCycleAxisLock()
+        break
+    }
   }
 
   /** Sync external AI state (so the interlock doesn't re-latch needlessly). */
@@ -244,8 +305,12 @@ export class GamepadController {
     return pressed && !prev
   }
 
+  private lastTick = 0
   private loop = (): void => {
     if (!this.running) return
+    const t = Date.now()
+    if (this.lastTick && t - this.lastTick > 500) console.warn(`[pad] controller loop stalled ${t - this.lastTick} ms (window hidden=${document.hidden})`)
+    this.lastTick = t
     const pad = this.firstPad()
     if (pad) {
       if (this.connectedLabel !== pad.id) {
@@ -330,47 +395,9 @@ export class GamepadController {
     zoomFor(1, analog(6), pressed(4)) // LT / LB → camera 1
     zoomFor(2, analog(7), pressed(5)) // RT / RB → camera 2
 
-    // ── Edge-triggered buttons ──
-    // A/B/X/Y → recall preset 1–4
-    for (let i = 0; i < 4; i++) {
-      if (this.edgePress(i, pressed(i))) {
-        rumble(pad, 60, 0.3, 0.5) // felt confirm: preset recall accepted
-        this.cb.onRecallPreset(i + 1)
-      }
-    }
-    // D-pad 12–15 → recall preset 5–8
-    for (let i = 12; i <= 15; i++) {
-      if (this.edgePress(i, pressed(i))) {
-        rumble(pad, 60, 0.3, 0.5)
-        this.cb.onRecallPreset(i - 12 + 5)
-      }
-    }
-
-    // Guide(16) → goHome
-    if (this.edgePress(16, pressed(16))) this.cb.onGoHome()
-
-    // Back(8) → start/stop recording a manual move (double pulse: unmistakable)
-    if (this.edgePress(8, pressed(8))) {
-      rumbleDouble(pad)
-      this.cb.onRecordToggle()
-    }
-
-    // Start/Menu(9) → toggle AI (the operator's explicit re-enable path)
-    if (this.edgePress(9, pressed(9))) {
-      this.aiEnabled = !this.aiEnabled
-      this.cb.onToggleAi()
-    }
-
-    // LS(10) → cycle tracking speed 0–5
-    if (this.edgePress(10, pressed(10))) {
-      this.trackingMode = (this.trackingMode + 1) % TRACKING_SPEED_MODES
-      this.cb.onCycleTrackingSpeed(this.trackingMode)
-    }
-
-    // RS(11) → cycle stick axis lock free → pan-only → tilt-only (felt confirm)
-    if (this.edgePress(11, pressed(11))) {
-      rumble(pad, 100, 0.6, 0.6)
-      this.cb.onCycleAxisLock()
+    // ── Edge-triggered buttons (assignable, Settings → Camera → Xbox Controller) ──
+    for (const b of XBOX_BUTTONS) {
+      if (this.edgePress(b.index, pressed(b.index))) this.runAction(this.buttonMap[b.index] ?? b.def, pad)
     }
   }
 }

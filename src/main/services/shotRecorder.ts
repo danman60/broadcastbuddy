@@ -22,6 +22,9 @@ import {
   slowZoomPushFor,
   recallCameraPresetFor,
   stopAllCameraMotionFor,
+  saveCameraPresetFor,
+  setCameraAiEnableFor,
+  getActiveCameraId,
   RecordedCmd,
 } from './cameraDirector'
 import { IPC, RecordedMove, RecordedMoveEvent, ShotRecorderState } from '../../shared/types'
@@ -31,9 +34,14 @@ const logger = createLogger('shotRecorder')
 
 const MAX_MOVE_MS = 120_000 // hard cap a single recording at 2 minutes
 const MAX_EVENTS = 4000
+// Each move's start pose lives in camera preset slot START_SLOT_BASE + move id.
+// shortcut: Tail 2 slots stop at 254, so move ids above 54 get no start snap; reuse slots if that ever matters.
+const START_SLOT_BASE = 200
+const START_SETTLE_MS = 1500 // preset recall snap time before the move begins (same as bounce)
 
 let recording = false
 let recordStartMs = 0
+let recordStart: RecordedMove['start'] | undefined
 let buffer: RecordedMoveEvent[] = []
 let autoStopTimer: NodeJS.Timeout | null = null
 const replayTimers = new Set<NodeJS.Timeout>()
@@ -92,6 +100,11 @@ export function getState(): ShotRecorderState {
 export function startRecording(): void {
   if (recording) return
   buffer = []
+  // The Tail 2 can't report its pose, so the start position is saved on the camera itself.
+  const camera = getActiveCameraId()
+  const slot = START_SLOT_BASE + nextMoveId(getMoves())
+  recordStart = slot <= 254 ? { camera, slot } : undefined
+  if (recordStart) saveCameraPresetFor(camera, slot, 'BB move start')
   recordStartMs = now()
   recording = true
   setCameraCommandSink((cmd: RecordedCmd) => {
@@ -129,6 +142,7 @@ export function stopRecording(label?: string): RecordedMove | null {
     durationMs,
     events,
     createdAt: new Date().toISOString(),
+    start: recordStart && recordStart.slot === START_SLOT_BASE + id ? recordStart : undefined,
   }
   settings.set('recordedMoves', [...moves, move])
   movesChanged()
@@ -155,11 +169,19 @@ export function replayMove(moveId: number): void {
   setCommandSinkSuppressed(true) // don't re-record our own replay
   const usedCameras = new Set<1 | 2>()
   replayUsedCameras = usedCameras
+  // Snap to the recorded start pose first (AI off so the tracker doesn't pull away), then run the move.
+  let offset = 0
+  if (move.start) {
+    setCameraAiEnableFor(move.start.camera, false)
+    recallCameraPresetFor(move.start.camera, move.start.slot)
+    usedCameras.add(move.start.camera)
+    offset = START_SETTLE_MS
+  }
   for (const ev of move.events) {
     const t = setTimeout(() => {
       emit(ev)
       usedCameras.add(ev.camera)
-    }, ev.tMs)
+    }, ev.tMs + offset)
     replayTimers.add(t)
   }
   // After the move finishes: stop every camera it touched, then clear state.
@@ -169,7 +191,7 @@ export function replayMove(moveId: number): void {
     replayingId = null
     replayTimers.clear()
     pushState()
-  }, move.durationMs + 250)
+  }, move.durationMs + offset + 250)
   replayTimers.add(end)
   logger.info(`replaying move ${moveId} (${move.events.length} cmds, ${move.durationMs}ms)`)
   pushState()
