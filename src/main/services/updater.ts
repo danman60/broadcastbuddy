@@ -8,7 +8,6 @@
 // shortcut: replaces app.asar only — a change to native modules (app.asar.unpacked), the
 // bundled exes or Electron itself still needs the full installer.
 import { app } from 'electron'
-import { spawn } from 'child_process'
 import crypto from 'crypto'
 import path from 'path'
 import { createLogger } from '../logger'
@@ -90,10 +89,9 @@ export async function installUpdate(): Promise<UpdateStatus> {
   ].join('\r\n')
   const script = path.join(app.getPath('userData'), 'apply-update.ps1')
   ofs.writeFileSync(script, ps)
-  spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script], {
-    detached: true,
-    stdio: 'ignore',
-  }).unref()
+  // Electron's relauncher outlives this process and starts the script once we've exited. A
+  // detached spawn() died with BB on DART (2026-10-30: PowerShell started, never ran).
+  app.relaunch({ execPath: 'powershell.exe', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script] })
   logger.info(`update ${m.commit.slice(0, 7)} downloaded + verified; quitting to swap app.asar`)
   setTimeout(() => app.quit(), 300)
   return status('Installing — BroadcastBuddy will restart in a few seconds')
