@@ -486,6 +486,17 @@ export function Settings() {
           <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             Restart app after changing ports.
           </p>
+          {/* OBS URLs (owner 2026-10-31: "Where do I get the browser source ... a button in settings to copy it") */}
+          {([['Overlay', 'overlay', 'OBS browser source'], ['OBS Dock', 'dock', 'OBS → Docks → Custom Browser Docks']] as const).map(([label, path, hint]) => {
+            const url = `http://127.0.0.1:${httpPort}/${path}`
+            return (
+              <div key={path} className="settings-field-inline" title={hint}>
+                <label style={{ minWidth: 100 }}>{label}</label>
+                <input readOnly value={url} onFocus={(e) => e.target.select()} style={{ width: 250 }} />
+                <button className="btn btn-sm" onClick={(e) => { const b = e.currentTarget; void navigator.clipboard.writeText(url).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy' }, 1500) }) }}>Copy</button>
+              </div>
+            )
+          })}
         </div>
 
         <div className="settings-group">
