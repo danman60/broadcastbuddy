@@ -14,6 +14,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { createLogger } from '../logger'
 import type { AppSettings, AudioInputLevel } from '../../shared/types'
+import { BeatTracker, estimateTempo, nearestBeat, TEMPO_WINDOW_MS, type Rise } from '../../shared/tempo'
 
 const logger = createLogger('autoDirector')
 
@@ -30,6 +31,8 @@ export interface AutoDirectorState {
   /** The next QUEUE_LEN shots, already decided (owner 2026-10-30: "director is actually picking the next
    *  three shots … you know what shot's coming up in all three visually"). inMs = until it goes live. */
   upcoming: Array<{ scene: string; inMs: number; holdMs: number; tile: number | null }>
+  /** Beat length while beat detection has a tempo lock: cuts land on beats and the tablet counts beats. */
+  beatMs: number | null
   message?: string
 }
 
@@ -57,6 +60,23 @@ let lastOnset = 0
 const ONSET_RATIO = 1.6
 const ONSET_FLOOR = 0.05 // ~-26 dBFS; quieter hits are ignored
 const ONSET_REFRACTORY_MS = 250
+
+// Beat grid (owner 2026-10-31: "When beat detecting countdown should be beats synced and not seconds").
+let rises: Rise[] = []
+let prevLevel = 0
+const beats = new BeatTracker()
+let lastTempoAt = 0
+let wasLocked = false
+const beatMode = (): boolean => cfg().beatSnap !== false
+const beatLocked = (): boolean => beatMode() && beats.locked && beats.tempo !== null
+
+/** Move a cut time onto the beat grid, never closer than one beat to now. */
+function onBeat(t: number, now: number): number {
+  const tp = beats.tempo!
+  let b = nearestBeat(t, tp)
+  while (b < now + tp.periodMs) b += tp.periodMs
+  return b
+}
 
 let notify: (() => void) | null = null
 /** wsHub registers its broadcast (wsHub imports us — can't import it back). */
@@ -94,6 +114,7 @@ export function getState(): AutoDirectorState {
     tiles,
     liveTotalMs: on ? cutAt - liveSince : null,
     upcoming,
+    beatMs: on && beatLocked() ? Math.round(beats.tempo!.periodMs) : null,
     message: message || undefined,
   }
 }
@@ -111,6 +132,7 @@ function holdMsFor(scene: string | null): number {
 function commitCut(holdMs: number): void {
   liveSince = Date.now()
   cutAt = liveSince + holdMs
+  if (beatLocked()) cutAt = onBeat(cutAt, liveSince)
 }
 
 /** Top the queue up to QUEUE_LEN decided shots, each picked after the one before it. */
@@ -255,9 +277,24 @@ function onTick(): void {
   const now = Date.now()
   // Never late: a beat may pull the cut up to BEAT_SNAP_MS early, otherwise it lands at 0
   // (DART 2026-10-30: a ±400 ms window + 200 ms tick put every no-beat cut ~0.5 s after "0").
-  if (now >= cutAt) cut('time')
-  else if (cfg().beatSnap !== false && now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
+  if (now >= cutAt) cut(beatLocked() ? 'beat' : 'time')
+  else if (beatMode() && !beatLocked() && now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
   if (now - lastPush >= 1000) changed() // resync the tablet's local countdown
+}
+
+/** Once a second (on/off alike, so it's already locked when DIR starts): re-estimate the tempo; while locked keep the pending cut on the (drifting) grid. */
+function updateTempo(now: number): void {
+  lastTempoAt = now
+  rises = rises.filter((r) => r.t >= now - TEMPO_WINDOW_MS)
+  beats.update(estimateTempo(rises))
+  const locked = beatLocked()
+  if (locked !== wasLocked) {
+    logger.info(locked ? `auto director: beat lock ${Math.round(60000 / beats.tempo!.periodMs)} BPM — counting beats` : 'auto director: beat lock lost — counting seconds')
+    wasLocked = locked
+    if (on) changed()
+  }
+  // Re-snap only while more than 2 beats remain so the last numbers on the tablet don't jump.
+  if (on && locked && cutAt - now > 2 * beats.tempo!.periodMs) cutAt = onBeat(cutAt, now)
 }
 
 /** OBS program changed (any source). Ours → advance; anyone else's → human override, OFF. */
@@ -290,6 +327,9 @@ export function onAudio(levels: AudioInputLevel[]): void {
   const now = Date.now()
   const onset = level > ONSET_FLOOR && level > envAvg * ONSET_RATIO && now - lastOnset > ONSET_REFRACTORY_MS
   if (onset) lastOnset = now
+  if (level > prevLevel) rises.push({ t: now, v: level - prevLevel })
+  prevLevel = level
+  if (now - lastTempoAt >= 1000) updateTempo(now)
   if (on) {
     diag.frames++
     if (onset) diag.onsets++
