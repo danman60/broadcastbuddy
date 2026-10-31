@@ -24,6 +24,7 @@ export interface AutoDirectorState {
   secondsLeft: number | null
   msLeft: number | null // to the committed cut; tablet counts down locally from receipt
   nextTile: number | null // NEXT's position in the OBS multiview grid (row-major), null if not shown
+  liveTile: number | null // program scene's position in the multiview grid, null if not shown
   tiles: number | null // multiview grid side (2 = 2×2), null when the layout isn't scenes-only
   liveTotalMs: number | null // committed length of the live shot (tablet draws it draining)
   /** The next QUEUE_LEN shots, already decided (owner 2026-10-30: "director is actually picking the next
@@ -89,6 +90,7 @@ export function getState(): AutoDirectorState {
     secondsLeft: msLeft === null ? null : Math.ceil(msLeft / 1000),
     msLeft,
     nextTile: on ? tileOf(next) : null,
+    liveTile: on ? tileOf(live) : null,
     tiles,
     liveTotalMs: on ? cutAt - liveSince : null,
     upcoming,
