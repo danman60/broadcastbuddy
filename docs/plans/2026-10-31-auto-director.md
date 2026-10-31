@@ -49,3 +49,8 @@ where it is going next (countdown on the tablet) and can tee up that camera befo
    tap a tile → OFF. Read BB log + photo of tablet.
 
 ## Deviations log
+- 2026-10-30 21:40 ET — Owner: "countdown inaccurate" / "switches randomly at 9 or 8 or 7 s left". DART log
+  showed beat cuts at 6–9 s while the countdown ran to maxShot 14. Fix: each shot commits a cut time
+  (random min..max) when it goes live; countdown counts to it; beat may snap only within ±400 ms.
+  State carries msLeft (tablet counts locally), nextTile + tiles (from OBS MultiviewLayout 6–9 = scenes-only
+  grids) so the tablet draws a big countdown on NEXT's tile, yellow "3 2 1" for the last 3 s.

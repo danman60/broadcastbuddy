@@ -1,12 +1,17 @@
 // Auto Director (plan docs/plans/2026-10-31-auto-director.md). Owner 2026-10-30: "Like you're
 // cycling shots and I'm teeing them up, as long as i know where you're going".
 //
-// While ON, BB cuts OBS program round-robin over the ticked scenes: each shot holds at least
-// minShotSec, then cuts on the next audio onset (beat / hit) or at maxShotSec. NEXT is picked the
-// moment a cut lands so the operator can tee that camera up; the tablet shows it as a countdown.
+// While ON, BB cuts OBS program round-robin over the ticked scenes. Each shot gets a committed cut
+// time (random within min..max) the moment it goes live, so the tablet countdown is the truth; the
+// cut snaps to an audio onset (beat / hit) within ±BEAT_SNAP_MS of that time, else lands at +SNAP.
+// (Owner 2026-10-30: "switches randomly at 9 or 8 or 7 s left" — the first build cut on any beat
+// after minShot while counting down to maxShot.) NEXT is picked when a cut lands so the operator
+// can tee that camera up; the tablet draws the countdown big on NEXT's multiview tile.
 // Any program change BB didn't make (tablet tile tap, OBS, deck) is a human override → OFF.
 import * as obs from './obsConnection'
 import * as settings from './settings'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { createLogger } from '../logger'
 import type { AppSettings, AudioInputLevel } from '../../shared/types'
 
@@ -16,7 +21,10 @@ export interface AutoDirectorState {
   on: boolean
   live: string | null
   next: string | null
-  secondsLeft: number | null // to the max-length cut; a beat can cut earlier once past minShot
+  secondsLeft: number | null
+  msLeft: number | null // to the committed cut; tablet counts down locally from receipt
+  nextTile: number | null // NEXT's position in the OBS multiview grid (row-major), null if not shown
+  tiles: number | null // multiview grid side (2 = 2×2), null when the layout isn't scenes-only
   message?: string
 }
 
@@ -26,7 +34,11 @@ const DEFAULTS: Cfg = { scenes: [], minShotSec: 6, maxShotSec: 14 }
 let on = false
 let live: string | null = null
 let next: string | null = null
-let liveSince = 0
+let liveSince = 0 // when the live shot started (diagnostic; the cut is driven by cutAt)
+let cutAt = 0
+let sceneOrder: string[] = [] // OBS scene dock order = multiview tile order
+let tiles: number | null = null
+const BEAT_SNAP_MS = 400
 let pendingCut: string | null = null
 let tick: NodeJS.Timeout | null = null
 let lastPush = 0
@@ -50,14 +62,39 @@ function cfg(): Cfg {
 }
 
 export function getState(): AutoDirectorState {
-  const c = cfg()
+  const msLeft = on ? Math.max(0, cutAt - Date.now()) : null
+  const i = next ? sceneOrder.indexOf(next) : -1
   return {
     on,
     live,
     next,
-    secondsLeft: on ? Math.max(0, Math.ceil((liveSince + c.maxShotSec * 1000 - Date.now()) / 1000)) : null,
+    secondsLeft: msLeft === null ? null : Math.ceil(msLeft / 1000),
+    msLeft,
+    nextTile: on && tiles && i >= 0 && i < tiles * tiles ? i : null,
+    tiles,
     message: message || undefined,
   }
+}
+
+/** Commit the next cut time for the shot that just went live. */
+function commitCut(): void {
+  const c = cfg()
+  const span = Math.max(0, c.maxShotSec - c.minShotSec)
+  liveSince = Date.now()
+  cutAt = liveSince + (c.minShotSec + Math.round(Math.random() * span)) * 1000
+}
+
+/** OBS MultiviewLayout → grid side for the scenes-only layouts (6..9 = 4/9/16/25 scenes). The layouts
+ *  with preview+program on top use a different geometry, so no tile overlay there. */
+function readMultiviewGrid(): number | null {
+  for (const f of ['user.ini', 'global.ini']) {
+    try {
+      const ini = readFileSync(join(process.env.APPDATA ?? '', 'obs-studio', f), 'utf8')
+      const m = ini.match(/^MultiviewLayout=(\d+)/m)
+      if (m) return ({ 6: 2, 7: 3, 8: 4, 9: 5 } as Record<number, number>)[Number(m[1])] ?? null
+    } catch { /* try next file */ }
+  }
+  return null
 }
 
 function changed(): void {
@@ -77,10 +114,10 @@ function pickNext(after: string | null): string | null {
   return scenes[0]
 }
 
-function cut(reason: 'beat' | 'max'): void {
+function cut(reason: 'beat' | 'time'): void {
   if (!next || pendingCut) return
   pendingCut = next
-  logger.info(`auto director: cut ${live} → ${next} (${reason})`)
+  logger.info(`auto director: cut ${live} → ${next} (${reason}, ${Date.now() - cutAt} ms vs countdown)`)
   obs.setCurrentScene(next).catch((err) => {
     pendingCut = null
     logger.warn(`auto director: cut to ${next} failed: ${err instanceof Error ? err.message : err}`)
@@ -104,12 +141,19 @@ export async function start(): Promise<AutoDirectorState> {
   } catch {
     live = null
   }
+  try {
+    const r = (await obs.sendRequest('GetSceneList')) as { scenes?: Array<{ sceneName: string; sceneIndex: number }> }
+    sceneOrder = (r?.scenes ?? []).sort((a, b) => b.sceneIndex - a.sceneIndex).map((s) => s.sceneName)
+  } catch {
+    sceneOrder = []
+  }
+  tiles = readMultiviewGrid()
   on = true
-  liveSince = Date.now()
+  commitCut()
   next = pickNext(live)
   pendingCut = null
   tick = setInterval(onTick, 200)
-  logger.info(`auto director: ON (live ${live}, next ${next}, ${c.minShotSec}-${c.maxShotSec} s, scenes ${c.scenes.join(', ')})`)
+  logger.info(`auto director: ON (live ${live}, next ${next}, ${c.minShotSec}-${c.maxShotSec} s, scenes ${c.scenes.join(', ')}, multiview grid ${tiles ?? 'n/a'}, order ${sceneOrder.join(', ')})`)
   changed()
   return getState()
 }
@@ -130,11 +174,10 @@ export function toggle(): Promise<AutoDirectorState> | AutoDirectorState {
 
 function onTick(): void {
   if (!on) return
-  const c = cfg()
-  const held = Date.now() - liveSince
-  if (held >= c.maxShotSec * 1000) cut('max')
-  else if (held >= c.minShotSec * 1000 && Date.now() - lastOnset < 150) cut('beat')
-  if (Date.now() - lastPush >= 1000) changed() // countdown tick for the tablet
+  const now = Date.now()
+  if (now >= cutAt + BEAT_SNAP_MS) cut('time')
+  else if (now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
+  if (now - lastPush >= 1000) changed() // resync the tablet's local countdown
 }
 
 /** OBS program changed (any source). Ours → advance; anyone else's → human override, OFF. */
@@ -146,7 +189,7 @@ export function onProgramChanged(name: string | null): void {
   if (name && name === pendingCut) {
     pendingCut = null
     live = name
-    liveSince = Date.now()
+    commitCut()
     next = pickNext(live)
     changed()
     return

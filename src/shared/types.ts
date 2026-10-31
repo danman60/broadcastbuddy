@@ -1319,7 +1319,7 @@ export interface WsStateMessage {
   health?: ShowHealth
   voice?: VoiceStatus
   // Auto Director (autoDirector.ts): tablet shows "AUTO → next · secondsLeft" while on.
-  autoDirector?: { on: boolean; live: string | null; next: string | null; secondsLeft: number | null; message?: string }
+  autoDirector?: { on: boolean; live: string | null; next: string | null; secondsLeft: number | null; msLeft: number | null; nextTile: number | null; tiles: number | null; message?: string }
 }
 
 // Show-monitor alert state (showMonitor.ts) — rides the WS state message for the OBS dock.
