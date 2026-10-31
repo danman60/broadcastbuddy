@@ -378,10 +378,11 @@ function routeResult(msg: VoiceMsgResult): void {
   // The strict floor sits 0.15 above the operator's slider (capped at 0.8) so lowering the slider
   // lowers it too — a hard 0.8 rejected real headset "push in" @ 0.66–0.77 (DART 2026-10-31).
   const floor = wakeActive() && (STRICT_VERBS.has(msg.verb) || msg.verb.startsWith('take:')) ? Math.max(base, Math.min(STRICT_VERB_FLOOR, base + 0.15)) : base
-  // Hands-free: bare "wide"/"home" fired on show audio 6× in a minute, each knocking the PTZ
-  // to Home with tracking off (DART 2026-10-31 13:08). Without a "camera N" prefix it's ignored.
-  if (wakeActive() && msg.verb === 'wide' && msg.camera == null) {
-    emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'say "camera N wide"', confidence: msg.confidence, reason: 'needs-camera-prefix' })
+  // Hands-free hears the room: show audio drove 88 PTZ commands in 20 min ("stop", "track",
+  // "pull out" @ 0.9+, DART 2026-10-31 13:13-13:33). Only "camera N …" commands act; cuts
+  // ("camera N go") and "autodirect" are whole distinctive phrases and pass as-is.
+  if (wakeActive() && msg.camera == null && !msg.verb.startsWith('take:') && msg.verb !== 'autoDirect') {
+    emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: `ignored: say "camera N ${msg.verb}"`, confidence: msg.confidence, reason: 'needs-camera-prefix' })
     return
   }
   if (msg.confidence < floor) {
