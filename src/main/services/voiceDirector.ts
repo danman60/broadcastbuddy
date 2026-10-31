@@ -375,7 +375,9 @@ function routeResult(msg: VoiceMsgResult): void {
   // wide @ 0.60 on DART 2026-10-29) → they need a firmer match. recall/stop keep the operator floor.
   // Only hands-free hears random talk; under push-to-talk the operator chose to speak, and the
   // strict floor rejected a real "push in" @ 0.62 on the KH-23 headset (DART 2026-10-30).
-  const floor = wakeActive() && (STRICT_VERBS.has(msg.verb) || msg.verb.startsWith('take:')) ? Math.max(base, STRICT_VERB_FLOOR) : base
+  // The strict floor sits 0.15 above the operator's slider (capped at 0.8) so lowering the slider
+  // lowers it too — a hard 0.8 rejected real headset "push in" @ 0.66–0.77 (DART 2026-10-31).
+  const floor = wakeActive() && (STRICT_VERBS.has(msg.verb) || msg.verb.startsWith('take:')) ? Math.min(STRICT_VERB_FLOOR, base + 0.15) : base
   if (msg.confidence < floor) {
     emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'low confidence', confidence: msg.confidence, reason: 'below-floor' })
     return
