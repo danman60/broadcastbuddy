@@ -172,6 +172,7 @@ namespace VoiceHelper
             }
             MicStream old = _mic;
             _mic = next;
+            _recDone.WaitOne(2000); // the engine must be idle before its input changes
             SetEngineInput();
             if (old != null) old.Dispose();
             if (err != null) Emit(Outbound.Error(err));
@@ -342,15 +343,27 @@ namespace VoiceHelper
                 _listening = true;
                 _best = null;
             }
-            try
+            // RecognizeAsyncCancel (mic switch, grammar reload) returns before the engine is idle;
+            // starting again too soon throws InvalidOperationException (DART 2026-10-31 left
+            // hands-free dead). Wait for the engine to go idle and retry.
+            for (var attempt = 0; ; attempt++)
             {
-                _recDone.Reset();
-                _engine.RecognizeAsync(RecognizeMode.Multiple);
-            }
-            catch (Exception ex)
-            {
-                lock (_gate) { _continuous = false; _listening = false; }
-                Emit(Outbound.Error("wake-start-fail: " + ex.GetType().Name));
+                try
+                {
+                    _recDone.Reset();
+                    _engine.RecognizeAsync(RecognizeMode.Multiple);
+                    return;
+                }
+                catch (InvalidOperationException) when (attempt < 5)
+                {
+                    _recDone.WaitOne(500);
+                }
+                catch (Exception ex)
+                {
+                    lock (_gate) { _continuous = false; _listening = false; }
+                    Emit(Outbound.Error("wake-start-fail: " + ex.GetType().Name + ": " + ex.Message));
+                    return;
+                }
             }
         }
 
