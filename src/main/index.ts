@@ -283,7 +283,9 @@ app.whenReady().then(() => {
 
   // 18c. Xbox controller via XInput — works while OBS (not BB) has focus.
   padHelper.startPadHelper(() => {
-    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) return [mainWindow]
+    // Minimized counts as present: isVisible() is false when minimized, which sent the pad to another
+    // window and left the camera dead until BB was restored (DART 2026-10-31 14:55).
+    if (mainWindow && !mainWindow.isDestroyed() && (mainWindow.isVisible() || mainWindow.isMinimized())) return [mainWindow]
     return BrowserWindow.getAllWindows().filter((w) => w !== mainWindow).slice(0, 1)
   })
 
