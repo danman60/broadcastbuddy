@@ -64,6 +64,13 @@ export function setVoiceMicSilent(silent: boolean): void {
   else clear('voice-mic-silent')
 }
 
+/** Picked voice mic didn't open → helper fell back to the Windows default (DART 2026-10-31 12:46, 13:02:
+ *  silent fallback hid it). Cleared when a mic opens as asked. */
+export function setVoiceMicFailed(text: string | null): void {
+  if (text) raise('voice-mic-failed', text)
+  else clear('voice-mic-failed')
+}
+
 /** Previous run died without a clean quit → tell the operator to check OBS kept recording. */
 export function noteUncleanRestart(lastActive: string | null): void {
   const t = lastActive ? new Date(lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '?'

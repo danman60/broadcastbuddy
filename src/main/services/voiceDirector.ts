@@ -32,7 +32,7 @@ import {
 import { getMoves, replayMoveByLabel, toggleCycle, isCycling, cancelReplay } from './shotRecorder'
 import * as autoDirector from './autoDirector'
 import * as obs from './obsConnection'
-import { setVoiceMicSilent } from './showMonitor'
+import { setVoiceMicFailed, setVoiceMicSilent } from './showMonitor'
 import { IPC, VoiceResult, VoiceStatus, VoiceShot } from '../../shared/types'
 import { createLogger } from '../logger'
 
@@ -303,7 +303,14 @@ export function getStatus(): VoiceStatus {
 
 /** Picker changed → helper reopens its capture device (label; '' = Windows default). */
 export function applyMic(): void {
-  if (helper && helperReady) send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
+  if (helper && helperReady) sendMic()
+}
+
+let micRequested = ''
+function sendMic(): void {
+  micRequested = settings.getAll().voiceMicDeviceId || ''
+  logger.info(`voice mic open: asking for ${micRequested ? `"${micRequested}"` : 'Windows default'}`)
+  send({ t: 'mic', deviceId: micRequested })
 }
 
 /**
@@ -337,7 +344,7 @@ function handleHelperLine(line: string): void {
     case 'ready':
       helperReady = true
       send(buildGrammar())
-      send({ t: 'mic', deviceId: settings.getAll().voiceMicDeviceId || '' })
+      sendMic()
       // Hands-free: kick the helper into continuous recognition immediately.
       if (wakeActive()) {
         send({ t: 'wake', on: true })
@@ -355,9 +362,14 @@ function handleHelperLine(line: string): void {
       break
     case 'error':
       logger.warn(`voice-helper error: ${msg.reason}`)
+      if (/^mic-(not-found|open-fail)/.test(msg.reason ?? '')) {
+        setVoiceMicFailed(`VOICE MIC FAILED — "${micRequested}" didn't open, listening on Windows default`)
+        emitResult({ ok: false, camera: getActiveCameraId(), verb: 'reject', text: 'MIC FAILED — using Windows default', confidence: 0, reason: 'mic-failed' })
+      }
       break
     case 'mic':
       logger.info(`voice-helper mic: ${msg.name || 'Windows default'}`)
+      if (msg.name || !micRequested) setVoiceMicFailed(null)
       break
     case 'pong':
       break
@@ -386,7 +398,7 @@ function routeResult(msg: VoiceMsgResult): void {
     return
   }
   if (msg.confidence < floor) {
-    emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'low confidence', confidence: msg.confidence, reason: 'below-floor' })
+    emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: `low confidence (floor ${floor.toFixed(2)})`, confidence: msg.confidence, reason: 'below-floor' })
     return
   }
 
