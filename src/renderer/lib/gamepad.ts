@@ -217,6 +217,13 @@ export class GamepadController {
   }
 
   /** Operator's button assignments (settings.xboxButtonMap); missing entries use the default. */
+  // One PTZ (no camera 2): both triggers drive camera 1 — RT pressure = zoom in, LT pressure = zoom
+  // out — instead of RT zooming a camera that doesn't exist (owner 2026-10-31 "pressure sensitive Xbox triggers").
+  private singlePtz = false
+  setSinglePtz(on: boolean): void {
+    this.singlePtz = on
+  }
+
   setButtonMap(map: Record<string, string> | undefined): void {
     this.buttonMap = map ?? {}
   }
@@ -410,8 +417,16 @@ export class GamepadController {
         control.setZoomFor(cam, null)
       }
     }
-    zoomFor(1, analog(6), pressed(4)) // LT / LB → camera 1
-    zoomFor(2, analog(7), pressed(5)) // RT / RB → camera 2
+    if (this.singlePtz) {
+      const rt = analog(7), lt = analog(6)
+      if (rt > ZOOM_TRIGGER_DEADZONE) zoomFor(1, rt, false)
+      else if (lt > ZOOM_TRIGGER_DEADZONE) control.setZoomFor(1, { dir: 'out', speed: Math.max(1, Math.min(ZOOM_IN_MAX_SPEED, Math.ceil(lt * ZOOM_IN_MAX_SPEED))) })
+      else zoomFor(1, 0, pressed(4) || pressed(5))
+      control.setZoomFor(2, null)
+    } else {
+      zoomFor(1, analog(6), pressed(4)) // LT / LB → camera 1
+      zoomFor(2, analog(7), pressed(5)) // RT / RB → camera 2
+    }
 
     // ── Edge-triggered buttons (assignable, Settings → Camera → Xbox Controller) ──
     for (const b of XBOX_BUTTONS) {

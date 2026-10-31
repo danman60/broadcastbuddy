@@ -309,6 +309,7 @@ function CameraPanelActive(): React.ReactElement {
     )
     gamepadRef.current = ctrl
     ctrl.setButtonMap(useStore.getState().settings?.xboxButtonMap)
+    ctrl.setSinglePtz(!(useStore.getState().settings?.cameraHost2 ?? '').trim())
     ctrl.start()
     return () => {
       ctrl.stop()
@@ -326,6 +327,11 @@ function CameraPanelActive(): React.ReactElement {
   useEffect(() => {
     gamepadRef.current?.setButtonMap(xboxButtonMap)
   }, [xboxButtonMap])
+
+  const singlePtz = !(settings?.cameraHost2 ?? '').trim()
+  useEffect(() => {
+    gamepadRef.current?.setSinglePtz(singlePtz)
+  }, [singlePtz])
 
   // ── AUTO/MANUAL toggle ──
   // AUTO/MANUAL drives BOTH the live AI tracker AND cameraAutoMode (the routine-

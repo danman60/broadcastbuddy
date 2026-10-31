@@ -507,6 +507,7 @@ function numOr(v: unknown, dflt: number): number {
 }
 
 function emitResult(r: VoiceResult): void {
+  r = { ...r, at: Date.now() }
   lastResult = r
   setVoiceMicSilent(r.reason === 'mic-silent')
   logger.info(`voice ${r.ok ? 'OK' : 'REJECT'}: ${r.text} (conf ${r.confidence.toFixed(2)})`)

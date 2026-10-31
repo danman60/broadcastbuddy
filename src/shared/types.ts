@@ -526,6 +526,7 @@ export interface VoiceResult {
   text: string // human display string for the toast, e.g. "CAM2 ▸ PUSH IN"
   confidence: number // 0–1
   reason?: string // rejection reason when ok=false
+  at?: number // epoch ms it was heard — lets the tablet flash each new result once
 }
 
 /** Helper process / engine status pushed to the renderer. */
