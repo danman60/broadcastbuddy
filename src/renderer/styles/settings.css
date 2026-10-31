@@ -89,3 +89,122 @@
 .settings-field-inline input {
   width: 120px;
 }
+
+/* ── Auto Director matrix ─────────────────────────────────────── */
+.ad-intro { font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.ad-block {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ad-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ad-block-sub { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text-secondary); }
+.ad-hint { font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+
+.ad-seg {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-input);
+}
+.ad-seg button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.ad-seg button + button { border-left: 1px solid var(--border); }
+.ad-seg button:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.ad-seg button.active { background: var(--accent); color: #fff; }
+.ad-seg button:disabled { cursor: not-allowed; }
+.ad-seg.small button { padding: 4px 10px; font-size: 11px; }
+.ad-seg.muted { opacity: 0.45; }
+
+.ad-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 26px; }
+.ad-strip-item { display: inline-flex; align-items: center; gap: 6px; }
+.ad-arrow { color: var(--text-dim); font-size: 13px; }
+.ad-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(124, 77, 255, 0.45);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ad-pill b { color: var(--accent-hover); font-variant-numeric: tabular-nums; }
+.ad-pill.missing { background: transparent; border-style: dashed; color: var(--text-secondary); }
+
+.ad-scene {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0.6;
+}
+.ad-scene.on { opacity: 1; border-color: var(--border); }
+.ad-scene-head { display: flex; align-items: center; gap: 10px; }
+.ad-scene-head .ad-seg { margin-left: auto; }
+.ad-scene-name { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-scene-body { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-left: 2px; }
+
+.ad-switch {
+  width: 44px;
+  padding: 4px 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.ad-switch.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ad-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ad-lbl { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+.ad-lbl.wide { min-width: 96px; }
+.ad-scene-body .ad-lbl + .ad-num { margin-left: 2px; }
+.ad-scene-body .ad-unit + .ad-lbl { margin-left: 10px; }
+.ad-dash, .ad-unit { font-size: 11px; color: var(--text-dim); }
+.settings-field-inline .ad-num, .ad-num { width: 56px; padding: 5px 8px; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+.ad-num.ms { width: 112px; text-align: left; }
+.ad-select { padding: 5px 8px; font-size: 12px; max-width: 200px; }
+.ad-empty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.ad-empty b { color: var(--text-primary); }

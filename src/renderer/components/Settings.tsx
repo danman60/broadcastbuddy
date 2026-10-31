@@ -443,6 +443,8 @@ export function Settings() {
     setShowSettings(false)
   }
 
+  const adWeightSum = adScenes.reduce((sum, n) => sum + (adTimes[n]?.weight ?? 2), 0) || 1
+
   return (
     <div className="settings-overlay" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="settings-header">
@@ -670,87 +672,127 @@ export function Settings() {
 
         <div className="settings-group">
           <div className="settings-group-title">Auto Director</div>
-          <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-            Cuts OBS program between the scenes in rotation. Each shot gets a length between its min and max
-            (blank = the defaults below); the tablet counts down to that cut on the next camera's tile. Any cut
-            you make yourself turns it off; turn it on with the hotkey or an Xbox button.
+          <p className="ad-intro">
+            Cuts OBS program between the scenes in rotation; the tablet counts down to each cut on the next
+            camera&apos;s tile. Any cut you make yourself turns it off — turn it back on with the hotkey or an Xbox button.
           </p>
-          {obsScenes.length === 0 && <p style={{ fontSize: 11 }}>Connect OBS to list scenes.</p>}
-          {obsScenes.length > 0 && (
-            <table style={{ fontSize: 12, borderSpacing: '8px 4px', marginLeft: -8 }}>
-              <thead>
-                <tr style={{ color: 'var(--text-dim)', textAlign: 'left' }}>
-                  <th>Scene</th><th>In rotation</th><th>How often</th><th>Min s</th><th>Max s</th><th>Transition in</th>
-                </tr>
-              </thead>
-              <tbody>
-                {obsScenes.map((name) => {
-                  const t = adTimes[name] ?? {}
-                  const setT = (k: 'min' | 'max', v: string) =>
-                    setAdTimes({ ...adTimes, [name]: { ...t, [k]: v === '' ? undefined : Math.max(1, Math.min(300, Number(v))) } })
-                  const setO = (patch: { weight?: number; transition?: string }) => setAdTimes({ ...adTimes, [name]: { ...t, ...patch } })
-                  return (
-                    <tr key={name}>
-                      <td>{name}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          aria-label={`${name} in rotation`}
-                          checked={adScenes.includes(name)}
-                          onChange={(e) => setAdScenes(e.target.checked ? [...adScenes, name] : adScenes.filter((s) => s !== name))}
-                        />
-                      </td>
-                      <td>
-                        <select aria-label={`${name} how often`} value={t.weight ?? 2} onChange={(e) => setO({ weight: Number(e.target.value) })} disabled={adOrder !== 'weighted'}>
-                          <option value={1}>Rarely</option>
-                          <option value={2}>Normal</option>
-                          <option value={3}>Often</option>
-                        </select>
-                      </td>
-                      <td><input type="number" min={1} max={300} placeholder={String(adMin)} aria-label={`${name} min seconds`} value={t.min ?? ''} onChange={(e) => setT('min', e.target.value)} style={{ width: 60 }} /></td>
-                      <td><input type="number" min={1} max={300} placeholder={String(adMax)} aria-label={`${name} max seconds`} value={t.max ?? ''} onChange={(e) => setT('max', e.target.value)} style={{ width: 60 }} /></td>
-                      <td>
-                        <select aria-label={`${name} transition`} value={t.transition ?? ''} onChange={(e) => setO({ transition: e.target.value || undefined })}>
-                          <option value="">Default</option>
-                          {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Default min shot (s)</label>
-            <input type="number" min={1} max={120} value={adMin} onChange={(e) => setAdMin(Number(e.target.value))} style={{ width: 80 }} />
+
+          <div className="ad-block">
+            <div className="ad-block-title">Rotation</div>
+            <div className="ad-seg" role="radiogroup" aria-label="Order">
+              <button type="button" className={adOrder === 'sequence' ? 'active' : ''} aria-pressed={adOrder === 'sequence'} onClick={() => setAdOrder('sequence')}>In order</button>
+              <button type="button" className={adOrder === 'weighted' ? 'active' : ''} aria-pressed={adOrder === 'weighted'} onClick={() => setAdOrder('weighted')}>Weighted random</button>
+            </div>
+            <p className="ad-hint">
+              {adOrder === 'sequence'
+                ? 'Runs through the scenes top to bottom in the order you switched them on, then starts over.'
+                : 'Picks the next scene at random by How often — an Often scene comes up about three times as much as a Rarely one. Never repeats the scene that is live.'}
+            </p>
+            <div className="ad-strip" aria-label="Rotation preview">
+              {adScenes.length === 0 && <span className="ad-hint">Switch on at least two scenes below.</span>}
+              {adScenes.map((name, i) => {
+                const missing = obsScenes.length > 0 && !obsScenes.includes(name)
+                const w = adTimes[name]?.weight ?? 2
+                const share = adOrder === 'weighted' ? Math.round((100 * w) / adWeightSum) : 0
+                return (
+                  <span key={name} className="ad-strip-item">
+                    {i > 0 && adOrder === 'sequence' && <span className="ad-arrow">→</span>}
+                    <span className={`ad-pill${missing ? ' missing' : ''}`} title={missing ? 'Not in OBS right now' : undefined}>
+                      {name}{adOrder === 'weighted' && <b>{share}%</b>}
+                    </span>
+                  </span>
+                )
+              })}
+              {adScenes.length > 1 && adOrder === 'sequence' && <span className="ad-arrow" title="then starts over">↻</span>}
+            </div>
           </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Default max shot (s)</label>
-            <input type="number" min={1} max={300} value={adMax} onChange={(e) => setAdMax(Number(e.target.value))} style={{ width: 80 }} />
+
+          <div className="ad-block">
+            <div className="ad-block-title">
+              Scenes
+              <span className="ad-block-sub">{adOrder === 'weighted' ? 'How often applies in Weighted random' : 'How often only matters in Weighted random'}</span>
+            </div>
+            {obsScenes.length === 0 ? (
+              <div className="ad-empty">
+                <b>OBS isn&apos;t connected</b>, so its scenes can&apos;t be listed. Connect it under the OBS tab, then come back here.
+                {adScenes.length > 0 && <> Your saved rotation above is kept and still runs when OBS is back.</>}
+              </div>
+            ) : obsScenes.map((name) => {
+              const t = adTimes[name] ?? {}
+              const on = adScenes.includes(name)
+              const setT = (k: 'min' | 'max', v: string) =>
+                setAdTimes({ ...adTimes, [name]: { ...t, [k]: v === '' ? undefined : Math.max(1, Math.min(300, Number(v))) } })
+              const setO = (patch: { weight?: number; transition?: string }) => setAdTimes({ ...adTimes, [name]: { ...t, ...patch } })
+              const weight = t.weight ?? 2
+              return (
+                <div key={name} className={`ad-scene${on ? ' on' : ''}`}>
+                  <div className="ad-scene-head">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-label={`${name} in rotation`}
+                      className={`ad-switch${on ? ' on' : ''}`}
+                      onClick={() => setAdScenes(on ? adScenes.filter((s) => s !== name) : [...adScenes, name])}
+                    >
+                      {on ? 'ON' : 'OFF'}
+                    </button>
+                    <span className="ad-scene-name">{name}</span>
+                    <div className={`ad-seg small${adOrder !== 'weighted' ? ' muted' : ''}`} role="radiogroup" aria-label={`${name} how often`} title={adOrder !== 'weighted' ? 'Switch Rotation to Weighted random to use this' : undefined}>
+                      {([[1, 'Rarely'], [2, 'Normal'], [3, 'Often']] as const).map(([v, label]) => (
+                        <button key={v} type="button" className={weight === v ? 'active' : ''} aria-pressed={weight === v} disabled={!on || adOrder !== 'weighted'} onClick={() => setO({ weight: v })}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {on && (
+                    <div className="ad-scene-body">
+                      <span className="ad-lbl">Hold</span>
+                      <input type="number" min={1} max={300} placeholder={String(adMin)} aria-label={`${name} min seconds`} value={t.min ?? ''} onChange={(e) => setT('min', e.target.value)} className="ad-num" />
+                      <span className="ad-dash">–</span>
+                      <input type="number" min={1} max={300} placeholder={String(adMax)} aria-label={`${name} max seconds`} value={t.max ?? ''} onChange={(e) => setT('max', e.target.value)} className="ad-num" />
+                      <span className="ad-unit">s</span>
+                      <span className="ad-lbl">Cut in with</span>
+                      <select aria-label={`${name} transition`} value={t.transition ?? ''} onChange={(e) => setO({ transition: e.target.value || undefined })} className="ad-select">
+                        <option value="">Default ({adTrans || 'OBS selection'})</option>
+                        {t.transition && !obsTransitions.includes(t.transition) && <option value={t.transition}>{t.transition}</option>}
+                        {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Order</label>
-            <select value={adOrder} onChange={(e) => setAdOrder(e.target.value as 'sequence' | 'weighted')}>
-              <option value="sequence">In order (as ticked)</option>
-              <option value="weighted">Random, by How often</option>
-            </select>
+
+          <div className="ad-block">
+            <div className="ad-block-title">
+              Defaults
+              <span className="ad-block-sub">used wherever a scene above is left blank</span>
+            </div>
+            <div className="ad-row">
+              <span className="ad-lbl wide">Hold each shot</span>
+              <input type="number" min={1} max={120} aria-label="Default min seconds" value={adMin} onChange={(e) => setAdMin(Number(e.target.value))} className="ad-num" />
+              <span className="ad-dash">–</span>
+              <input type="number" min={1} max={300} aria-label="Default max seconds" value={adMax} onChange={(e) => setAdMax(Number(e.target.value))} className="ad-num" />
+              <span className="ad-unit">s</span>
+              <span className="ad-hint">random length in that range</span>
+            </div>
+            <div className="ad-row">
+              <span className="ad-lbl wide">Transition</span>
+              <select aria-label="Default transition" value={adTrans} onChange={(e) => setAdTrans(e.target.value)} className="ad-select">
+                <option value="">Whatever OBS has selected</option>
+                {adTrans && !obsTransitions.includes(adTrans) && <option value={adTrans}>{adTrans}</option>}
+                {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <input type="number" min={0} max={10000} placeholder="OBS default" aria-label="Transition length ms" value={adTransMs} onChange={(e) => setAdTransMs(e.target.value === '' ? '' : Number(e.target.value))} className="ad-num ms" />
+              <span className="ad-unit">ms</span>
+            </div>
+            <div className="ad-row">
+              <span className="ad-lbl wide">Beat snap</span>
+              <button type="button" role="switch" aria-checked={adBeat} aria-label="Snap cuts to the beat" className={`ad-switch${adBeat ? ' on' : ''}`} onClick={() => setAdBeat(!adBeat)}>{adBeat ? 'ON' : 'OFF'}</button>
+              <span className="ad-hint">a beat can pull a cut up to 0.4 s early</span>
+            </div>
           </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Default transition</label>
-            <select value={adTrans} onChange={(e) => setAdTrans(e.target.value)}>
-              <option value="">Whatever OBS has selected</option>
-              {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
-          <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Transition length (ms)</label>
-            <input type="number" min={0} max={10000} placeholder="OBS" value={adTransMs} onChange={(e) => setAdTransMs(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: 80 }} />
-          </div>
-          <label className="settings-field-inline" style={{ gap: 8 }}>
-            <input type="checkbox" checked={adBeat} onChange={(e) => setAdBeat(e.target.checked)} />
-            Snap cuts to the beat (up to 0.4 s early)
-          </label>
         </div>
 
         <div className="settings-group">
