@@ -178,7 +178,10 @@ function buildGrammar(): { t: 'grammar'; verbs: Array<{ id: string; phrases: str
   }
   // wakeWord non-empty → the helper makes it a REQUIRED prefix on every utterance
   // and listens continuously; empty → classic PTT grammar (no prefix).
-  return { t: 'grammar', verbs: [...VOICE_VERBS, ...takeVerbs], shots, wakeWord: wakeWord() }
+  // Bare "camera one" (select) only matters with two PTZs; with one it does nothing and SAPI
+  // ends "camera one go" early on it (DART 2026-10-31: "camera one go" → select CAM1 @ 0.89).
+  const verbs = VOICE_VERBS.filter((v) => v.id !== 'select' || !!(s.cameraHost2 ?? '').trim())
+  return { t: 'grammar', verbs: [...verbs, ...takeVerbs], shots, wakeWord: wakeWord() }
 }
 
 function send(obj: unknown): void {
