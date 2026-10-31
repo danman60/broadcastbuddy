@@ -377,7 +377,13 @@ function routeResult(msg: VoiceMsgResult): void {
   // strict floor rejected a real "push in" @ 0.62 on the KH-23 headset (DART 2026-10-30).
   // The strict floor sits 0.15 above the operator's slider (capped at 0.8) so lowering the slider
   // lowers it too — a hard 0.8 rejected real headset "push in" @ 0.66–0.77 (DART 2026-10-31).
-  const floor = wakeActive() && (STRICT_VERBS.has(msg.verb) || msg.verb.startsWith('take:')) ? Math.min(STRICT_VERB_FLOOR, base + 0.15) : base
+  const floor = wakeActive() && (STRICT_VERBS.has(msg.verb) || msg.verb.startsWith('take:')) ? Math.max(base, Math.min(STRICT_VERB_FLOOR, base + 0.15)) : base
+  // Hands-free: bare "wide"/"home" fired on show audio 6× in a minute, each knocking the PTZ
+  // to Home with tracking off (DART 2026-10-31 13:08). Without a "camera N" prefix it's ignored.
+  if (wakeActive() && msg.verb === 'wide' && msg.camera == null) {
+    emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'say "camera N wide"', confidence: msg.confidence, reason: 'needs-camera-prefix' })
+    return
+  }
   if (msg.confidence < floor) {
     emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: 'low confidence', confidence: msg.confidence, reason: 'below-floor' })
     return
