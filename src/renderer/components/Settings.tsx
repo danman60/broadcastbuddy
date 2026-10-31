@@ -71,6 +71,7 @@ export function Settings() {
   const [adScenes, setAdScenes] = useState<string[]>([])
   const [adMin, setAdMin] = useState(6)
   const [adMax, setAdMax] = useState(14)
+  const [adTimes, setAdTimes] = useState<Record<string, { min?: number; max?: number }>>({})
   const [obsScenes, setObsScenes] = useState<string[]>([])
   useEffect(() => { void window.api.obsSceneNames().then(setObsScenes) }, [])
 
@@ -169,6 +170,7 @@ export function Settings() {
       setAdScenes(settings.autoDirector?.scenes ?? [])
       setAdMin(settings.autoDirector?.minShotSec ?? 6)
       setAdMax(settings.autoDirector?.maxShotSec ?? 14)
+      setAdTimes(settings.autoDirector?.sceneTimes ?? {})
     }
     checkObsStatus()
     refreshMonitors()
@@ -415,7 +417,7 @@ export function Settings() {
     await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
     await window.api.settingsSet('xboxButtonMap', xboxMap)
     const min = Math.max(1, Math.min(120, adMin))
-    await window.api.settingsSet('autoDirector', { scenes: adScenes, minShotSec: min, maxShotSec: Math.max(min, Math.min(300, adMax)) })
+    await window.api.settingsSet('autoDirector', { scenes: adScenes, minShotSec: min, maxShotSec: Math.max(min, Math.min(300, adMax)), sceneTimes: adTimes })
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -658,27 +660,49 @@ export function Settings() {
         <div className="settings-group">
           <div className="settings-group-title">Auto Director</div>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-            Cuts OBS program between the ticked scenes in order. Each shot holds at least the minimum,
-            then cuts on the next beat or loud hit, or at the maximum. The tablet shows where it goes next.
-            Any cut you make yourself turns it off; turn it on with the hotkey or an Xbox button.
+            Cuts OBS program between the ticked scenes in order. Each shot gets a length between its min and
+            max (blank = the defaults below); the tablet counts down to that cut on the next camera's tile, and
+            a beat can pull it slightly early. Any cut you make yourself turns it off; turn it on with the
+            hotkey or an Xbox button.
           </p>
           {obsScenes.length === 0 && <p style={{ fontSize: 11 }}>Connect OBS to list scenes.</p>}
-          {obsScenes.map((name) => (
-            <label key={name} className="settings-field-inline" style={{ gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={adScenes.includes(name)}
-                onChange={(e) => setAdScenes(e.target.checked ? [...adScenes, name] : adScenes.filter((s) => s !== name))}
-              />
-              {name}
-            </label>
-          ))}
+          {obsScenes.length > 0 && (
+            <table style={{ fontSize: 12, borderSpacing: '8px 4px', marginLeft: -8 }}>
+              <thead>
+                <tr style={{ color: 'var(--text-dim)', textAlign: 'left' }}>
+                  <th>Scene</th><th>In rotation</th><th>Min s</th><th>Max s</th>
+                </tr>
+              </thead>
+              <tbody>
+                {obsScenes.map((name) => {
+                  const t = adTimes[name] ?? {}
+                  const setT = (k: 'min' | 'max', v: string) =>
+                    setAdTimes({ ...adTimes, [name]: { ...t, [k]: v === '' ? undefined : Math.max(1, Math.min(300, Number(v))) } })
+                  return (
+                    <tr key={name}>
+                      <td>{name}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          aria-label={`${name} in rotation`}
+                          checked={adScenes.includes(name)}
+                          onChange={(e) => setAdScenes(e.target.checked ? [...adScenes, name] : adScenes.filter((s) => s !== name))}
+                        />
+                      </td>
+                      <td><input type="number" min={1} max={300} placeholder={String(adMin)} aria-label={`${name} min seconds`} value={t.min ?? ''} onChange={(e) => setT('min', e.target.value)} style={{ width: 60 }} /></td>
+                      <td><input type="number" min={1} max={300} placeholder={String(adMax)} aria-label={`${name} max seconds`} value={t.max ?? ''} onChange={(e) => setT('max', e.target.value)} style={{ width: 60 }} /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
           <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Min shot (s)</label>
+            <label style={{ minWidth: 130 }}>Default min shot (s)</label>
             <input type="number" min={1} max={120} value={adMin} onChange={(e) => setAdMin(Number(e.target.value))} style={{ width: 80 }} />
           </div>
           <div className="settings-field-inline">
-            <label style={{ minWidth: 130 }}>Max shot (s)</label>
+            <label style={{ minWidth: 130 }}>Default max shot (s)</label>
             <input type="number" min={1} max={300} value={adMax} onChange={(e) => setAdMax(Number(e.target.value))} style={{ width: 80 }} />
           </div>
         </div>

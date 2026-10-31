@@ -79,9 +79,11 @@ export function getState(): AutoDirectorState {
 /** Commit the next cut time for the shot that just went live. */
 function commitCut(): void {
   const c = cfg()
-  const span = Math.max(0, c.maxShotSec - c.minShotSec)
+  const o = (live && c.sceneTimes?.[live]) || {}
+  const min = o.min || c.minShotSec
+  const max = Math.max(min, o.max || c.maxShotSec)
   liveSince = Date.now()
-  cutAt = liveSince + (c.minShotSec + Math.round(Math.random() * span)) * 1000
+  cutAt = liveSince + (min + Math.round(Math.random() * (max - min))) * 1000
 }
 
 /** OBS MultiviewLayout → grid side for the scenes-only layouts (6..9 = 4/9/16/25 scenes). The layouts

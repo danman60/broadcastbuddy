@@ -464,7 +464,7 @@ export interface AppSettings {
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
-  autoDirector?: { scenes: string[]; minShotSec: number; maxShotSec: number } // OBS scenes it cuts between + shot length
+  autoDirector?: { scenes: string[]; minShotSec: number; maxShotSec: number; sceneTimes?: Record<string, { min?: number; max?: number }> } // OBS scenes it cuts between + shot length (sceneTimes = per-scene override)
   xboxButtonMap?: Record<string, string> // Xbox button index → action ('preset:3', 'move:2', 'none'…); unset = default map
   cameraStickMaxSpeed?: number // gamepad max gimbal velocity at full deflection (1–178). Default 30.
   cameraPresetThumbs?: Record<string, string> // preset thumbnails, key `${camera}:${slot}` → small JPEG data URL snapped from the UVC preview on save
