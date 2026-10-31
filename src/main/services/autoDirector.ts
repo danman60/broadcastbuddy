@@ -3,7 +3,7 @@
 //
 // While ON, BB cuts OBS program round-robin over the ticked scenes. Each shot gets a committed cut
 // time (random within min..max) the moment it goes live, so the tablet countdown is the truth; the
-// cut snaps to an audio onset (beat / hit) within ±BEAT_SNAP_MS of that time, else lands at +SNAP.
+// cut snaps to an audio onset (beat / hit) up to BEAT_SNAP_MS early, else lands on 0.
 // (Owner 2026-10-30: "switches randomly at 9 or 8 or 7 s left" — the first build cut on any beat
 // after minShot while counting down to maxShot.) NEXT is picked when a cut lands so the operator
 // can tee that camera up; the tablet draws the countdown big on NEXT's multiview tile.
@@ -152,7 +152,7 @@ export async function start(): Promise<AutoDirectorState> {
   commitCut()
   next = pickNext(live)
   pendingCut = null
-  tick = setInterval(onTick, 200)
+  tick = setInterval(onTick, 50)
   logger.info(`auto director: ON (live ${live}, next ${next}, ${c.minShotSec}-${c.maxShotSec} s, scenes ${c.scenes.join(', ')}, multiview grid ${tiles ?? 'n/a'}, order ${sceneOrder.join(', ')})`)
   changed()
   return getState()
@@ -175,7 +175,9 @@ export function toggle(): Promise<AutoDirectorState> | AutoDirectorState {
 function onTick(): void {
   if (!on) return
   const now = Date.now()
-  if (now >= cutAt + BEAT_SNAP_MS) cut('time')
+  // Never late: a beat may pull the cut up to BEAT_SNAP_MS early, otherwise it lands at 0
+  // (DART 2026-10-30: a ±400 ms window + 200 ms tick put every no-beat cut ~0.5 s after "0").
+  if (now >= cutAt) cut('time')
   else if (now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
   if (now - lastPush >= 1000) changed() // resync the tablet's local countdown
 }
