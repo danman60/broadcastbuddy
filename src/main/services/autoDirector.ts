@@ -239,11 +239,27 @@ export function onProgramChanged(name: string | null): void {
   stop(`human override → ${name}`)
 }
 
+// Diagnostic (owner 2026-10-30 "beat detec?": 0 beat cuts in 12): every 5 s while ON, log what the
+// detector saw so the threshold is set from DART's real audio, not a guess.
+let diag = { onsets: 0, peak: 0, peakInput: '', maxRatio: 0, frames: 0, since: 0 }
+
 export function onAudio(levels: AudioInputLevel[]): void {
   let level = 0
-  for (const input of levels) for (const v of input.levels) if (v > level) level = v
+  let loudest = ''
+  for (const input of levels) for (const v of input.levels) if (v > level) { level = v; loudest = input.inputName }
   const now = Date.now()
-  if (level > ONSET_FLOOR && level > envAvg * ONSET_RATIO && now - lastOnset > ONSET_REFRACTORY_MS) lastOnset = now
+  const onset = level > ONSET_FLOOR && level > envAvg * ONSET_RATIO && now - lastOnset > ONSET_REFRACTORY_MS
+  if (onset) lastOnset = now
+  if (on) {
+    diag.frames++
+    if (onset) diag.onsets++
+    if (level > diag.peak) { diag.peak = level; diag.peakInput = loudest }
+    if (envAvg > 0.001) diag.maxRatio = Math.max(diag.maxRatio, level / envAvg)
+    if (now - diag.since >= 5000) {
+      if (diag.since) logger.info(`auto director: audio 5 s — ${diag.frames} frames, ${diag.onsets} beats, peak ${diag.peak.toFixed(3)} (${diag.peakInput}), avg ${envAvg.toFixed(3)}, max peak/avg ${diag.maxRatio.toFixed(2)} (need ${ONSET_RATIO} and > ${ONSET_FLOOR}), inputs ${levels.map((l) => l.inputName).join('|')}`)
+      diag = { onsets: 0, peak: 0, peakInput: '', maxRatio: 0, frames: 0, since: now }
+    }
+  }
   envAvg = envAvg * 0.95 + level * 0.05 // ~1 s memory at 20 updates/s
 }
 
