@@ -35,6 +35,7 @@ import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelRe
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
+import * as autoDirector from './autoDirector'
 
 const logger = createLogger('wsHub')
 
@@ -74,6 +75,7 @@ function buildStateMessage(): WsStateMessage {
     },
     health: getHealth(),
     voice: getVoiceStatus(),
+    autoDirector: autoDirector.getState(),
   }
 }
 
@@ -175,6 +177,9 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
     // cameraAutoMode + apply-current / go-wide). All no-op unless a camera host is set.
     case 'cameraWide':
       goHomeViaCamera()
+      break
+    case 'autoDirectorToggle':
+      void autoDirector.toggle()
       break
     case 'cameraAuto':
       setCameraAiEnable(true)
@@ -389,6 +394,7 @@ export function start(port: number): void {
   // Rebroadcast state on PTZ activity transitions (record/replay/sweep/active-cam)
   // so deck faces + the tablet popup show live camera status.
   setOnShotStateChanged(broadcastState)
+  autoDirector.setOnAutoDirectorChanged(broadcastState)
   setOnCameraActivityChanged(broadcastState)
   setOnVoiceChanged(broadcastState)
 

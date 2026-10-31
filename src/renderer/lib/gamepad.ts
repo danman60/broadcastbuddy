@@ -84,13 +84,15 @@ export interface GamepadCallbacks {
   onReplayMove: (id: number) => void
   /** Start/stop cycling through every recorded shot. */
   onCycleMoves: () => void
+  /** Auto Director on/off. */
+  onAutoDirector: () => void
   /** Connection state changed — pass the pad label or null. */
   onConnection: (label: string | null) => void
 }
 
 /** Assignable buttons (W3C standard index → name) and their factory actions. Sticks' zoom
  *  buttons (LB/RB/LT/RT) stay fixed. Actions: preset:N, home, ai, trackSpeed, record,
- *  axisLock, move:ID, cycleMoves, none. */
+ *  axisLock, move:ID, cycleMoves, autoDirector, none. */
 export const XBOX_BUTTONS: { index: number; name: string; def: string }[] = [
   { index: 0, name: 'A', def: 'preset:1' },
   { index: 1, name: 'B', def: 'preset:2' },
@@ -229,6 +231,10 @@ export class GamepadController {
       case 'move':
         rumble(pad, 60, 0.3, 0.5)
         this.cb.onReplayMove(Number(arg))
+        break
+      case 'autoDirector':
+        rumbleDouble(pad)
+        this.cb.onAutoDirector()
         break
       case 'cycleMoves':
         rumbleDouble(pad)

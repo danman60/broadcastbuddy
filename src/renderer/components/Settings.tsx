@@ -16,7 +16,7 @@ import { XBOX_BUTTONS } from '../lib/gamepad'
 const SETTINGS_TABS: { id: string; label: string; sections: string[] }[] = [
   { id: 'general', label: 'General', sections: ['App Updates', 'Server', 'Global Hotkeys', 'Settings Backups'] },
   { id: 'obs', label: 'OBS', sections: ['OBS Connection'] },
-  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Voice Control', 'Shot Recorder'] },
+  { id: 'camera', label: 'Camera', sections: ['OBSBOT Camera', 'Xbox Controller', 'Auto Director', 'Voice Control', 'Shot Recorder'] },
   { id: 'media', label: 'Import & Media', sections: ['AI / Document Import', 'R2 / Storage'] },
   { id: 'network', label: 'Network', sections: ['Tablet Display', 'Operator Chat'] },
   { id: 'tools', label: 'Tools', sections: ['Stream Deck Plugin'] },
@@ -68,6 +68,11 @@ export function Settings() {
   const [stickDeadzone, setStickDeadzone] = useState(0.12)
   const [stickExpo, setStickExpo] = useState(0.6)
   const [xboxMap, setXboxMap] = useState<Record<string, string>>({})
+  const [adScenes, setAdScenes] = useState<string[]>([])
+  const [adMin, setAdMin] = useState(6)
+  const [adMax, setAdMax] = useState(14)
+  const [obsScenes, setObsScenes] = useState<string[]>([])
+  useEffect(() => { void window.api.obsSceneNames().then(setObsScenes) }, [])
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -161,6 +166,9 @@ export function Settings() {
       setStickDeadzone(typeof settings.cameraJoystickDeadzone === 'number' ? settings.cameraJoystickDeadzone : 0.12)
       setStickExpo(typeof settings.cameraExpo === 'number' ? settings.cameraExpo : 0.6)
       setXboxMap(settings.xboxButtonMap ?? {})
+      setAdScenes(settings.autoDirector?.scenes ?? [])
+      setAdMin(settings.autoDirector?.minShotSec ?? 6)
+      setAdMax(settings.autoDirector?.maxShotSec ?? 14)
     }
     checkObsStatus()
     refreshMonitors()
@@ -406,6 +414,8 @@ export function Settings() {
     await window.api.settingsSet('cameraJoystickDeadzone', Math.max(0, Math.min(0.5, stickDeadzone)))
     await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
     await window.api.settingsSet('xboxButtonMap', xboxMap)
+    const min = Math.max(1, Math.min(120, adMin))
+    await window.api.settingsSet('autoDirector', { scenes: adScenes, minShotSec: min, maxShotSec: Math.max(min, Math.min(300, adMax)) })
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -629,6 +639,7 @@ export function Settings() {
                   <option key={m.id} value={`move:${m.id}`}>Shot: {m.label || `Move ${m.id}`}</option>
                 ))}
                 <option value="cycleMoves">Cycle all shots (start/stop)</option>
+                <option value="autoDirector">Auto Director on/off</option>
                 <option value="home">Home (wide)</option>
                 <option value="ai">Auto / Manual toggle</option>
                 <option value="record">Record shot start/stop</option>
@@ -642,6 +653,34 @@ export function Settings() {
             LB/RB/LT/RT stay zoom and the sticks stay pan/tilt. Saved recorded shots are listed as
             &quot;Shot:&quot; choices. Changes apply once saved.
           </p>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title">Auto Director</div>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+            Cuts OBS program between the ticked scenes in order. Each shot holds at least the minimum,
+            then cuts on the next beat or loud hit, or at the maximum. The tablet shows where it goes next.
+            Any cut you make yourself turns it off; turn it on with the hotkey or an Xbox button.
+          </p>
+          {obsScenes.length === 0 && <p style={{ fontSize: 11 }}>Connect OBS to list scenes.</p>}
+          {obsScenes.map((name) => (
+            <label key={name} className="settings-field-inline" style={{ gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={adScenes.includes(name)}
+                onChange={(e) => setAdScenes(e.target.checked ? [...adScenes, name] : adScenes.filter((s) => s !== name))}
+              />
+              {name}
+            </label>
+          ))}
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 130 }}>Min shot (s)</label>
+            <input type="number" min={1} max={120} value={adMin} onChange={(e) => setAdMin(Number(e.target.value))} style={{ width: 80 }} />
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 130 }}>Max shot (s)</label>
+            <input type="number" min={1} max={300} value={adMax} onChange={(e) => setAdMax(Number(e.target.value))} style={{ width: 80 }} />
+          </div>
         </div>
 
         <div className="settings-group">
@@ -1032,6 +1071,7 @@ export function Settings() {
               ['prevTrigger', 'Previous trigger'],
               ['toggleRecording', 'Toggle recording (OBS)'],
               ['saveReplay', 'Save replay (OBS)'],
+              ['autoDirector', 'Auto Director on/off'],
             ] as Array<[keyof HotkeyConfig, string]>).map(([key, label]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <label style={{ flex: 1, fontSize: 12 }}>{label}</label>

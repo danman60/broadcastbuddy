@@ -313,6 +313,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.SHOT_RECORD_TOGGLE, { label }),
   shotReplay: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_REPLAY, { id }),
   shotCycleToggle: (): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_CYCLE_TOGGLE),
+  autoDirectorToggle: (): Promise<unknown> => ipcRenderer.invoke(IPC.AUTO_DIRECTOR_TOGGLE),
+  obsSceneNames: (): Promise<string[]> => ipcRenderer.invoke(IPC.OBS_SCENE_NAMES),
   shotDelete: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_DELETE, { id }),
   shotRename: (id: number, label: string): Promise<{ ok: boolean }> => ipcRenderer.invoke(IPC.SHOT_RENAME, { id, label }),
   shotGet: (): Promise<{ state: import('../shared/types').ShotRecorderState; moves: import('../shared/types').RecordedMove[] }> =>

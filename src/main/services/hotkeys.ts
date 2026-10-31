@@ -12,6 +12,7 @@ import { goHomeViaCamera } from './cameraDirector'
 import { getSettings } from './settings'
 import { DEFAULT_HOTKEYS, HotkeyConfig } from '../../shared/types'
 import { createLogger } from '../logger'
+import * as autoDirector from './autoDirector'
 
 const logger = createLogger('hotkeys')
 
@@ -45,6 +46,7 @@ export function register(): void {
   // Go Wide / Panic — instant camera safety wide. No-op unless a cameraHost is
   // configured (goHomeViaCamera early-returns + is fully guarded internally).
   registerKey(hk.cameraGoHome, 'Go Wide / Panic', () => goHomeViaCamera())
+  registerKey(hk.autoDirector, 'Auto Director on/off', () => { void autoDirector.toggle() })
 
   logger.info(`Global hotkeys registered: ${registeredKeys.join(', ') || '(none)'}`)
 }

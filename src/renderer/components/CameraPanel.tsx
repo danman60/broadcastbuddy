@@ -287,6 +287,7 @@ function CameraPanelActive(): React.ReactElement {
         onRecordToggle: () => { void window.api.shotRecordToggle() },
         onReplayMove: (id) => { void window.api.shotReplay(id) },
         onCycleMoves: () => { void window.api.shotCycleToggle() },
+        onAutoDirector: () => { void window.api.autoDirectorToggle() },
         // RS click → cycle stick axis lock (UI segmented control mirrors it).
         onCycleAxisLock: () => {
           setAxisLock((cur) => (cur === 'free' ? 'pan' : cur === 'pan' ? 'tilt' : 'free'))

@@ -66,6 +66,7 @@ import * as overlayPanels from './services/overlayPanels'
 import { broadcastState } from './services/wsHub'
 import { createLogger } from './logger'
 import type { ChatConfig, CcRelayConfig, EventLogKind, DayChecklistKind, DayChecklistItemState, DayChecklistView, UserStylePreset } from '../shared/types'
+import * as autoDirector from './services/autoDirector'
 
 const logger = createLogger('ipc')
 
@@ -1554,6 +1555,16 @@ export function registerIpcHandlers(): void {
     if (shotRecorder.getState().recording) return { ok: true, move: shotRecorder.stopRecording(a?.label) }
     shotRecorder.startRecording()
     return { ok: true, move: null }
+  })
+  ipcMain.handle(IPC.AUTO_DIRECTOR_TOGGLE, () => autoDirector.toggle())
+  ipcMain.handle(IPC.OBS_SCENE_NAMES, async () => {
+    try {
+      const r = (await obsConnection.sendRequest('GetSceneList')) as { scenes?: Array<{ sceneName: string; sceneIndex: number }> }
+      // OBS lists scenes bottom-up; sort by index descending to match the OBS scene dock order.
+      return (r?.scenes ?? []).sort((a, b) => b.sceneIndex - a.sceneIndex).map((s) => s.sceneName)
+    } catch {
+      return []
+    }
   })
   ipcMain.handle(IPC.SHOT_CYCLE_TOGGLE, () => {
     shotRecorder.toggleCycle()

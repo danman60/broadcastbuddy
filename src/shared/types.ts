@@ -464,6 +464,7 @@ export interface AppSettings {
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
+  autoDirector?: { scenes: string[]; minShotSec: number; maxShotSec: number } // OBS scenes it cuts between + shot length
   xboxButtonMap?: Record<string, string> // Xbox button index → action ('preset:3', 'move:2', 'none'…); unset = default map
   cameraStickMaxSpeed?: number // gamepad max gimbal velocity at full deflection (1–178). Default 30.
   cameraPresetThumbs?: Record<string, string> // preset thumbnails, key `${camera}:${slot}` → small JPEG data URL snapped from the UVC preview on save
@@ -880,6 +881,8 @@ export interface HotkeyConfig {
   saveReplay: string
   /** "Go Wide / Panic" — recall the camera Home preset (AI off). No-op without a cameraHost. */
   cameraGoHome: string
+  /** Auto Director on/off. */
+  autoDirector: string
 }
 
 export const DEFAULT_HOTKEYS: HotkeyConfig = {
@@ -891,6 +894,7 @@ export const DEFAULT_HOTKEYS: HotkeyConfig = {
   saveReplay: 'F8',
   // F4 — instant camera-wide / panic. Unused elsewhere (F5–F10 are taken above).
   cameraGoHome: 'F4',
+  autoDirector: 'F3',
 }
 
 // ── Stream Deck plugin installer status ──────────────────────────────────────
@@ -1190,6 +1194,8 @@ export const IPC = {
   SHOT_RECORD_TOGGLE: 'shot:record-toggle',       // start/stop recording (label? on stop)
   SHOT_REPLAY: 'shot:replay',                     // {id} replay a recorded move
   SHOT_CYCLE_TOGGLE: 'shot:cycle-toggle',         // start/stop playing every saved move in a loop
+  AUTO_DIRECTOR_TOGGLE: 'auto-director:toggle',   // Auto Director on/off
+  OBS_SCENE_NAMES: 'obs:scene-names',             // list OBS scene names (Auto Director scene picker)
   SHOT_DELETE: 'shot:delete',                     // {id}
   SHOT_RENAME: 'shot:rename',                     // {id, label}
   SHOT_GET: 'shot:get',                           // list moves + state
@@ -1312,6 +1318,8 @@ export interface WsStateMessage {
   }
   health?: ShowHealth
   voice?: VoiceStatus
+  // Auto Director (autoDirector.ts): tablet shows "AUTO → next · secondsLeft" while on.
+  autoDirector?: { on: boolean; live: string | null; next: string | null; secondsLeft: number | null; message?: string }
 }
 
 // Show-monitor alert state (showMonitor.ts) — rides the WS state message for the OBS dock.

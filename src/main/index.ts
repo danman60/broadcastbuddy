@@ -23,6 +23,7 @@ import { startTabletLogServer, stopTabletLogServer } from './services/tabletLogS
 import { registerIpcHandlers, pushState } from './ipc'
 import { createLogger } from './logger'
 import { IPC } from '../shared/types'
+import * as autoDirector from './services/autoDirector'
 
 const logger = createLogger('main')
 
@@ -177,6 +178,7 @@ app.whenReady().then(() => {
   //     Safe to register even with OBS disconnected — the scene-change hook
   //     only fires while a live OBS connection exists.
   slowZoom.register()
+  autoDirector.init()
   slowZoom.setOnStatusChanged((status) => {
     sendToAllWindows(IPC.OBS_SLOW_ZOOM_STATUS_UPDATE, status)
   })
