@@ -40,6 +40,9 @@ export function buildDockHTML(wsPort: number): string {
   .lt { color:var(--dim); font-size:12px; margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .next { color:var(--text); }
   #presets button.moving { border-color:var(--warn); color:var(--warn); }
+  .cycle-on { display:none; background:var(--warn); color:#000; font-weight:700; text-align:center; padding:6px; border-radius:4px; margin-top:5px; animation:cyc 1s steps(2) infinite; }
+  .cycle-on.show { display:block; }
+  @keyframes cyc { 50% { opacity:.55; } }
   .moving-note { color:var(--warn); font-size:12px; margin-top:5px; min-height:16px; }
 </style></head>
 <body>
@@ -49,6 +52,7 @@ export function buildDockHTML(wsPort: number): string {
   <h2>Camera</h2>
   <div class="row c2" style="margin-bottom:5px"><button id="cam1">CAM 1</button><button id="cam2">CAM 2</button></div>
   <div class="row c4" id="presets"></div>
+  <div class="cycle-on" id="cycle">CYCLE SHOTS ON — camera is running saved moves. Say "stop".</div>
   <div class="moving-note" id="moving"></div>
   <div class="row c3" style="margin-top:5px">
     <button data-cmd="cameraWide">WIDE</button><button data-cmd="cameraAuto">AUTO</button>
@@ -148,6 +152,7 @@ export function buildDockHTML(wsPort: number): string {
     var cam = state && state.camera ? state.camera.activeCam : 1;
     $('cam1').classList.toggle('on', cam === 1);
     $('cam2').classList.toggle('on', cam === 2);
+    $('cycle').classList.toggle('show', !!(state && state.camera && state.camera.cycling));
     var rc = state && state.camera && state.camera.recalling;
     $('moving').textContent = rc ? 'CAM' + rc.cam + ' moving to preset ' + rc.slot + '…' : '';
     document.querySelectorAll('#presets button').forEach(function (b) {

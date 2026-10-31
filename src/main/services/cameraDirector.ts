@@ -666,7 +666,7 @@ let onActivityChanged: (() => void) | null = null
 export function setOnCameraActivityChanged(cb: (() => void) | null): void {
   onActivityChanged = cb
 }
-function notifyActivity(): void {
+export function notifyActivity(): void {
   try {
     onActivityChanged?.()
   } catch {

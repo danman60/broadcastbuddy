@@ -27,6 +27,7 @@ import {
   getActiveCameraId,
   waitForPresetPose,
   RecordedCmd,
+  notifyActivity,
 } from './cameraDirector'
 import { IPC, RecordedMove, RecordedMoveEvent, ShotRecorderState } from '../../shared/types'
 import { createLogger } from '../logger'
@@ -166,7 +167,7 @@ export function replayMove(moveId: number, fromCycle = false): void {
     logger.warn(`replayMove: move ${moveId} not found`)
     return
   }
-  if (!fromCycle) cycling = false // playing a single shot ends a cycle
+  if (!fromCycle) setCycling(false) // playing a single shot ends a cycle
   stopReplay() // only one replay at a time
   replayingId = moveId
   setCommandSinkSuppressed(true) // don't re-record our own replay
@@ -219,6 +220,12 @@ export function replayMoveByLabel(label: string): boolean {
 }
 
 export const isCycling = (): boolean => cycling
+// Cycle on/off rides the camera-activity push so the OBS dock can flag it (owner: "needs a heads up that cycle shot is on").
+function setCycling(on: boolean): void {
+  if (cycling === on) return
+  cycling = on
+  notifyActivity()
+}
 
 /** Toggle "Cycle shots" (assignable Xbox button): every saved move in order, looping. */
 export function toggleCycle(): void {
@@ -228,21 +235,21 @@ export function toggleCycle(): void {
     return
   }
   if (getMoves().length === 0) return
-  cycling = true
+  setCycling(true)
   logger.info('cycle shots: on')
   playNextInCycle(null)
 }
 
 function playNextInCycle(afterId: number | null): void {
   const moves = getMoves()
-  if (moves.length === 0) { cycling = false; return }
+  if (moves.length === 0) { setCycling(false); return }
   const i = afterId == null ? -1 : moves.findIndex((m) => m.id === afterId)
   replayMove(moves[(i + 1) % moves.length].id, true)
 }
 
 /** Stop any replay AND any running cycle (stop button, deck, single-shot replacement). */
 export function cancelReplay(): void {
-  cycling = false
+  setCycling(false)
   stopReplay()
 }
 

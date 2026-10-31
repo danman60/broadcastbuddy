@@ -1326,6 +1326,7 @@ export interface WsStateMessage {
     recording: boolean
     replayingMoveId: number | null
     sweepRunning: boolean
+    cycling?: boolean // "Cycle shots" looping saved moves until stopped
     bounceRunning: boolean
     recalling?: { cam: 1 | 2; slot: number } | null // last preset recall, until it has had time to arrive
   }

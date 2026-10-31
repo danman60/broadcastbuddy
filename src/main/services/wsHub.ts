@@ -31,7 +31,7 @@ import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPre
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
 import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged } from './voiceDirector'
 import { getHealth, ackAlerts } from './showMonitor'
-import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged } from './shotRecorder'
+import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged, isCycling } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
 import { createLogger } from '../logger'
 import { recordEvent } from './events'
@@ -70,6 +70,7 @@ function buildStateMessage(): WsStateMessage {
       recording: shot.recording,
       replayingMoveId: shot.replayingMoveId,
       sweepRunning: activity.sweepRunning,
+      cycling: isCycling(),
       bounceRunning: activity.bounceRunning,
       recalling: activity.recalling,
     },
