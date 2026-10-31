@@ -352,25 +352,28 @@ export function VoicePanel(): React.ReactElement {
             onChange={(e) => void persist('voiceWakeEnabled', e.target.checked)}
           />
           <label htmlFor="voice-wake-enabled" className="voice-label" style={{ flex: 1 }}>
-            Wake word (no PTT key)
+            Voice mode — always listening (no PTT key)
           </label>
           <input
             className="voice-text"
             type="text"
             defaultValue={wakeWord}
-            placeholder="broadcast"
+            placeholder="no wake word"
+            title="Optional word every command must start with. Empty = no wake word."
             disabled={!enabled}
             style={{ maxWidth: 120 }}
             onBlur={(e) => {
-              const w = e.target.value.trim() || 'broadcast'
+              const w = e.target.value.trim()
               if (w !== wakeWord) void persist('voiceWakeWord', w)
             }}
           />
         </div>
         <p className="voice-help" style={{ marginTop: -2 }}>
           {wakeEnabled
-            ? `Listening continuously — prefix every command, e.g. "${wakeWord} push in".`
-            : 'On: the helper listens continuously and every command must start with the wake word.'}
+            ? wakeWord.trim()
+              ? `Listening continuously — prefix every command, e.g. "${wakeWord} camera two go".`
+              : 'Listening continuously, no wake word: "camera two go", "camera three push in", "camera three stop", "autodirect", "camera three cycle moves".'
+            : 'On: listens to the mic all the time. Wake word optional (leave the box empty for none).'}
         </p>
 
         {/* ── Shots manager ── */}

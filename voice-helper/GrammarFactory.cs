@@ -104,8 +104,8 @@ namespace VoiceHelper
 
             // Branch B: "camera" + (one|two), tagging the number as int 1|2 under "camera".
             var camNum = new Choices();
-            camNum.Add(new SemanticResultValue("one", 1));
-            camNum.Add(new SemanticResultValue("two", 2));
+            // "camera one".."camera nine" = the OBS camera number (owner: "camera three push in", Cam3 = PTZ)
+            for (var n = 1; n <= 9; n++) camNum.Add(new SemanticResultValue(NumberWords[n], n));
 
             var spoken = new GrammarBuilder();
             spoken.Append("camera");
@@ -175,7 +175,10 @@ namespace VoiceHelper
 
             // ── motion verbs: phrase(s) → {verb:id} (camera handled by the optional prefix) ──
             // pushIn, slowPushIn, pullOut, zoomIn, wide, track, stop
-            string[] motionVerbs = { "pushIn", "slowPushIn", "pullOut", "zoomIn", "wide", "track", "stop" };
+            // "take:<scene>" verbs (program cuts, e.g. "camera one go") are pushed per OBS scene and
+            // ride the same plain-phrase branch; BB routes on the id.
+            var motionVerbs = new List<string> { "pushIn", "slowPushIn", "pullOut", "zoomIn", "wide", "track", "stop", "autoDirect", "cycle" };
+            foreach (var v in verbs) if (v != null && v.Id != null && v.Id.StartsWith("take:")) motionVerbs.Add(v.Id);
             foreach (var id in motionVerbs)
             {
                 VerbSpec spec;

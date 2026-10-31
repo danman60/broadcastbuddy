@@ -218,6 +218,8 @@ export function replayMoveByLabel(label: string): boolean {
   return true
 }
 
+export const isCycling = (): boolean => cycling
+
 /** Toggle "Cycle shots" (assignable Xbox button): every saved move in order, looping. */
 export function toggleCycle(): void {
   if (cycling) {

@@ -267,6 +267,9 @@ export async function pushStreamSettingsToObs(
   }
 }
 
+// Voice program cuts ("camera one go") follow OBS's scene list.
+obsConnection.onConnected(() => { void voiceDirector.refreshSceneVerbs() })
+
 // Push the saved streamConfig to OBS whenever OBS (re)connects, covering the case
 // where an event/package was applied before OBS was up. Registered once at startup.
 obsConnection.onConnected(() => {
