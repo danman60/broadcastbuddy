@@ -93,12 +93,25 @@ export function takePhrases(scene: string): string[] {
   return /^[a-z ]+$/.test(spoken) ? [`${spoken} go`, `take ${spoken}`] : [] // shortcut: names with digits/symbols aren't voiced
 }
 
+// "transition fade" / "transition cut" (owner 2026-10-31: "set transition to fade or cut but it needs to
+// follow the existing transitions that are programmed"): one "trans:<name>" verb per OBS transition.
+// It sets OBS's selected transition, which every cut uses unless the Auto Director has its own programmed.
+// shortcut: id rides the helper's "take:" plumbing (the shipped voice-helper.exe only passes take:* verbs);
+// give the helper a generic dynamic-verb branch when it is next rebuilt.
+const TRANS = 'take:transition:'
+let transVerbs: Array<{ id: string; phrases: string[] }> = []
+export function transitionPhrases(name: string): string[] {
+  const spoken = name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().replace(/\s+/g, ' ').trim()
+  return /^[a-z ]+$/.test(spoken) ? [`transition ${spoken}`, `${spoken} transition`] : []
+}
+
 /** Re-read OBS scenes and push them into the grammar. Called on OBS connect and helper start. */
 export async function refreshSceneVerbs(): Promise<void> {
   if (!obs.isConnected()) return
   try {
     const r = (await obs.sendRequest('GetSceneList')) as { scenes?: Array<{ sceneName: string }> }
     takeVerbs = (r?.scenes ?? []).map((x) => ({ id: `take:${x.sceneName}`, phrases: takePhrases(x.sceneName) })).filter((v) => v.phrases.length)
+    transVerbs = (await obs.refreshTransitionList()).map((n) => ({ id: `${TRANS}${n}`, phrases: transitionPhrases(n) })).filter((v) => v.phrases.length)
     refreshGrammar()
   } catch (err) {
     logger.warn(`voice: scene list failed: ${err instanceof Error ? err.message : err}`)
@@ -181,7 +194,7 @@ function buildGrammar(): { t: 'grammar'; verbs: Array<{ id: string; phrases: str
   // Bare "camera one" (select) only matters with two PTZs; with one it does nothing and SAPI
   // ends "camera one go" early on it (DART 2026-10-31: "camera one go" → select CAM1 @ 0.89).
   const verbs = VOICE_VERBS.filter((v) => v.id !== 'select' || !!(s.cameraHost2 ?? '').trim())
-  return { t: 'grammar', verbs: [...verbs, ...takeVerbs], shots, wakeWord: wakeWord() }
+  return { t: 'grammar', verbs: [...verbs, ...takeVerbs, ...transVerbs], shots, wakeWord: wakeWord() }
 }
 
 function send(obj: unknown): void {
@@ -399,6 +412,16 @@ function routeResult(msg: VoiceMsgResult): void {
   }
   if (msg.confidence < floor) {
     emitResult({ ok: false, camera: getActiveCameraId(), verb: msg.verb, text: `low confidence (floor ${floor.toFixed(2)})`, confidence: msg.confidence, reason: 'below-floor' })
+    return
+  }
+
+  if (msg.verb.startsWith(TRANS)) {
+    const name = msg.verb.slice(TRANS.length)
+    const camera = getActiveCameraId()
+    obs.setCurrentTransitionByName(name).then(
+      () => emitResult({ ok: true, camera, verb: 'transition', target: name, text: `TRANSITION ▸ ${name}`, confidence: msg.confidence }),
+      (err) => emitResult({ ok: false, camera, verb: 'transition', target: name, text: `transition ${name} failed`, confidence: msg.confidence, reason: err instanceof Error ? err.message : String(err) }),
+    )
     return
   }
 
