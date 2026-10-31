@@ -43,6 +43,22 @@ export function buildDockHTML(wsPort: number): string {
   .cycle-on { display:none; background:var(--warn); color:#000; font-weight:700; text-align:center; padding:6px; border-radius:4px; margin-top:5px; animation:cyc 1s steps(2) infinite; }
   .cycle-on.show { display:block; }
   @keyframes cyc { 50% { opacity:.55; } }
+  /* Voice listening + acknowledged (owner 2026-10-31: "a more animated listening. And acknowledged in the BB dock") */
+  .vstate { display:flex; align-items:center; gap:8px; padding:7px 8px; margin-bottom:5px; border-radius:6px;
+            border:1px solid var(--line); color:var(--dim); font-weight:700; font-size:12px; letter-spacing:.04em; }
+  .vstate .bars { display:flex; align-items:center; gap:3px; height:18px; }
+  .vstate .bars i { width:4px; height:4px; border-radius:2px; background:currentColor; }
+  .vstate.on { color:var(--ok); border-color:var(--ok); animation:vglow 1.6s ease-in-out infinite; }
+  .vstate.on .bars i { animation:vbar .9s ease-in-out infinite; }
+  .vstate.on .bars i:nth-child(2) { animation-delay:.15s } .vstate.on .bars i:nth-child(3) { animation-delay:.3s }
+  .vstate.on .bars i:nth-child(4) { animation-delay:.45s } .vstate.on .bars i:nth-child(5) { animation-delay:.6s }
+  @keyframes vbar { 0%,100% { height:4px; } 50% { height:18px; } }
+  @keyframes vglow { 0%,100% { box-shadow:0 0 0 0 transparent; } 50% { box-shadow:0 0 10px 1px var(--ok); } }
+  .vack { display:none; margin-top:5px; padding:10px 8px; border-radius:6px; background:var(--ok); color:#000;
+          font-weight:800; font-size:15px; text-align:center; overflow-wrap:anywhere; }
+  .vack.show { display:block; animation:vack 2.5s ease-out forwards; }
+  @keyframes vack { 0% { transform:scale(.8); opacity:0; } 8% { transform:scale(1.06); opacity:1; } 16% { transform:scale(1); }
+                    80% { opacity:1; } 100% { opacity:0; } }
   .moving-note { color:var(--warn); font-size:12px; margin-top:5px; min-height:16px; }
 </style></head>
 <body>
@@ -60,7 +76,9 @@ export function buildDockHTML(wsPort: number): string {
   </div>
 
   <h2>Voice</h2>
+  <div class="vstate" id="vstate"><span class="bars"><i></i><i></i><i></i><i></i><i></i></span><span id="vlabel">VOICE OFF</span></div>
   <button id="ptt">HOLD TO TALK</button>
+  <div class="vack" id="vack"></div>
   <div class="heard" id="heard"></div>
 
   <h2>Lower third</h2>
@@ -93,7 +111,7 @@ export function buildDockHTML(wsPort: number): string {
   $('cam2').onclick = function () { send('cameraSelect', { id: 2 }); };
   $('ack').onclick = function () { send('ackAlerts'); localAck = true; render(); };
 
-  var ptt = $('ptt'), held = false;
+  var ptt = $('ptt'), held = false, lastAckAt = null;
   function down(e) { e.preventDefault(); if (held) return; held = true; ptt.classList.add('held'); send('voicePttDown'); }
   function up() { if (!held) return; held = false; ptt.classList.remove('held'); send('voicePttUp'); }
   ptt.addEventListener('pointerdown', down);
@@ -160,8 +178,18 @@ export function buildDockHTML(wsPort: number): string {
     });
 
     var vs2 = state && state.voice, heard = $('heard');
+    var vOn = !!(vs2 && vs2.helper === 'ready' && vs2.listening);
+    $('vstate').classList.toggle('on', vOn);
+    $('vlabel').textContent = !vs2 || vs2.helper !== 'ready' ? 'VOICE OFF' : vOn ? (vs2.wake ? 'LISTENING · hands-free' : 'LISTENING…') : 'VOICE READY · hold to talk';
     if (vs2 && vs2.lastResult) {
       var r = vs2.lastResult;
+      if (r.at !== lastAckAt) {
+        // New accepted command → big green confirmation (not the one already there when the dock loaded).
+        var fresh = lastAckAt !== null; lastAckAt = r.at;
+        if (fresh && r.ok) {
+          var va = $('vack'); va.textContent = '✓ ' + r.text; va.classList.remove('show'); void va.offsetWidth; va.classList.add('show');
+        }
+      }
       heard.textContent = (r.ok ? '✓ ' : '✗ ') + r.text + ' (' + Math.round(r.confidence * 100) + '%)';
       heard.className = 'heard ' + (r.ok ? 'ok' : 'bad');
     }
