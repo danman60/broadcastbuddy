@@ -54,3 +54,8 @@ where it is going next (countdown on the tablet) and can tee up that camera befo
   (random min..max) when it goes live; countdown counts to it; beat may snap only within ±400 ms.
   State carries msLeft (tablet counts locally), nextTile + tiles (from OBS MultiviewLayout 6–9 = scenes-only
   grids) so the tablet draws a big countdown on NEXT's tile, yellow "3 2 1" for the last 3 s.
+- 2026-10-30 23:51 ET — Owner: "director is actually picking the next three shots … you know what shot's
+  coming up in all three visually". BB now keeps a queue of 3 decided shots (scene + hold length chosen when
+  queued) and sends `upcoming[{scene,inMs,holdMs,tile}]` + `liveTotalMs`. Tablet v0.4.0: strip under the
+  meters LIVE (draining bar) › NEXT (countdown) › THEN › AFTER, plus numbered "2 / 3 · in Ns" badges on
+  those multiview tiles. Not yet seen on the real tablet.

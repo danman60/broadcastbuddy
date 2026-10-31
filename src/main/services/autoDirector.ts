@@ -25,6 +25,10 @@ export interface AutoDirectorState {
   msLeft: number | null // to the committed cut; tablet counts down locally from receipt
   nextTile: number | null // NEXT's position in the OBS multiview grid (row-major), null if not shown
   tiles: number | null // multiview grid side (2 = 2×2), null when the layout isn't scenes-only
+  liveTotalMs: number | null // committed length of the live shot (tablet draws it draining)
+  /** The next QUEUE_LEN shots, already decided (owner 2026-10-30: "director is actually picking the next
+   *  three shots … you know what shot's coming up in all three visually"). inMs = until it goes live. */
+  upcoming: Array<{ scene: string; inMs: number; holdMs: number; tile: number | null }>
   message?: string
 }
 
@@ -40,6 +44,8 @@ let sceneOrder: string[] = [] // OBS scene dock order = multiview tile order
 let tiles: number | null = null
 const BEAT_SNAP_MS = 400
 let pendingCut: string | null = null
+const QUEUE_LEN = 3
+let queue: Array<{ scene: string; holdMs: number }> = [] // decided shots after live; queue[0] = next
 let tick: NodeJS.Timeout | null = null
 let lastPush = 0
 let message = ''
@@ -61,29 +67,58 @@ function cfg(): Cfg {
   return { ...DEFAULTS, ...(settings.getAll().autoDirector ?? {}) }
 }
 
+function tileOf(scene: string | null): number | null {
+  const i = scene ? sceneOrder.indexOf(scene) : -1
+  return tiles && i >= 0 && i < tiles * tiles ? i : null
+}
+
 export function getState(): AutoDirectorState {
   const msLeft = on ? Math.max(0, cutAt - Date.now()) : null
-  const i = next ? sceneOrder.indexOf(next) : -1
+  let at = msLeft ?? 0
+  const upcoming = on
+    ? queue.map((q) => {
+        const u = { scene: q.scene, inMs: at, holdMs: q.holdMs, tile: tileOf(q.scene) }
+        at += q.holdMs
+        return u
+      })
+    : []
   return {
     on,
     live,
     next,
     secondsLeft: msLeft === null ? null : Math.ceil(msLeft / 1000),
     msLeft,
-    nextTile: on && tiles && i >= 0 && i < tiles * tiles ? i : null,
+    nextTile: on ? tileOf(next) : null,
     tiles,
+    liveTotalMs: on ? cutAt - liveSince : null,
+    upcoming,
     message: message || undefined,
   }
 }
 
-/** Commit the next cut time for the shot that just went live. */
-function commitCut(): void {
+/** How long a shot of this scene stays live: random within its min..max (per-scene or default). */
+function holdMsFor(scene: string | null): number {
   const c = cfg()
-  const o = (live && c.sceneTimes?.[live]) || {}
+  const o = (scene && c.sceneTimes?.[scene]) || {}
   const min = o.min || c.minShotSec
   const max = Math.max(min, o.max || c.maxShotSec)
+  return (min + Math.round(Math.random() * (max - min))) * 1000
+}
+
+/** The shot that just went live holds for holdMs. */
+function commitCut(holdMs: number): void {
   liveSince = Date.now()
-  cutAt = liveSince + (min + Math.round(Math.random() * (max - min))) * 1000
+  cutAt = liveSince + holdMs
+}
+
+/** Top the queue up to QUEUE_LEN decided shots, each picked after the one before it. */
+function fillQueue(): void {
+  while (queue.length < QUEUE_LEN) {
+    const s = pickNext(queue.length ? queue[queue.length - 1].scene : live)
+    if (!s) break
+    queue.push({ scene: s, holdMs: holdMsFor(s) })
+  }
+  next = queue[0]?.scene ?? null
 }
 
 /** OBS MultiviewLayout → grid side for the scenes-only layouts (6..9 = 4/9/16/25 scenes). The layouts
@@ -188,11 +223,12 @@ export async function start(): Promise<AutoDirectorState> {
   }
   tiles = readMultiviewGrid()
   on = true
-  commitCut()
-  next = pickNext(live)
+  queue = []
+  commitCut(holdMsFor(live))
+  fillQueue()
   pendingCut = null
   tick = setInterval(onTick, 50)
-  logger.info(`auto director: ON (live ${live}, next ${next}, ${c.minShotSec}-${c.maxShotSec} s, scenes ${c.scenes.join(', ')}, multiview grid ${tiles ?? 'n/a'}, order ${sceneOrder.join(', ')})`)
+  logger.info(`auto director: ON (live ${live}, queue ${queue.map((q) => q.scene).join(' → ')}, ${c.minShotSec}-${c.maxShotSec} s, scenes ${c.scenes.join(', ')}, multiview grid ${tiles ?? 'n/a'}, order ${sceneOrder.join(', ')})`)
   changed()
   return getState()
 }
@@ -202,6 +238,7 @@ export function stop(reason: string): AutoDirectorState {
   if (on) logger.info(`auto director: OFF (${reason})`)
   on = false
   next = null
+  queue = []
   pendingCut = null
   changed()
   return getState()
@@ -230,8 +267,9 @@ export function onProgramChanged(name: string | null): void {
   if (name && name === pendingCut) {
     pendingCut = null
     live = name
-    commitCut()
-    next = pickNext(live)
+    const head = queue.shift()
+    commitCut(head?.scene === name ? head.holdMs : holdMsFor(name))
+    fillQueue()
     changed()
     return
   }
