@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store/useStore'
-import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyConfig } from '../../shared/types'
+import type { AppSettings, MonitorInfo, WifiDisplaySettings, BackupInfo, HotkeyConfig, AutoDirectorConfig } from '../../shared/types'
 import { DEFAULT_WIFI_DISPLAY, DEFAULT_HOTKEYS } from '../../shared/types'
 import { StreamDeckPluginSection } from './StreamDeckPluginSection'
 import { VoicePanel } from './VoicePanel'
@@ -71,9 +71,15 @@ export function Settings() {
   const [adScenes, setAdScenes] = useState<string[]>([])
   const [adMin, setAdMin] = useState(6)
   const [adMax, setAdMax] = useState(14)
-  const [adTimes, setAdTimes] = useState<Record<string, { min?: number; max?: number }>>({})
+  const [adTimes, setAdTimes] = useState<NonNullable<AutoDirectorConfig['sceneTimes']>>({})
+  const [adOrder, setAdOrder] = useState<'sequence' | 'weighted'>('sequence')
+  const [adTrans, setAdTrans] = useState('')
+  const [adTransMs, setAdTransMs] = useState<number | ''>('')
+  const [adBeat, setAdBeat] = useState(true)
+  const [obsTransitions, setObsTransitions] = useState<string[]>([])
   const [obsScenes, setObsScenes] = useState<string[]>([])
   useEffect(() => { void window.api.obsSceneNames().then(setObsScenes) }, [])
+  useEffect(() => { void window.api.obsTransitionNames().then(setObsTransitions) }, [])
 
   // R2 / Storage
   const [r2Endpoint, setR2Endpoint] = useState('')
@@ -171,6 +177,10 @@ export function Settings() {
       setAdMin(settings.autoDirector?.minShotSec ?? 6)
       setAdMax(settings.autoDirector?.maxShotSec ?? 14)
       setAdTimes(settings.autoDirector?.sceneTimes ?? {})
+      setAdOrder(settings.autoDirector?.order ?? 'sequence')
+      setAdTrans(settings.autoDirector?.transition ?? '')
+      setAdTransMs(settings.autoDirector?.transitionMs ?? '')
+      setAdBeat(settings.autoDirector?.beatSnap !== false)
     }
     checkObsStatus()
     refreshMonitors()
@@ -417,7 +427,8 @@ export function Settings() {
     await window.api.settingsSet('cameraExpo', Math.max(0, Math.min(1, stickExpo)))
     await window.api.settingsSet('xboxButtonMap', xboxMap)
     const min = Math.max(1, Math.min(120, adMin))
-    await window.api.settingsSet('autoDirector', { scenes: adScenes, minShotSec: min, maxShotSec: Math.max(min, Math.min(300, adMax)), sceneTimes: adTimes })
+    await window.api.settingsSet('autoDirector', { scenes: adScenes, minShotSec: min, maxShotSec: Math.max(min, Math.min(300, adMax)), sceneTimes: adTimes,
+      order: adOrder, transition: adTrans, transitionMs: adTransMs === '' ? undefined : Math.max(0, Math.min(10000, adTransMs)), beatSnap: adBeat })
     await window.api.settingsSet('chatConfig', {
       supabaseUrl: chatUrl.trim(),
       supabaseAnonKey: chatKey.trim(),
@@ -660,17 +671,16 @@ export function Settings() {
         <div className="settings-group">
           <div className="settings-group-title">Auto Director</div>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-            Cuts OBS program between the ticked scenes in order. Each shot gets a length between its min and
-            max (blank = the defaults below); the tablet counts down to that cut on the next camera's tile, and
-            a beat can pull it slightly early. Any cut you make yourself turns it off; turn it on with the
-            hotkey or an Xbox button.
+            Cuts OBS program between the scenes in rotation. Each shot gets a length between its min and max
+            (blank = the defaults below); the tablet counts down to that cut on the next camera's tile. Any cut
+            you make yourself turns it off; turn it on with the hotkey or an Xbox button.
           </p>
           {obsScenes.length === 0 && <p style={{ fontSize: 11 }}>Connect OBS to list scenes.</p>}
           {obsScenes.length > 0 && (
             <table style={{ fontSize: 12, borderSpacing: '8px 4px', marginLeft: -8 }}>
               <thead>
                 <tr style={{ color: 'var(--text-dim)', textAlign: 'left' }}>
-                  <th>Scene</th><th>In rotation</th><th>Min s</th><th>Max s</th>
+                  <th>Scene</th><th>In rotation</th><th>How often</th><th>Min s</th><th>Max s</th><th>Transition in</th>
                 </tr>
               </thead>
               <tbody>
@@ -678,6 +688,7 @@ export function Settings() {
                   const t = adTimes[name] ?? {}
                   const setT = (k: 'min' | 'max', v: string) =>
                     setAdTimes({ ...adTimes, [name]: { ...t, [k]: v === '' ? undefined : Math.max(1, Math.min(300, Number(v))) } })
+                  const setO = (patch: { weight?: number; transition?: string }) => setAdTimes({ ...adTimes, [name]: { ...t, ...patch } })
                   return (
                     <tr key={name}>
                       <td>{name}</td>
@@ -689,8 +700,21 @@ export function Settings() {
                           onChange={(e) => setAdScenes(e.target.checked ? [...adScenes, name] : adScenes.filter((s) => s !== name))}
                         />
                       </td>
+                      <td>
+                        <select aria-label={`${name} how often`} value={t.weight ?? 2} onChange={(e) => setO({ weight: Number(e.target.value) })} disabled={adOrder !== 'weighted'}>
+                          <option value={1}>Rarely</option>
+                          <option value={2}>Normal</option>
+                          <option value={3}>Often</option>
+                        </select>
+                      </td>
                       <td><input type="number" min={1} max={300} placeholder={String(adMin)} aria-label={`${name} min seconds`} value={t.min ?? ''} onChange={(e) => setT('min', e.target.value)} style={{ width: 60 }} /></td>
                       <td><input type="number" min={1} max={300} placeholder={String(adMax)} aria-label={`${name} max seconds`} value={t.max ?? ''} onChange={(e) => setT('max', e.target.value)} style={{ width: 60 }} /></td>
+                      <td>
+                        <select aria-label={`${name} transition`} value={t.transition ?? ''} onChange={(e) => setO({ transition: e.target.value || undefined })}>
+                          <option value="">Default</option>
+                          {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </td>
                     </tr>
                   )
                 })}
@@ -705,6 +729,28 @@ export function Settings() {
             <label style={{ minWidth: 130 }}>Default max shot (s)</label>
             <input type="number" min={1} max={300} value={adMax} onChange={(e) => setAdMax(Number(e.target.value))} style={{ width: 80 }} />
           </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 130 }}>Order</label>
+            <select value={adOrder} onChange={(e) => setAdOrder(e.target.value as 'sequence' | 'weighted')}>
+              <option value="sequence">In order (as ticked)</option>
+              <option value="weighted">Random, by How often</option>
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 130 }}>Default transition</label>
+            <select value={adTrans} onChange={(e) => setAdTrans(e.target.value)}>
+              <option value="">Whatever OBS has selected</option>
+              {obsTransitions.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="settings-field-inline">
+            <label style={{ minWidth: 130 }}>Transition length (ms)</label>
+            <input type="number" min={0} max={10000} placeholder="OBS" value={adTransMs} onChange={(e) => setAdTransMs(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: 80 }} />
+          </div>
+          <label className="settings-field-inline" style={{ gap: 8 }}>
+            <input type="checkbox" checked={adBeat} onChange={(e) => setAdBeat(e.target.checked)} />
+            Snap cuts to the beat (up to 0.4 s early)
+          </label>
         </div>
 
         <div className="settings-group">

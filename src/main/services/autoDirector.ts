@@ -105,9 +105,16 @@ function changed(): void {
 }
 
 function pickNext(after: string | null): string | null {
-  const scenes = cfg().scenes.filter((s) => s !== after)
+  const c = cfg()
+  const scenes = c.scenes.filter((s) => s !== after)
   if (scenes.length === 0) return null
-  const all = cfg().scenes
+  if (c.order === 'weighted') {
+    const w = (s: string) => Math.max(0, c.sceneTimes?.[s]?.weight ?? 2)
+    let r = Math.random() * scenes.reduce((a, s) => a + w(s), 0)
+    for (const s of scenes) if ((r -= w(s)) < 0) return s
+    return scenes[0]
+  }
+  const all = c.scenes
   const i = after ? all.indexOf(after) : -1
   for (let k = 1; k <= all.length; k++) {
     const cand = all[(i + k + all.length) % all.length]
@@ -118,12 +125,42 @@ function pickNext(after: string | null): string | null {
 
 function cut(reason: 'beat' | 'time'): void {
   if (!next || pendingCut) return
-  pendingCut = next
-  logger.info(`auto director: cut ${live} → ${next} (${reason}, ${Date.now() - cutAt} ms vs countdown)`)
-  obs.setCurrentScene(next).catch((err) => {
-    pendingCut = null
-    logger.warn(`auto director: cut to ${next} failed: ${err instanceof Error ? err.message : err}`)
-  })
+  const target = next
+  pendingCut = target
+  const c = cfg()
+  const trans = c.sceneTimes?.[target]?.transition || c.transition || ''
+  logger.info(`auto director: cut ${live} → ${target} (${reason}, ${Date.now() - cutAt} ms vs countdown${trans ? `, ${trans}` : ''})`)
+  void (async () => {
+    // Swap OBS's selected transition for this cut only, then put the operator's back once it finishes.
+    let prev: { name?: string; ms?: number } | null = null
+    if (trans) {
+      try {
+        const r = (await obs.sendRequest('GetCurrentSceneTransition')) as { transitionName?: string; transitionDuration?: number }
+        prev = { name: r?.transitionName, ms: r?.transitionDuration ?? undefined }
+        if (prev.name !== trans) await obs.setCurrentTransitionByName(trans)
+        if (c.transitionMs) await obs.setCurrentTransitionDuration(c.transitionMs)
+      } catch (err) {
+        logger.warn(`auto director: transition ${trans} not applied: ${err instanceof Error ? err.message : err}`)
+      }
+    }
+    try {
+      await obs.setCurrentScene(target)
+    } catch (err) {
+      pendingCut = null
+      logger.warn(`auto director: cut to ${target} failed: ${err instanceof Error ? err.message : err}`)
+    }
+    if (prev?.name && (prev.name !== trans || c.transitionMs)) {
+      const restore = prev
+      setTimeout(() => {
+        void (async () => {
+          try {
+            if (restore.name !== trans) await obs.setCurrentTransitionByName(restore.name as string)
+            if (restore.ms) await obs.setCurrentTransitionDuration(restore.ms)
+          } catch { /* operator may have changed it meanwhile — leave theirs */ }
+        })()
+      }, (c.transitionMs ?? 2000) + 500)
+    }
+  })()
 }
 
 export async function start(): Promise<AutoDirectorState> {
@@ -180,7 +217,7 @@ function onTick(): void {
   // Never late: a beat may pull the cut up to BEAT_SNAP_MS early, otherwise it lands at 0
   // (DART 2026-10-30: a ±400 ms window + 200 ms tick put every no-beat cut ~0.5 s after "0").
   if (now >= cutAt) cut('time')
-  else if (now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
+  else if (cfg().beatSnap !== false && now >= cutAt - BEAT_SNAP_MS && now - lastOnset < 150) cut('beat')
   if (now - lastPush >= 1000) changed() // resync the tablet's local countdown
 }
 

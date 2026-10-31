@@ -399,6 +399,18 @@ export interface ExtractionResult {
 
 // ── App Settings (persisted via electron-store) ──────────────────
 
+/** Auto Director (autoDirector.ts). sceneTimes = per-scene overrides; blank fields use the defaults. */
+export interface AutoDirectorConfig {
+  scenes: string[] // in rotation, in order
+  minShotSec: number
+  maxShotSec: number
+  sceneTimes?: Record<string, { min?: number; max?: number; weight?: number; transition?: string }>
+  order?: 'sequence' | 'weighted' // weighted = random by weight (1 rare … 3 often), never the live scene
+  transition?: string // OBS transition for DIR cuts; '' = whatever OBS has selected
+  transitionMs?: number // duration for that transition (OBS default when unset)
+  beatSnap?: boolean // let a beat pull the cut up to 0.4 s early (default on)
+}
+
 export interface AppSettings {
   server: {
     httpPort: number
@@ -464,7 +476,7 @@ export interface AppSettings {
   // sender/gamepad: deadzone 0.12, expo 0.6, command rate 10Hz). Additive.
   cameraJoystickDeadzone?: number // gamepad scaled radial deadzone (0–1). Default 0.12.
   cameraExpo?: number // gamepad expo curve strength (0–1). Default 0.6.
-  autoDirector?: { scenes: string[]; minShotSec: number; maxShotSec: number; sceneTimes?: Record<string, { min?: number; max?: number }> } // OBS scenes it cuts between + shot length (sceneTimes = per-scene override)
+  autoDirector?: AutoDirectorConfig
   xboxButtonMap?: Record<string, string> // Xbox button index → action ('preset:3', 'move:2', 'none'…); unset = default map
   cameraStickMaxSpeed?: number // gamepad max gimbal velocity at full deflection (1–178). Default 30.
   cameraPresetThumbs?: Record<string, string> // preset thumbnails, key `${camera}:${slot}` → small JPEG data URL snapped from the UVC preview on save
@@ -1195,6 +1207,7 @@ export const IPC = {
   SHOT_REPLAY: 'shot:replay',                     // {id} replay a recorded move
   SHOT_CYCLE_TOGGLE: 'shot:cycle-toggle',         // start/stop playing every saved move in a loop
   AUTO_DIRECTOR_TOGGLE: 'auto-director:toggle',   // Auto Director on/off
+  OBS_TRANSITION_NAMES: 'obs:transition-names',
   OBS_SCENE_NAMES: 'obs:scene-names',             // list OBS scene names (Auto Director scene picker)
   SHOT_DELETE: 'shot:delete',                     // {id}
   SHOT_RENAME: 'shot:rename',                     // {id, label}

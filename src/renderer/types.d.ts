@@ -212,6 +212,7 @@ interface ElectronAPI {
   shotCycleToggle: () => Promise<{ ok: boolean }>
   autoDirectorToggle: () => Promise<unknown>
   obsSceneNames: () => Promise<string[]>
+  obsTransitionNames: () => Promise<string[]>
   shotDelete: (id: number) => Promise<{ ok: boolean }>
   shotRename: (id: number, label: string) => Promise<{ ok: boolean }>
   shotGet: () => Promise<{ state: ShotRecorderState; moves: RecordedMove[] }>

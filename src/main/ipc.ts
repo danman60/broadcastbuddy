@@ -1557,6 +1557,7 @@ export function registerIpcHandlers(): void {
     return { ok: true, move: null }
   })
   ipcMain.handle(IPC.AUTO_DIRECTOR_TOGGLE, () => autoDirector.toggle())
+  ipcMain.handle(IPC.OBS_TRANSITION_NAMES, () => obsConnection.refreshTransitionList())
   ipcMain.handle(IPC.OBS_SCENE_NAMES, async () => {
     try {
       const r = (await obsConnection.sendRequest('GetSceneList')) as { scenes?: Array<{ sceneName: string; sceneIndex: number }> }
