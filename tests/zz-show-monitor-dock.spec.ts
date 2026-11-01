@@ -141,12 +141,7 @@ test('dock renders and its buttons drive the camera', async () => {
   const page = await browser.newPage({ viewport: { width: 320, height: 760 } })
   await page.goto('http://127.0.0.1:19080/dock')
   await page.waitForTimeout(800)
-  const before = camRequests.length
-  await page.locator('#presets button', { hasText: '3' }).click()
-  await expect.poll(() => camRequests.slice(before).join('\n'), { timeout: 5000 }).toMatch(/preset/i)
-  console.log('camera requests after preset 3:', camRequests.slice(before))
-  await expect(page.locator('#moving')).toContainText('moving to preset 3')
-  await expect(page.locator('#presets button', { hasText: '3' })).toHaveClass(/moving/)
+  await expect(page.locator('#presets')).toHaveCount(0) // PTZ controls removed from the dock (owner 2026-10-31)
   // next performer line (title · subtitle of the trigger after the selected one)
   await win.evaluate(async () => {
     const api = (window as any).api
@@ -157,6 +152,18 @@ test('dock renders and its buttons drive the camera', async () => {
   })
   await expect(page.locator('#next')).toContainText('NEXT: Dock Two · FROM TWO')
   await page.screenshot({ path: 'tests/screenshots/dock-moving-next.png', fullPage: true })
+  // sub-docks: /dock/<section> shows only that section
+  for (const sec of ['lt', 'voice', 'director']) {
+    const sub = await browser.newPage({ viewport: { width: 320, height: 400 } })
+    await sub.goto(`http://127.0.0.1:19080/dock/${sec}`)
+    await sub.waitForTimeout(600)
+    const shown = await sub.evaluate(() => [...document.querySelectorAll('section[data-sec]')].filter((e) => !(e as HTMLElement).hidden).map((e) => e.getAttribute('data-sec')))
+    expect(shown).toEqual([sec])
+    await expect(sub.locator('#chips')).toBeHidden()
+    await sub.screenshot({ path: `tests/screenshots/dock-sub-${sec}.png`, fullPage: true })
+    await sub.close()
+  }
+  await expect(page.locator('#dirToggle')).toHaveText(/DIRECTOR (ON|OFF)/)
   await win.evaluate(async () => { const api = (window as any).api; await api.triggerDelete('dock-n1'); await api.triggerDelete('dock-n2') })
   await browser.close()
 })

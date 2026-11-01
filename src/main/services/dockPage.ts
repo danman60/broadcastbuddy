@@ -39,10 +39,6 @@ export function buildDockHTML(wsPort: number): string {
   .heard.ok { color:var(--ok); } .heard.bad { color:var(--warn); }
   .lt { color:var(--dim); font-size:12px; margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .next { color:var(--text); }
-  #presets button.moving { border-color:var(--warn); color:var(--warn); }
-  .cycle-on { display:none; background:var(--warn); color:#000; font-weight:700; text-align:center; padding:6px; border-radius:4px; margin-top:5px; animation:cyc 1s steps(2) infinite; }
-  .cycle-on.show { display:block; }
-  @keyframes cyc { 50% { opacity:.55; } }
   /* Voice listening + acknowledged (owner 2026-10-31: "a more animated listening. And acknowledged in the BB dock") */
   .vstate { display:flex; align-items:center; gap:8px; padding:7px 8px; margin-bottom:5px; border-radius:6px;
             border:1px solid var(--line); color:var(--dim); font-weight:700; font-size:12px; letter-spacing:.04em; }
@@ -57,30 +53,35 @@ export function buildDockHTML(wsPort: number): string {
   .vack { display:none; margin-top:5px; padding:10px 8px; border-radius:6px; background:var(--ok); color:#000;
           font-weight:800; font-size:15px; text-align:center; overflow-wrap:anywhere; }
   .vack.show { display:block; animation:vack 2.5s ease-out forwards; }
+  /* Sub-docks (owner 2026-10-31: "can there be sub docks? Lt, voice, direct"): /dock/lt, /dock/voice, /dock/director */
+  section[hidden] { display:none; }
+  .dir-live { font-size:15px; font-weight:700; margin:5px 0; overflow-wrap:anywhere; }
+  .dir-next { color:var(--dim); font-size:12px; min-height:16px; overflow-wrap:anywhere; }
+  #dirToggle { width:100%; font-weight:700; }
+  #dirToggle.on { background:var(--ok); border-color:var(--ok); color:#000; }
   @keyframes vack { 0% { transform:scale(.8); opacity:0; } 8% { transform:scale(1.06); opacity:1; } 16% { transform:scale(1); }
                     80% { opacity:1; } 100% { opacity:0; } }
-  .moving-note { color:var(--warn); font-size:12px; margin-top:5px; min-height:16px; }
 </style></head>
 <body>
   <div id="alerts"><ul id="alertList"></ul><button id="ack">ACKNOWLEDGE</button></div>
   <div class="chips" id="chips"></div>
 
-  <h2>Camera</h2>
-  <div class="row c2" style="margin-bottom:5px"><button id="cam1">CAM 1</button><button id="cam2">CAM 2</button></div>
-  <div class="row c4" id="presets"></div>
-  <div class="cycle-on" id="cycle">CYCLE SHOTS ON — camera is running saved moves. Say "stop".</div>
-  <div class="moving-note" id="moving"></div>
-  <div class="row c3" style="margin-top:5px">
-    <button data-cmd="cameraWide">WIDE</button><button data-cmd="cameraAuto">AUTO</button>
-    <button class="stop" data-cmd="cameraStop">STOP</button>
-  </div>
+  <section data-sec="director">
+  <h2>Auto Director</h2>
+  <button id="dirToggle" data-cmd="autoDirectorToggle">DIRECTOR OFF</button>
+  <div class="dir-live" id="dirLive"></div>
+  <div class="dir-next" id="dirNext"></div>
+  </section>
 
+  <section data-sec="voice">
   <h2>Voice</h2>
   <div class="vstate" id="vstate"><span class="bars"><i></i><i></i><i></i><i></i><i></i></span><span id="vlabel">VOICE OFF</span></div>
   <button id="ptt">HOLD TO TALK</button>
   <div class="vack" id="vack"></div>
   <div class="heard" id="heard"></div>
+  </section>
 
+  <section data-sec="lt">
   <h2>Lower third</h2>
   <div class="lt" id="lt">—</div>
   <div class="lt" id="next"></div>
@@ -88,27 +89,26 @@ export function buildDockHTML(wsPort: number): string {
     <button data-cmd="prevTrigger">◀</button><button data-cmd="fireLT">FIRE</button>
     <button data-cmd="hideLT">HIDE</button><button data-cmd="nextTrigger">▶</button>
   </div>
+  </section>
 <script>
 (function () {
   var WS_URL = 'ws://' + (location.hostname || '127.0.0.1') + ':${wsPort}';
   var ws = null, connected = false, state = null, everConnected = false;
   var $ = function (id) { return document.getElementById(id); };
+  // /dock/<section> shows just that section (status chips only on the full dock; alerts everywhere)
+  var only = location.pathname.split('/').filter(Boolean)[1];
+  if (only) {
+    $('chips').style.display = 'none';
+    document.querySelectorAll('section[data-sec]').forEach(function (el) { el.hidden = el.getAttribute('data-sec') !== only; });
+  }
 
   function send(action, data) {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'command', action: action, data: data || {} }));
   }
 
-  // presets 1-8
-  for (var i = 1; i <= 8; i++) (function (n) {
-    var b = document.createElement('button'); b.textContent = n;
-    b.onclick = function () { send('cameraPreset', { id: n }); };
-    $('presets').appendChild(b);
-  })(i);
   document.querySelectorAll('[data-cmd]').forEach(function (b) {
     b.onclick = function () { send(b.getAttribute('data-cmd')); };
   });
-  $('cam1').onclick = function () { send('cameraSelect', { id: 1 }); };
-  $('cam2').onclick = function () { send('cameraSelect', { id: 2 }); };
   $('ack').onclick = function () { send('ackAlerts'); localAck = true; render(); };
 
   var ptt = $('ptt'), held = false, lastAckAt = null;
@@ -167,15 +167,11 @@ export function buildDockHTML(wsPort: number): string {
     }
     $('chips').innerHTML = c.join('');
 
-    var cam = state && state.camera ? state.camera.activeCam : 1;
-    $('cam1').classList.toggle('on', cam === 1);
-    $('cam2').classList.toggle('on', cam === 2);
-    $('cycle').classList.toggle('show', !!(state && state.camera && state.camera.cycling));
-    var rc = state && state.camera && state.camera.recalling;
-    $('moving').textContent = rc ? 'CAM' + rc.cam + ' moving to preset ' + rc.slot + '…' : '';
-    document.querySelectorAll('#presets button').forEach(function (b) {
-      b.classList.toggle('moving', !!rc && rc.cam === cam && String(rc.slot) === b.textContent);
-    });
+    var ad = state && state.autoDirector;
+    $('dirToggle').classList.toggle('on', !!(ad && ad.on));
+    $('dirToggle').textContent = ad && ad.on ? 'DIRECTOR ON' : 'DIRECTOR OFF';
+    $('dirLive').textContent = ad && ad.on && ad.live ? 'LIVE: ' + ad.live : '';
+    $('dirNext').textContent = ad && ad.on && ad.next ? 'NEXT: ' + ad.next + (ad.secondsLeft != null ? ' in ' + ad.secondsLeft + 's' : '') : (ad && ad.message) || '';
 
     var vs2 = state && state.voice, heard = $('heard');
     var vOn = !!(vs2 && vs2.helper === 'ready' && vs2.listening);

@@ -961,7 +961,7 @@ export function startServer(port: number, wsPort = 19081): void {
     res.type('html').send(buildOverlayHTML(overlayState, configuredWsPort))
   })
 
-  app.get('/dock', (_req, res) => {
+  app.get(['/dock', '/dock/:section'], (_req, res) => {
     res.type('html').send(buildDockHTML(configuredWsPort))
   })
 
