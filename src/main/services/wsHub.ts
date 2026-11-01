@@ -29,7 +29,7 @@ import * as overlayPanels from './overlayPanels'
 import * as settings from './settings'
 import { goHomeViaCamera, setCameraAiEnable, recallCameraPreset, sweepBetweenPresets, slowZoomPush, setActiveCamera, nudgeCamera, zoomCameraVelocity, abortCameraMoves, stopAllCameraMotionFor, getCameraActivity, setOnCameraActivityChanged, startBounce, stopBounce, isBounceRunning, getActiveCameraId, startSweepLoop } from './cameraDirector'
 import { SWEEP_DEFAULT_MS, SLOW_ZOOM_DEFAULT_MS, SLOW_ZOOM_IN_FACTOR, TABLET_NUDGE_SPEED } from '../../shared/cameraMoves'
-import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged } from './voiceDirector'
+import { pttDown as voicePttDown, pttUp as voicePttUp, getStatus as getVoiceStatus, setOnVoiceChanged, applyVoiceEnabled, applyWakeMode } from './voiceDirector'
 import { getHealth, ackAlerts } from './showMonitor'
 import { toggleRecording as shotRecordToggle, replayMove as shotReplay, cancelReplay as shotCancelReplay, getState as getShotState, setOnShotStateChanged, isCycling } from './shotRecorder'
 import { WsStateMessage, AnimationType } from '../../shared/types'
@@ -314,6 +314,15 @@ function handleCommand(action: string, data?: Record<string, unknown>): void {
       // Push-to-talk UP (deck keyUp): stop listening, recognize, execute best match.
       voicePttUp()
       break
+    case 'voiceToggle': {
+      // Dock voice bar click (owner 2026-10-31: "Clicking voice in dock should toggle"): hands-free
+      // listening on/off. Turning on also enables voice; turning off leaves push-to-talk available.
+      const on = !(settings.get('voiceEnabled') === true && settings.get('voiceWakeEnabled') === true)
+      if (on && settings.get('voiceEnabled') !== true) { settings.set('voiceEnabled', true); applyVoiceEnabled() }
+      settings.set('voiceWakeEnabled', on)
+      applyWakeMode()
+      break
+    }
     case 'shotRecordToggle':
       // Deck "Record Shot": start/stop recording a manual PTZ move.
       shotRecordToggle()

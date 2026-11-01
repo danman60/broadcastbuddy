@@ -50,6 +50,7 @@ export function buildDockHTML(wsPort: number): string {
   .vstate.on .bars i:nth-child(4) { animation-delay:.45s } .vstate.on .bars i:nth-child(5) { animation-delay:.6s }
   @keyframes vbar { 0%,100% { height:4px; } 50% { height:18px; } }
   @keyframes vglow { 0%,100% { box-shadow:0 0 0 0 transparent; } 50% { box-shadow:0 0 10px 1px var(--ok); } }
+  #vstate { cursor:pointer; }
   .vack { display:none; margin-top:5px; padding:10px 8px; border-radius:6px; background:var(--ok); color:#000;
           font-weight:800; font-size:15px; text-align:center; overflow-wrap:anywhere; }
   .vack.show { display:block; animation:vack 2.5s ease-out forwards; }
@@ -109,6 +110,8 @@ export function buildDockHTML(wsPort: number): string {
   document.querySelectorAll('[data-cmd]').forEach(function (b) {
     b.onclick = function () { send(b.getAttribute('data-cmd')); };
   });
+  $('vstate').onclick = function () { send('voiceToggle'); };
+  $('vstate').title = 'Click: hands-free listening on/off';
   $('ack').onclick = function () { send('ackAlerts'); localAck = true; render(); };
 
   var ptt = $('ptt'), held = false, lastAckAt = null;
