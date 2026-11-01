@@ -372,7 +372,7 @@ export function VoicePanel(): React.ReactElement {
           {wakeEnabled
             ? wakeWord.trim()
               ? `Listening continuously — prefix every command, e.g. "${wakeWord} camera two go".`
-              : 'Listening continuously, no wake word: "camera two go", "camera three push in", "camera three stop", "autodirect", "camera three cycle moves".'
+              : 'Listening continuously, no wake word: "camera two go", "camera three push in", "camera three stop", "autodirect", "transition fade".'
             : 'On: listens to the mic all the time. Wake word optional (leave the box empty for none).'}
         </p>
 

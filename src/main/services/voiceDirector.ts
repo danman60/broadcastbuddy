@@ -29,7 +29,7 @@ import {
   abortCameraMoves,
   getActiveCameraId,
 } from './cameraDirector'
-import { getMoves, replayMoveByLabel, toggleCycle, isCycling, cancelReplay } from './shotRecorder'
+import { getMoves, replayMoveByLabel, cancelReplay } from './shotRecorder'
 import * as autoDirector from './autoDirector'
 import * as obs from './obsConnection'
 import { setVoiceMicFailed, setVoiceMicSilent } from './showMonitor'
@@ -55,7 +55,6 @@ export const VOICE_VERBS: Array<{ id: string; phrases: string[]; needsTarget?: b
   { id: 'track', phrases: ['track', 'follow'] },
   { id: 'stop', phrases: ['stop'] },
   { id: 'autoDirect', phrases: ['autodirect', 'auto direct', 'auto director'] },
-  { id: 'cycle', phrases: ['cycle moves', 'cycle shots', 'cycle'] },
 ]
 
 interface VoiceMsgResult {
@@ -390,7 +389,7 @@ function handleHelperLine(line: string): void {
 }
 
 // ── Command routing ──────────────────────────────────────────────────────────
-const STRICT_VERBS = new Set(['wide', 'track', 'pushIn', 'slowPushIn', 'pullOut', 'zoomIn', 'autoDirect', 'cycle'])
+const STRICT_VERBS = new Set(['wide', 'track', 'pushIn', 'slowPushIn', 'pullOut', 'zoomIn', 'autoDirect'])
 const STRICT_VERB_FLOOR = 0.8
 
 function routeResult(msg: VoiceMsgResult): void {
@@ -505,11 +504,6 @@ function routeResult(msg: VoiceMsgResult): void {
     case 'autoDirect':
       void autoDirector.start().then((st) =>
         st.on ? ok('AUTO DIRECTOR ON') : reject('director-failed', 'auto director did not start'))
-      break
-    case 'cycle':
-      if (getMoves().length === 0) return reject('no-moves', 'no saved moves to cycle')
-      if (!isCycling()) toggleCycle()
-      ok(`CAM${camera} ▸ CYCLE MOVES (say stop)`)
       break
     default:
       reject('unknown-verb', `unknown: ${verb}`)
