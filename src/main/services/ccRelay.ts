@@ -202,8 +202,10 @@ function scheduleChatReconnect(): void {
  * operator ChatPanel renders CC viewer chat. Ported from CSE chatBridge.ts:
  * dedicated client + setAuth + subscribe-status handling + backoff reconnect.
  */
+let chatGen = 0
 function connectChatFeed(): void {
   if (!config || !config.supabaseUrl || !config.supabaseAnonKey || !chatChannelName) return
+  const gen = ++chatGen
   // Fresh client per (re)connect so a dead socket can't wedge the channel join.
   if (chatChannelSub) {
     try { void chatChannelSub.unsubscribe() } catch { /* ignore */ }
@@ -239,6 +241,7 @@ function connectChatFeed(): void {
         }
       })
       .subscribe((status, err) => {
+        if (gen !== chatGen) return // stale channel's CLOSED from our own teardown (see connectChannel)
         logger.info(`CC viewer-chat feed status = ${status}${err ? ` err=${err.message}` : ''}`)
         if (status === 'SUBSCRIBED') {
           chatConsecutiveFailures = 0
@@ -274,8 +277,10 @@ function armChatFeed(): void {
   connectChatFeed()
 }
 
+let channelGen = 0
 function connectChannel(): void {
   if (!isReady() || !config) return
+  const gen = ++channelGen
   try {
     supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       // Electron Node 20 lacks global WebSocket — supply `ws` as transport.
@@ -308,6 +313,9 @@ function connectChannel(): void {
         }
       })
       .subscribe((status) => {
+        // Only the current channel's status counts: unsubscribing the old one on reconnect fires CLOSED,
+        // which used to schedule another reconnect — an endless 2 s loop (DART 2026-10-31, 1077 cycles in 18 min).
+        if (gen !== channelGen) return
         logger.info(`Channel status = ${status}`)
         if (status === 'SUBSCRIBED') {
           connected = true

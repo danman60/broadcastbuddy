@@ -172,8 +172,10 @@ async function backfill(): Promise<void> {
   }
 }
 
+let channelGen = 0
 function connectChannel(): void {
   if (!isReady() || !config) return
+  const gen = ++channelGen
   supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     // Electron's Node 20 has no global WebSocket — supply the `ws` package as
     // the realtime transport, else RealtimeClient throws on construction.
@@ -197,6 +199,9 @@ function connectChannel(): void {
       },
     )
     .subscribe((status) => {
+      // Only the current channel's status counts: unsubscribing the old one on reconnect fires CLOSED,
+      // which used to schedule another reconnect — an endless 2 s loop (DART 2026-10-31, 1077 cycles in 18 min).
+      if (gen !== channelGen) return
       logger.info(`Channel status = ${status}`)
       if (status === 'SUBSCRIBED') {
         connected = true
